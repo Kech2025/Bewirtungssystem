@@ -65,3 +65,6 @@ Desktop.ini
 
 # Logs
 *.log
+
+# Projekt-Datenbank bewusst versionieren
+!Bewirtung.sqlite3
