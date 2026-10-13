@@ -1,0 +1,26 @@
+﻿<ContentPage
+    x:Class="Bestellung.MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Bestellung">
+    <VerticalStackLayout
+        Padding="24"
+        Spacing="8"
+        VerticalOptions="Center">
+        <Label Text="Preisliste (Termin)" />
+        <Picker
+            x:Name="TerminPicker"
+            Title="Termin wählen"
+            ItemDisplayBinding="{Binding Anzeige}"
+            SelectedIndexChanged="OnTerminSelectionChanged" />
+        <Label Text="Name" />
+        <Picker
+            x:Name="BenutzerPicker"
+            Title="Benutzer wählen"
+            ItemDisplayBinding="{Binding Name}" />
+        <Button
+            Margin="0,16,0,0"
+            Clicked="OnAnmeldenClicked"
+            Text="Anmelden" />
+    </VerticalStackLayout>
+</ContentPage>

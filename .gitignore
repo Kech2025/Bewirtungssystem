@@ -1,0 +1,67 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# Test / coverage results
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+# Publish / deployment
+publish/
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.pubxml.user
+
+# MAUI / mobile
+*.keystore
+*.aab
+*.apk
+*.ipa
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# App data / databases
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
