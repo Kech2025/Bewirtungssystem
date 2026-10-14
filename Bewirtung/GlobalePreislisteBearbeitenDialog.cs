@@ -41,11 +41,13 @@ namespace Bewirtung
                 ? Math.Clamp(Eintrag.Preis.Value, numPreis.Minimum, numPreis.Maximum)
                 : 0m;
 
-            // Gültigkeitszeitraum vorbelegen: Start aus bestehendem Preis bzw. heute,
-            // Gültig-Bis nur gesetzt, wenn ein Enddatum existiert (sonst offen).
+            // Gültigkeitszeitraum vorbelegen: Start aus bestehendem Preis, bei einer
+            // neuen Position der 1.1. des aktuellen Jahres, sonst heute.
             dtpGueltigAb.Value = Eintrag.StartDatum > 0
                 ? Termin.FromYyyyMmDd(Eintrag.StartDatum).Date
-                : DateTime.Today;
+                : eintrag == null
+                    ? new DateTime(DateTime.Today.Year, 1, 1)
+                    : DateTime.Today;
             if (Eintrag.GueltigBis > 0)
             {
                 dtpGueltigBis.Value = Termin.FromYyyyMmDd(Eintrag.GueltigBis).Date;

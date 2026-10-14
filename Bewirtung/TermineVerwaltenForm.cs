@@ -34,6 +34,7 @@ namespace Bewirtung
         public TermineVerwaltenForm()
         {
             InitializeComponent();
+            WindowState = FormWindowState.Maximized;
             ConfigureSpeisekarteGrids();
             ConfigureTischeGrid();
             ConfigureHelferGrid();
@@ -360,6 +361,25 @@ namespace Bewirtung
             gridGlobal.DataSource = new BindingSource { DataSource = new SortableBindingList<SpeisekartenZeile>(_zeilen) };
             _ladenSpeisekarte = false;
             RefreshAuswahl();
+        }
+
+        /// <summary>
+        /// Öffnet die globale Preislisten-Verwaltung modal und sofort im Neu-Modus,
+        /// um eine neue Speisekartenposition zu erfassen. Nach dem Schließen wird
+        /// die Speisekarte für den aktuellen Termin neu geladen.
+        /// </summary>
+        private void cmdNeuePositionSpeiseplan_Click(object? sender, EventArgs e)
+        {
+            using (var form = new GlobalePreislisteForm(sofortNeu: true))
+            {
+                form.ShowDialog(this);
+            }
+
+            var termin = AktuellerTermin;
+            if (termin != null)
+            {
+                LoadSpeisekarte(termin);
+            }
         }
 
         private void GridGlobal_CurrentCellDirtyStateChanged(object? sender, EventArgs e)

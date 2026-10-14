@@ -29,6 +29,7 @@ namespace Bewirtung
             cmbAnsprechpartner = new ComboBox();
             btnSpeichern = new Button();
             btnAbbrechen = new Button();
+            cmdNeuerAnsprechpartner = new Button();
             SuspendLayout();
             // 
             // lblName
@@ -36,7 +37,8 @@ namespace Bewirtung
             lblName.AutoSize = true;
             lblName.Location = new Point(20, 25);
             lblName.Name = "lblName";
-            lblName.Size = new Size(64, 25);
+            lblName.Size = new Size(59, 25);
+            lblName.TabIndex = 11;
             lblName.Text = "Name";
             // 
             // txtName
@@ -51,7 +53,8 @@ namespace Bewirtung
             lblStrasse.AutoSize = true;
             lblStrasse.Location = new Point(20, 75);
             lblStrasse.Name = "lblStrasse";
-            lblStrasse.Size = new Size(72, 25);
+            lblStrasse.Size = new Size(61, 25);
+            lblStrasse.TabIndex = 10;
             lblStrasse.Text = "Straße";
             // 
             // txtStrasse
@@ -67,7 +70,8 @@ namespace Bewirtung
             lblPlz.AutoSize = true;
             lblPlz.Location = new Point(20, 125);
             lblPlz.Name = "lblPlz";
-            lblPlz.Size = new Size(43, 25);
+            lblPlz.Size = new Size(41, 25);
+            lblPlz.TabIndex = 9;
             lblPlz.Text = "PLZ";
             // 
             // txtPlz
@@ -83,7 +87,8 @@ namespace Bewirtung
             lblOrt.AutoSize = true;
             lblOrt.Location = new Point(20, 175);
             lblOrt.Name = "lblOrt";
-            lblOrt.Size = new Size(37, 25);
+            lblOrt.Size = new Size(38, 25);
+            lblOrt.TabIndex = 8;
             lblOrt.Text = "Ort";
             // 
             // txtOrt
@@ -97,15 +102,16 @@ namespace Bewirtung
             // lblAnsprechpartner
             // 
             lblAnsprechpartner.AutoSize = true;
-            lblAnsprechpartner.Location = new Point(20, 225);
+            lblAnsprechpartner.Location = new Point(20, 278);
             lblAnsprechpartner.Name = "lblAnsprechpartner";
-            lblAnsprechpartner.Size = new Size(151, 25);
+            lblAnsprechpartner.Size = new Size(143, 25);
+            lblAnsprechpartner.TabIndex = 7;
             lblAnsprechpartner.Text = "Ansprechpartner";
             // 
             // cmbAnsprechpartner
             // 
             cmbAnsprechpartner.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbAnsprechpartner.Location = new Point(200, 222);
+            cmbAnsprechpartner.Location = new Point(200, 275);
             cmbAnsprechpartner.Name = "cmbAnsprechpartner";
             cmbAnsprechpartner.Size = new Size(350, 33);
             cmbAnsprechpartner.TabIndex = 4;
@@ -113,7 +119,7 @@ namespace Bewirtung
             // btnSpeichern
             // 
             btnSpeichern.DialogResult = DialogResult.OK;
-            btnSpeichern.Location = new Point(310, 285);
+            btnSpeichern.Location = new Point(300, 353);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
             btnSpeichern.TabIndex = 5;
@@ -123,12 +129,21 @@ namespace Bewirtung
             // btnAbbrechen
             // 
             btnAbbrechen.DialogResult = DialogResult.Cancel;
-            btnAbbrechen.Location = new Point(440, 285);
+            btnAbbrechen.Location = new Point(430, 353);
             btnAbbrechen.Name = "btnAbbrechen";
             btnAbbrechen.Size = new Size(120, 40);
             btnAbbrechen.TabIndex = 6;
             btnAbbrechen.Text = "Abbrechen";
             btnAbbrechen.UseVisualStyleBackColor = true;
+            // 
+            // cmdNeuerAnsprechpartner
+            // 
+            cmdNeuerAnsprechpartner.Location = new Point(200, 229);
+            cmdNeuerAnsprechpartner.Name = "cmdNeuerAnsprechpartner";
+            cmdNeuerAnsprechpartner.Size = new Size(285, 40);
+            cmdNeuerAnsprechpartner.TabIndex = 14;
+            cmdNeuerAnsprechpartner.Text = "Neuer Ansprechpartner hinzufügen";
+            cmdNeuerAnsprechpartner.UseVisualStyleBackColor = true;
             // 
             // VereinBearbeitenDialog
             // 
@@ -136,7 +151,8 @@ namespace Bewirtung
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnAbbrechen;
-            ClientSize = new Size(580, 350);
+            ClientSize = new Size(580, 405);
+            Controls.Add(cmdNeuerAnsprechpartner);
             Controls.Add(btnAbbrechen);
             Controls.Add(btnSpeichern);
             Controls.Add(cmbAnsprechpartner);
@@ -173,5 +189,6 @@ namespace Bewirtung
         private ComboBox cmbAnsprechpartner;
         private Button btnSpeichern;
         private Button btnAbbrechen;
+        private Button cmdNeuerAnsprechpartner;
     }
 }

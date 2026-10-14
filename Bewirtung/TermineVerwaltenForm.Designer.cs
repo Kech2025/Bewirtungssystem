@@ -21,6 +21,7 @@ namespace Bewirtung
             cmbVereine = new ComboBox();
             tabControl1 = new TabControl();
             tabSpeisekarte = new TabPage();
+            cmdNeuePositionSpeiseplan = new Button();
             button1 = new Button();
             split = new SplitContainer();
             gridGlobal = new DataGridView();
@@ -109,6 +110,7 @@ namespace Bewirtung
             // 
             tabSpeisekarte.BackColor = SystemColors.Control;
             tabSpeisekarte.BorderStyle = BorderStyle.FixedSingle;
+            tabSpeisekarte.Controls.Add(cmdNeuePositionSpeiseplan);
             tabSpeisekarte.Controls.Add(button1);
             tabSpeisekarte.Controls.Add(split);
             tabSpeisekarte.Location = new Point(4, 37);
@@ -118,14 +120,27 @@ namespace Bewirtung
             tabSpeisekarte.TabIndex = 0;
             tabSpeisekarte.Text = "Speisekarte";
             // 
+            // cmdNeuePositionSpeiseplan
+            // 
+            cmdNeuePositionSpeiseplan.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cmdNeuePositionSpeiseplan.Location = new Point(3, 6);
+            cmdNeuePositionSpeiseplan.Name = "cmdNeuePositionSpeiseplan";
+            cmdNeuePositionSpeiseplan.Size = new Size(502, 38);
+            cmdNeuePositionSpeiseplan.TabIndex = 4;
+            cmdNeuePositionSpeiseplan.Text = "Neues Produkt zu globalem Speiseplan hinzufügen";
+            cmdNeuePositionSpeiseplan.UseVisualStyleBackColor = true;
+            cmdNeuePositionSpeiseplan.Click += cmdNeuePositionSpeiseplan_Click;
+            // 
             // button1
             // 
             button1.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            button1.Location = new Point(1352, 6);
+            button1.BackColor = SystemColors.ControlLightLight;
+            button1.Location = new Point(1287, 6);
             button1.Name = "button1";
             button1.Size = new Size(140, 38);
             button1.TabIndex = 3;
             button1.Text = "Speichern";
+            button1.UseVisualStyleBackColor = false;
             // 
             // split
             // 
@@ -331,5 +346,6 @@ namespace Bewirtung
         private DataGridView gridGlobal;
         private DataGridView gridAuswahl;
         private Button button1;
+        private Button cmdNeuePositionSpeiseplan;
     }
 }

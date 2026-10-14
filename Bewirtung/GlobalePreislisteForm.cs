@@ -13,11 +13,44 @@ namespace Bewirtung
         private List<GlobalePreislisteZusatz> _zusaetze = new();
         private List<DateTime> _datumsListe = new();
         private DateTime _lastDate = DateTime.Today;
+        private readonly bool _sofortNeu;
+
         public GlobalePreislisteForm()
+            : this(false)
+        {
+        }
+
+        /// <summary>
+        /// Erstellt die Form. Mit <paramref name="sofortNeu"/> = true wird direkt nach
+        /// dem Laden der Dialog zum Anlegen einer neuen Position geöffnet.
+        /// </summary>
+        public GlobalePreislisteForm(bool sofortNeu)
         {
             InitializeComponent();
-            WindowState = FormWindowState.Maximized;
+            _sofortNeu = sofortNeu;
+            // Im Normalfall maximiert; im "sofort neu"-Modus wird die Form über dem
+            // Owner-Fenster positioniert und rundum 20 px kleiner dargestellt.
+            if (!sofortNeu)
+            {
+                WindowState = FormWindowState.Maximized;
+            }
             Load += GlobalePreislisteForm_Load;
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (_sofortNeu && Owner != null)
+            {
+                StartPosition = FormStartPosition.Manual;
+                WindowState = FormWindowState.Normal;
+                var bounds = Owner.Bounds;
+                Bounds = new Rectangle(
+                    bounds.X + 20,
+                    bounds.Y + 20,
+                    Math.Max(100, bounds.Width - 40),
+                    Math.Max(100, bounds.Height - 40));
+            }
         }
 
         private void GlobalePreislisteForm_Load(object? sender, EventArgs e)
@@ -36,6 +69,12 @@ namespace Bewirtung
 
             cboDatumAb.SelectedIndex = 0;
             //LoadData();
+
+            if (_sofortNeu)
+            {
+                // Nach dem ersten Anzeigen sofort den Neu-Dialog öffnen.
+                BeginInvoke(new Action(() => btnNeu_Click(this, EventArgs.Empty)));
+            }
         }
 
         private void SetupMainGrid()

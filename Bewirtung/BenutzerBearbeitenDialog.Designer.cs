@@ -30,6 +30,7 @@ namespace Bewirtung
             chkAdministrator = new CheckBox();
             btnSpeichern = new Button();
             btnAbbrechen = new Button();
+            cmdNeuerVerein = new Button();
             SuspendLayout();
             // 
             // lblName
@@ -37,7 +38,8 @@ namespace Bewirtung
             lblName.AutoSize = true;
             lblName.Location = new Point(20, 25);
             lblName.Name = "lblName";
-            lblName.Size = new Size(64, 25);
+            lblName.Size = new Size(59, 25);
+            lblName.TabIndex = 12;
             lblName.Text = "Name";
             // 
             // txtName
@@ -52,7 +54,8 @@ namespace Bewirtung
             lblEmail.AutoSize = true;
             lblEmail.Location = new Point(20, 75);
             lblEmail.Name = "lblEmail";
-            lblEmail.Size = new Size(58, 25);
+            lblEmail.Size = new Size(61, 25);
+            lblEmail.TabIndex = 11;
             lblEmail.Text = "E-Mail";
             // 
             // txtEmail
@@ -68,7 +71,8 @@ namespace Bewirtung
             lblPassword.AutoSize = true;
             lblPassword.Location = new Point(20, 125);
             lblPassword.Name = "lblPassword";
-            lblPassword.Size = new Size(90, 25);
+            lblPassword.Size = new Size(82, 25);
+            lblPassword.TabIndex = 10;
             lblPassword.Text = "Passwort";
             // 
             // txtPassword
@@ -85,7 +89,8 @@ namespace Bewirtung
             lblTelefon.AutoSize = true;
             lblTelefon.Location = new Point(20, 175);
             lblTelefon.Name = "lblTelefon";
-            lblTelefon.Size = new Size(74, 25);
+            lblTelefon.Size = new Size(68, 25);
+            lblTelefon.TabIndex = 9;
             lblTelefon.Text = "Telefon";
             // 
             // txtTelefon
@@ -98,15 +103,16 @@ namespace Bewirtung
             // lblVerein
             // 
             lblVerein.AutoSize = true;
-            lblVerein.Location = new Point(20, 225);
+            lblVerein.Location = new Point(20, 284);
             lblVerein.Name = "lblVerein";
-            lblVerein.Size = new Size(63, 25);
+            lblVerein.Size = new Size(60, 25);
+            lblVerein.TabIndex = 8;
             lblVerein.Text = "Verein";
             // 
             // cmbVerein
             // 
             cmbVerein.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbVerein.Location = new Point(180, 222);
+            cmbVerein.Location = new Point(180, 281);
             cmbVerein.Name = "cmbVerein";
             cmbVerein.Size = new Size(350, 33);
             cmbVerein.TabIndex = 4;
@@ -114,9 +120,9 @@ namespace Bewirtung
             // chkAdministrator
             // 
             chkAdministrator.AutoSize = true;
-            chkAdministrator.Location = new Point(180, 272);
+            chkAdministrator.Location = new Point(180, 333);
             chkAdministrator.Name = "chkAdministrator";
-            chkAdministrator.Size = new Size(159, 29);
+            chkAdministrator.Size = new Size(147, 29);
             chkAdministrator.TabIndex = 5;
             chkAdministrator.Text = "Administrator";
             chkAdministrator.UseVisualStyleBackColor = true;
@@ -124,7 +130,7 @@ namespace Bewirtung
             // btnSpeichern
             // 
             btnSpeichern.DialogResult = DialogResult.OK;
-            btnSpeichern.Location = new Point(290, 330);
+            btnSpeichern.Location = new Point(271, 388);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
             btnSpeichern.TabIndex = 6;
@@ -134,12 +140,21 @@ namespace Bewirtung
             // btnAbbrechen
             // 
             btnAbbrechen.DialogResult = DialogResult.Cancel;
-            btnAbbrechen.Location = new Point(420, 330);
+            btnAbbrechen.Location = new Point(414, 388);
             btnAbbrechen.Name = "btnAbbrechen";
             btnAbbrechen.Size = new Size(120, 40);
             btnAbbrechen.TabIndex = 7;
             btnAbbrechen.Text = "Abbrechen";
             btnAbbrechen.UseVisualStyleBackColor = true;
+            // 
+            // cmdNeuerVerein
+            // 
+            cmdNeuerVerein.Location = new Point(180, 235);
+            cmdNeuerVerein.Name = "cmdNeuerVerein";
+            cmdNeuerVerein.Size = new Size(285, 40);
+            cmdNeuerVerein.TabIndex = 13;
+            cmdNeuerVerein.Text = "Neuer Verein hinzufügen";
+            cmdNeuerVerein.UseVisualStyleBackColor = true;
             // 
             // BenutzerBearbeitenDialog
             // 
@@ -147,7 +162,8 @@ namespace Bewirtung
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnAbbrechen;
-            ClientSize = new Size(560, 395);
+            ClientSize = new Size(560, 440);
+            Controls.Add(cmdNeuerVerein);
             Controls.Add(btnAbbrechen);
             Controls.Add(btnSpeichern);
             Controls.Add(chkAdministrator);
@@ -186,5 +202,6 @@ namespace Bewirtung
         private CheckBox chkAdministrator;
         private Button btnSpeichern;
         private Button btnAbbrechen;
+        private Button cmdNeuerVerein;
     }
 }

@@ -31,6 +31,13 @@ namespace Bewirtung
             cmbVerein.SelectedValue = _benutzer.VereinId ?? 0L;
 
             btnSpeichern.Click += BtnSpeichern_Click;
+            cmdNeuerVerein.Click += CmdNeuerVerein_Click;
+        }
+
+        /// <summary>Deaktiviert den Button zum Anlegen eines neuen Vereins.</summary>
+        public void DeaktiviereNeuerVerein()
+        {
+            cmdNeuerVerein.Enabled = false;
         }
 
         private void LadeVereine()
@@ -40,6 +47,20 @@ namespace Bewirtung
             cmbVerein.DisplayMember = nameof(Verein.Name);
             cmbVerein.ValueMember = nameof(Verein.Id);
             cmbVerein.DataSource = vereine;
+        }
+
+        private void CmdNeuerVerein_Click(object? sender, EventArgs e)
+        {
+            using var dialog = new VereinBearbeitenDialog(_vereinRepository.GetBenutzer());
+            dialog.DeaktiviereNeuerAnsprechpartner();
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            var id = _vereinRepository.Insert(dialog.Verein);
+            LadeVereine();
+            cmbVerein.SelectedValue = id;
         }
 
         private void BtnSpeichern_Click(object? sender, EventArgs e)
