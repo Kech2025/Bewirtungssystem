@@ -399,9 +399,8 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
-        // Für Tische > 99 je Position eine "geliefert"-Checkbox (vorausgewählt) anzeigen.
-        var tischNummer = (TischPicker.SelectedItem as TischDto)?.Tischnummer ?? 0;
-        var zeigeGeliefert = tischNummer > 99;
+        // Für Tische mit Sofortlieferung je Position eine "geliefert"-Checkbox (vorausgewählt) anzeigen.
+        var zeigeGeliefert = (TischPicker.SelectedItem as TischDto)?.SofortLieferung == 1;
         foreach (var p in _offeneBestellung.Positionen)
         {
             p.ZeigeGeliefert = zeigeGeliefert;
@@ -471,15 +470,14 @@ public partial class BestellungSeite : ContentPage
 
     /// <summary>
     /// Liefert nur die noch offenen (nicht vollständig bezahlten) Positionen für die Teilrechnung
-    /// und setzt dabei die "geliefert"-Checkbox (nur für Tische > 99).
+    /// und setzt dabei die "geliefert"-Checkbox (nur für Tische mit Sofortlieferung).
     /// </summary>
     private List<OffeneBestellungPosition> ErmittleOffeneTeilrechnungPositionen()
     {
         var offene = _offeneBestellung?.Positionen.Where(p => p.OffeneMenge > 0m).ToList()
             ?? new List<OffeneBestellungPosition>();
 
-        var tischNummer = (TischPicker.SelectedItem as TischDto)?.Tischnummer ?? 0;
-        var zeigeGeliefert = tischNummer > 99;
+        var zeigeGeliefert = (TischPicker.SelectedItem as TischDto)?.SofortLieferung == 1;
         foreach (var p in offene)
         {
             p.ZeigeGeliefert = zeigeGeliefert;

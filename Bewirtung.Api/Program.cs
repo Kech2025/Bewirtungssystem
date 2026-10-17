@@ -52,7 +52,7 @@ app.MapGet("/api/tische", () =>
     connection.Open();
     using var command = connection.CreateCommand();
     command.CommandText = @"
-        SELECT t.Tischnummer, b.Bezeichnung
+        SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, 0)
         FROM Tisch t
         LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
         ORDER BY t.Tischnummer ASC;";
@@ -64,7 +64,8 @@ app.MapGet("/api/tische", () =>
             tische.Add(new
             {
                 Tischnummer = (int)reader.GetInt64(0),
-                Bereich = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+                Bereich = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                SofortLieferung = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2)
             });
         }
     }

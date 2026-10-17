@@ -13,7 +13,7 @@ namespace Bewirtung.Data
             using var connection = Database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung
+                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, 0)
                 FROM Tisch t
                 LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
                 ORDER BY t.Tischnummer;";
@@ -24,7 +24,8 @@ namespace Bewirtung.Data
                 {
                     Tischnummer = (int)reader.GetInt64(0),
                     BereichId = reader.IsDBNull(1) ? null : reader.GetInt64(1),
-                    BereichName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2)
+                    BereichName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                    SofortLieferung = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3)
                 });
             }
             return result;
@@ -43,10 +44,11 @@ namespace Bewirtung.Data
         {
             using var connection = Database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId) VALUES ($nr, $bereichId);";
+            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId, SofortLieferung) VALUES ($nr, $bereichId, $sofort);";
             command.Parameters.AddWithValue("$nr", tisch.Tischnummer);
             command.Parameters.AddWithValue("$bereichId",
                 tisch.BereichId.HasValue ? tisch.BereichId.Value : DBNull.Value);
+            command.Parameters.AddWithValue("$sofort", tisch.SofortLieferung);
             command.ExecuteNonQuery();
         }
 
@@ -54,10 +56,11 @@ namespace Bewirtung.Data
         {
             using var connection = Database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE Tisch SET Tischnummer = $neu, BereichId = $bereichId WHERE Tischnummer = $alt;";
+            command.CommandText = "UPDATE Tisch SET Tischnummer = $neu, BereichId = $bereichId, SofortLieferung = $sofort WHERE Tischnummer = $alt;";
             command.Parameters.AddWithValue("$neu", neu.Tischnummer);
             command.Parameters.AddWithValue("$bereichId",
                 neu.BereichId.HasValue ? neu.BereichId.Value : DBNull.Value);
+            command.Parameters.AddWithValue("$sofort", neu.SofortLieferung);
             command.Parameters.AddWithValue("$alt", alteNummer);
             command.ExecuteNonQuery();
         }

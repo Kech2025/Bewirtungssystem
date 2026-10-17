@@ -32,6 +32,8 @@ namespace Bewirtung
             cmbBereich.DataSource = liste;
             cmbBereich.SelectedValue = _tisch.BereichId ?? 0L;
 
+            chkSofortLieferung.Checked = _tisch.SofortLieferung == 1;
+
             btnSpeichern.Click += BtnSpeichern_Click;
         }
 
@@ -50,6 +52,7 @@ namespace Bewirtung
             _tisch.Tischnummer = nummer;
             _tisch.BereichId =
                 cmbBereich.SelectedValue is long id && id != 0 ? id : null;
+            _tisch.SofortLieferung = chkSofortLieferung.Checked ? 1 : 0;
         }
     }
 }

@@ -10,6 +10,9 @@ public class TischDto
     public int Tischnummer { get; set; }
     public string Bereich { get; set; } = string.Empty;
 
+    /// <summary>Sofortlieferung: 0 = Nein, 1 = Ja.</summary>
+    public int SofortLieferung { get; set; }
+
     /// <summary>Anzeigetext für die Auswahl, z. B. "Tisch 5 – Terrasse".</summary>
     public string Anzeige =>
         string.IsNullOrWhiteSpace(Bereich) ? $"Tisch {Tischnummer}" : $"Tisch {Tischnummer} – {Bereich}";

@@ -9,6 +9,9 @@ namespace Bewirtung.Data
         public long? BereichId { get; set; }
         public string BereichName { get; set; } = string.Empty;
 
+        /// <summary>Sofortlieferung: 0 = Nein, 1 = Ja.</summary>
+        public int SofortLieferung { get; set; }
+
         public override string ToString() => Tischnummer.ToString();
     }
 }

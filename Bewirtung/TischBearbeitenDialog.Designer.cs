@@ -21,6 +21,7 @@ namespace Bewirtung
             numTischnummer = new NumericUpDown();
             lblBereich = new Label();
             cmbBereich = new ComboBox();
+            chkSofortLieferung = new CheckBox();
             btnSpeichern = new Button();
             btnAbbrechen = new Button();
             ((System.ComponentModel.ISupportInitialize)numTischnummer).BeginInit();
@@ -60,23 +61,33 @@ namespace Bewirtung
             cmbBereich.Size = new Size(350, 33);
             cmbBereich.TabIndex = 1;
             // 
+            // chkSofortLieferung
+            // 
+            chkSofortLieferung.AutoSize = true;
+            chkSofortLieferung.Location = new Point(200, 120);
+            chkSofortLieferung.Name = "chkSofortLieferung";
+            chkSofortLieferung.Size = new Size(160, 29);
+            chkSofortLieferung.TabIndex = 2;
+            chkSofortLieferung.Text = "Sofortlieferung";
+            chkSofortLieferung.UseVisualStyleBackColor = true;
+            // 
             // btnSpeichern
             // 
             btnSpeichern.DialogResult = DialogResult.OK;
-            btnSpeichern.Location = new Point(310, 135);
+            btnSpeichern.Location = new Point(310, 180);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
-            btnSpeichern.TabIndex = 2;
+            btnSpeichern.TabIndex = 3;
             btnSpeichern.Text = "Speichern";
             btnSpeichern.UseVisualStyleBackColor = true;
             // 
             // btnAbbrechen
             // 
             btnAbbrechen.DialogResult = DialogResult.Cancel;
-            btnAbbrechen.Location = new Point(440, 135);
+            btnAbbrechen.Location = new Point(440, 180);
             btnAbbrechen.Name = "btnAbbrechen";
             btnAbbrechen.Size = new Size(120, 40);
-            btnAbbrechen.TabIndex = 3;
+            btnAbbrechen.TabIndex = 4;
             btnAbbrechen.Text = "Abbrechen";
             btnAbbrechen.UseVisualStyleBackColor = true;
             // 
@@ -86,9 +97,10 @@ namespace Bewirtung
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnAbbrechen;
-            ClientSize = new Size(580, 200);
+            ClientSize = new Size(580, 245);
             Controls.Add(btnAbbrechen);
             Controls.Add(btnSpeichern);
+            Controls.Add(chkSofortLieferung);
             Controls.Add(cmbBereich);
             Controls.Add(lblBereich);
             Controls.Add(numTischnummer);
@@ -110,6 +122,7 @@ namespace Bewirtung
         private NumericUpDown numTischnummer;
         private Label lblBereich;
         private ComboBox cmbBereich;
+        private CheckBox chkSofortLieferung;
         private Button btnSpeichern;
         private Button btnAbbrechen;
     }

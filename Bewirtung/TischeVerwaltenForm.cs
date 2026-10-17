@@ -35,10 +35,33 @@ namespace Bewirtung
                 HeaderText = "Bereich",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
             });
+            dataGridViewTische.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                DataPropertyName = nameof(Tisch.SofortLieferung),
+                HeaderText = "Sofortlieferung",
+                Width = 160
+            });
             dataGridViewTische.DataSource = _bindingSource;
             GridSortHelper.EnableHeaderSorting(dataGridViewTische);
 
+            dataGridViewTische.CellFormatting += DataGridViewTische_CellFormatting;
+
             LoadData();
+        }
+
+        private void DataGridViewTische_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 ||
+                dataGridViewTische.Columns[e.ColumnIndex].DataPropertyName != nameof(Tisch.SofortLieferung))
+            {
+                return;
+            }
+
+            if (e.Value is int wert)
+            {
+                e.Value = wert == 1 ? "Ja" : "Nein";
+                e.FormattingApplied = true;
+            }
         }
 
         private void LoadData()
@@ -90,7 +113,7 @@ namespace Bewirtung
             var alteNummer = tisch.Tischnummer;
             using var dialog = new TischBearbeitenDialog(
                 _bereichRepository.GetAll(),
-                new Tisch { Tischnummer = alteNummer, BereichId = tisch.BereichId });
+                new Tisch { Tischnummer = alteNummer, BereichId = tisch.BereichId, SofortLieferung = tisch.SofortLieferung });
             if (dialog.ShowDialog(this) != DialogResult.OK)
             {
                 return;
