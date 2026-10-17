@@ -234,7 +234,8 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
             updateCmd.Transaction = transaction;
             updateCmd.CommandText = @"
                 UPDATE Bewirtungsauftrag
-                SET Gesamtpreis = Gesamtpreis + $gesamt
+                SET Gesamtpreis = Gesamtpreis + $gesamt,
+                    StatusLieferung = 0
                 WHERE AuftragId = $auftragId;";
             updateCmd.Parameters.AddWithValue("$gesamt", (double)bestellung.Gesamtpreis);
             updateCmd.Parameters.AddWithValue("$auftragId", auftragId);
@@ -433,6 +434,71 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
     return Results.Ok(new { AuftragIds = auftragIds, Abgeschlossen = totalRows });
 });
 
+// POST /api/bestellung/geliefert  -> Setzt je Position MengeGeliefert = Menge
+//   und StatusLieferung = 1 für Aufträge, deren Positionen alle vollständig geliefert sind.
+app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
+{
+    if (req?.Positionen is null || req.Positionen.Count == 0)
+    {
+        return Results.BadRequest("Keine Positionen übergeben.");
+    }
+
+    string writeConnectionString = new SqliteConnectionStringBuilder
+    {
+        DataSource = dbPath,
+        Mode = SqliteOpenMode.ReadWrite
+    }.ToString();
+
+    using var connection = new SqliteConnection(writeConnectionString);
+    connection.Open();
+    using var transaction = connection.BeginTransaction();
+
+    var aktualisiert = 0;
+    var betroffeneAuftraege = new HashSet<long>();
+    foreach (var pos in req.Positionen)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+            UPDATE BewirtungsPosition
+            SET MengeGeliefert = Menge
+            WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr;";
+        command.Parameters.AddWithValue("$auftragId", pos.AuftragId);
+        command.Parameters.AddWithValue("$posNr", pos.PosNr);
+        aktualisiert += command.ExecuteNonQuery();
+        betroffeneAuftraege.Add(pos.AuftragId);
+    }
+
+    // Aufträge, deren Positionen alle vollständig geliefert sind, auf StatusLieferung = 1 setzen.
+    foreach (var auftragId in betroffeneAuftraege)
+    {
+        using var pruefCmd = connection.CreateCommand();
+        pruefCmd.Transaction = transaction;
+        pruefCmd.CommandText = @"
+            SELECT COUNT(*)
+            FROM BewirtungsPosition
+            WHERE BewirtungsauftragId = $auftragId
+              AND COALESCE(MengeGeliefert, 0) < Menge;";
+        pruefCmd.Parameters.AddWithValue("$auftragId", auftragId);
+        var offeneRest = Convert.ToInt32(pruefCmd.ExecuteScalar());
+
+        if (offeneRest == 0)
+        {
+            using var statusCmd = connection.CreateCommand();
+            statusCmd.Transaction = transaction;
+            statusCmd.CommandText = @"
+                UPDATE Bewirtungsauftrag
+                SET StatusLieferung = 1
+                WHERE AuftragId = $auftragId;";
+            statusCmd.Parameters.AddWithValue("$auftragId", auftragId);
+            statusCmd.ExecuteNonQuery();
+        }
+    }
+
+    transaction.Commit();
+    return Results.Ok(new { Aktualisiert = aktualisiert });
+});
+
 // POST /api/bestellung/teilzahlen  -> Erhöht die bezahlte Menge je Position (Teilrechnung).
 //   Aufträge, deren Positionen alle voll bezahlt sind, werden auf Status = 1 gesetzt.
 app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
@@ -521,6 +587,193 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
     return Results.Ok(new { Abgeschlossen = abgeschlossen });
 });
 
+// GET /api/auslieferung/getraenke?termin=YYYYMMDD
+//   -> Offene Getränke-Positionen (Preiskategorie=1, MengeGeliefert < Menge) je Tisch gruppiert.
+app.MapGet("/api/auslieferung/getraenke", (int termin) =>
+{
+    using var connection = new SqliteConnection(ConnectionString());
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        SELECT a.TischNummer,
+               bp.BewirtungsauftragId,
+               bp.Bewirtungsposition,
+               p.Name,
+               COALESCE(z.Bezeichnung, '') AS ZusatzText,
+               bp.Menge,
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+        FROM BewirtungsPosition bp
+        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
+        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+        WHERE a.Bewirtungstermin = $termin
+          AND p.Preiskategorie = 1
+          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
+        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
+    command.Parameters.AddWithValue("$termin", termin);
+
+    var tische = new Dictionary<int, List<object>>();
+    using (var reader = command.ExecuteReader())
+    {
+        while (reader.Read())
+        {
+            var tischNummer = (int)reader.GetInt64(0);
+            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+            var position = new
+            {
+                AuftragId = reader.GetInt64(1),
+                PosNr = reader.GetInt64(2),
+                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetDouble(6)
+            };
+            if (!tische.TryGetValue(tischNummer, out var liste))
+            {
+                liste = new List<object>();
+                tische[tischNummer] = liste;
+            }
+            liste.Add(position);
+        }
+    }
+
+    var ergebnis = tische
+        .OrderBy(t => t.Key)
+        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
+        .ToList();
+    return Results.Ok(ergebnis);
+});
+
+// GET /api/auslieferung/speisen?termin=YYYYMMDD
+//   -> Offene Speisen-Positionen (Preiskategorie=0, MengeGeliefert < Menge) je Tisch gruppiert.
+app.MapGet("/api/auslieferung/speisen", (int termin) =>
+{
+    using var connection = new SqliteConnection(ConnectionString());
+    connection.Open();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        SELECT a.TischNummer,
+               bp.BewirtungsauftragId,
+               bp.Bewirtungsposition,
+               p.Name,
+               COALESCE(z.Bezeichnung, '') AS ZusatzText,
+               bp.Menge,
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+        FROM BewirtungsPosition bp
+        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
+        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+        WHERE a.Bewirtungstermin = $termin
+          AND p.Preiskategorie = 0
+          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
+        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
+    command.Parameters.AddWithValue("$termin", termin);
+
+    var tische = new Dictionary<int, List<object>>();
+    using (var reader = command.ExecuteReader())
+    {
+        while (reader.Read())
+        {
+            var tischNummer = (int)reader.GetInt64(0);
+            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+            var position = new
+            {
+                AuftragId = reader.GetInt64(1),
+                PosNr = reader.GetInt64(2),
+                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetDouble(6)
+            };
+            if (!tische.TryGetValue(tischNummer, out var liste))
+            {
+                liste = new List<object>();
+                tische[tischNummer] = liste;
+            }
+            liste.Add(position);
+        }
+    }
+
+    var ergebnis = tische
+        .OrderBy(t => t.Key)
+        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
+        .ToList();
+    return Results.Ok(ergebnis);
+});
+
+// POST /api/auslieferung/fertig  -> Setzt je Position MengeGeliefert (und ggf. Menge) für einen Tisch.
+//   Pro Position gilt die auf der Seite erfasste Zusatzmenge (Delta):
+//     Delta == 0  -> MengeGeliefert = Menge (alles wie bestellt geliefert)
+//     Delta != 0  -> Menge = Menge + Delta und MengeGeliefert = Delta
+app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
+{
+    if (req?.Positionen is null || req.Positionen.Count == 0)
+    {
+        return Results.BadRequest("Keine Positionen übergeben.");
+    }
+
+    string writeConnectionString = new SqliteConnectionStringBuilder
+    {
+        DataSource = dbPath,
+        Mode = SqliteOpenMode.ReadWrite
+    }.ToString();
+
+    using var connection = new SqliteConnection(writeConnectionString);
+    connection.Open();
+    using var transaction = connection.BeginTransaction();
+
+    var aktualisiert = 0;
+    var betroffeneAuftraege = new HashSet<long>();
+    foreach (var pos in req.Positionen)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        // Menge bleibt unberührt; die gelieferte Menge wird um die auf der Seite
+        // erfasste Menge erhöht (nie über die bestellte Menge hinaus).
+        command.CommandText = @"
+            UPDATE BewirtungsPosition
+            SET MengeGeliefert = CASE 
+                WHEN MengeGeliefert IS NULL OR MengeGeliefert = '' THEN 0 
+                ELSE MengeGeliefert 
+            END + $delta
+            WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr;";
+        command.Parameters.AddWithValue("$delta", (double)pos.SeitenMenge);
+        command.Parameters.AddWithValue("$auftragId", pos.AuftragId);
+        command.Parameters.AddWithValue("$posNr", pos.PosNr);
+        aktualisiert += command.ExecuteNonQuery();
+        betroffeneAuftraege.Add(pos.AuftragId);
+    }
+
+    // Aufträge, deren Positionen alle vollständig geliefert sind, auf StatusLieferung = 1 setzen.
+    foreach (var auftragId in betroffeneAuftraege)
+    {
+        using var pruefCmd = connection.CreateCommand();
+        pruefCmd.Transaction = transaction;
+        pruefCmd.CommandText = @"
+            SELECT COUNT(*)
+            FROM BewirtungsPosition
+            WHERE BewirtungsauftragId = $auftragId
+              AND COALESCE(MengeGeliefert, 0) < Menge;";
+        pruefCmd.Parameters.AddWithValue("$auftragId", auftragId);
+        var offeneRest = Convert.ToInt32(pruefCmd.ExecuteScalar());
+
+        if (offeneRest == 0)
+        {
+            using var statusCmd = connection.CreateCommand();
+            statusCmd.Transaction = transaction;
+            statusCmd.CommandText = @"
+                UPDATE Bewirtungsauftrag
+                SET StatusLieferung = 1
+                WHERE AuftragId = $auftragId;";
+            statusCmd.Parameters.AddWithValue("$auftragId", auftragId);
+            statusCmd.ExecuteNonQuery();
+        }
+    }
+
+    transaction.Commit();
+    return Results.Ok(new { Aktualisiert = aktualisiert });
+});
+
 app.Run();
 
 record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen);
@@ -528,3 +781,7 @@ record BestellungPosition(long PreislisteId, long ZusatzId, decimal Preis, decim
 record BezahlenRequest(long AuftragId, decimal Betrag, List<long>? AuftragIds = null);
 record TeilzahlenRequest(decimal Betrag, List<TeilzahlenPosition> Positionen);
 record TeilzahlenPosition(long AuftragId, long PosNr, decimal MengeZahlen);
+record AuslieferungFertigRequest(List<AuslieferungFertigPosition> Positionen);
+record AuslieferungFertigPosition(long AuftragId, long PosNr, decimal SeitenMenge);
+record GeliefertRequest(List<GeliefertPosition> Positionen);
+record GeliefertPosition(long AuftragId, long PosNr);

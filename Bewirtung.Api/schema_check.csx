@@ -1,0 +1,1 @@
+using Microsoft.Data.Sqlite; var c = new SqliteConnection("Data Source=E:/Rathaus/Projekt/Bewirtung.sqlite3;Mode=ReadOnly"); c.Open(); var cmd = c.CreateCommand(); cmd.CommandText = "PRAGMA table_info(BewirtungsPosition);"; using var r = cmd.ExecuteReader(); while(r.Read()){ System.Console.WriteLine(r.GetString(1)); }

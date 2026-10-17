@@ -399,6 +399,15 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
+        // Für Tische > 99 je Position eine "geliefert"-Checkbox (vorausgewählt) anzeigen.
+        var tischNummer = (TischPicker.SelectedItem as TischDto)?.Tischnummer ?? 0;
+        var zeigeGeliefert = tischNummer > 99;
+        foreach (var p in _offeneBestellung.Positionen)
+        {
+            p.ZeigeGeliefert = zeigeGeliefert;
+            p.Geliefert = true;
+        }
+
         // Preisliste/Bestellen ausblenden, Rechnung einblenden.
         PreislisteTitel.IsVisible = false;
         PreislisteView.IsVisible = false;
@@ -440,9 +449,44 @@ public partial class BestellungSeite : ContentPage
         _teilbetragUeberschrieben = false;
         RechnungBereich.IsVisible = false;
         RechnungAufteilenButton.IsVisible = false;
-        TeilRechnungView.ItemsSource = _offeneBestellung.Positionen;
-        AktualisiereTeilbetrag();
         TeilRechnungBereich.IsVisible = true;
+        ZeigeTeilrechnungPositionen();
+    }
+
+    /// <summary>
+    /// Weist der Teilrechnungs-CollectionView die offenen Positionen neu zu. Das Leeren und
+    /// verzögerte Neuzuweisen erzwingt einen vollständigen Zellen-Neuaufbau, damit die
+    /// "geliefert"-Checkbox (gebunden an ZeigeGeliefert) korrekt angezeigt wird.
+    /// </summary>
+    private void ZeigeTeilrechnungPositionen()
+    {
+        var positionen = ErmittleOffeneTeilrechnungPositionen();
+        TeilRechnungView.ItemsSource = null;
+        Dispatcher.Dispatch(() =>
+        {
+            TeilRechnungView.ItemsSource = positionen;
+            AktualisiereTeilbetrag();
+        });
+    }
+
+    /// <summary>
+    /// Liefert nur die noch offenen (nicht vollständig bezahlten) Positionen für die Teilrechnung
+    /// und setzt dabei die "geliefert"-Checkbox (nur für Tische > 99).
+    /// </summary>
+    private List<OffeneBestellungPosition> ErmittleOffeneTeilrechnungPositionen()
+    {
+        var offene = _offeneBestellung?.Positionen.Where(p => p.OffeneMenge > 0m).ToList()
+            ?? new List<OffeneBestellungPosition>();
+
+        var tischNummer = (TischPicker.SelectedItem as TischDto)?.Tischnummer ?? 0;
+        var zeigeGeliefert = tischNummer > 99;
+        foreach (var p in offene)
+        {
+            p.ZeigeGeliefert = zeigeGeliefert;
+            p.Geliefert = true;
+        }
+
+        return offene;
     }
 
     private void OnTeilMengePlus(object? sender, EventArgs e)
@@ -523,6 +567,17 @@ public partial class BestellungSeite : ContentPage
         try
         {
             TeilBezahlenButton.IsEnabled = false;
+
+            // Für Tische > 100: unter den bezahlten Positionen die als geliefert markierten
+            // sofort als geliefert verbuchen (MengeGeliefert = Menge; StatusLieferung = 1, wenn vollständig).
+            var gelieferte = zuZahlen
+                .Where(p => p.ZeigeGeliefert && p.Geliefert)
+                .ToList();
+            if (gelieferte.Count > 0)
+            {
+                await _bestellungApiClient.GeliefertSetzenAsync(gelieferte);
+            }
+
             await _bestellungApiClient.TeilzahlenAsync(betrag, zuZahlen);
             await DisplayAlert("Teilrechnung",
                 $"Teilbetrag {betrag.ToString("C", EuroKultur)} wurde verbucht.", "OK");
@@ -533,15 +588,14 @@ public partial class BestellungSeite : ContentPage
             if (_offeneBestellung is { Positionen.Count: > 0 }
                 && _offeneBestellung.Positionen.Any(p => p.OffeneMenge > 0m))
             {
-                // Im Teilzahlungsmodus bleiben: Teilmengen auf 0 setzen und Anzeige refreshen.
+                // Im Teilzahlungsmodus bleiben: nur noch offene Positionen anzeigen, Teilmengen auf 0.
                 foreach (var p in _offeneBestellung.Positionen)
                 {
                     p.TeilMenge = 0m;
                 }
                 _teilbetragUeberschrieben = false;
-                TeilRechnungView.ItemsSource = _offeneBestellung.Positionen;
-                AktualisiereTeilbetrag();
                 TeilRechnungBereich.IsVisible = true;
+                ZeigeTeilrechnungPositionen();
             }
             else
             {
@@ -615,6 +669,17 @@ public partial class BestellungSeite : ContentPage
         {
             RechnungButton.IsEnabled = false;
             BezahlenButton.IsEnabled = false;
+
+            // Für Tische > 99: markierte Positionen sofort als geliefert verbuchen
+            // (MengeGeliefert = Menge; StatusLieferung = 1, wenn der Auftrag vollständig geliefert ist).
+            var gelieferte = _offeneBestellung.Positionen
+                .Where(p => p.ZeigeGeliefert && p.Geliefert)
+                .ToList();
+            if (gelieferte.Count > 0)
+            {
+                await _bestellungApiClient.GeliefertSetzenAsync(gelieferte);
+            }
+
             await _bestellungApiClient.BezahlenAsync(_offeneBestellung.AlleAuftragIds, betrag);
             await DisplayAlert("Rechnung",
                 $"{_offeneBestellung.AlleAuftragIds.Count} Auftrag/Aufträge wurden mit {betrag.ToString("C", EuroKultur)} abgeschlossen.",

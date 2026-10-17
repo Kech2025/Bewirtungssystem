@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="Bestellung.AuslieferungGetraenkeSeite"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:data="clr-namespace:Bestellung.Data"
+    Title="Auslieferung Getränke">
+    <Grid RowDefinitions="Auto,*">
+        <Label
+            x:Name="TitelLabel"
+            Grid.Row="0"
+            Margin="16,12"
+            FontAttributes="Bold"
+            FontSize="18"
+            Text="Offene Getränke" />
+        <CollectionView
+            x:Name="TischeView"
+            Grid.Row="1"
+            Margin="8">
+            <CollectionView.EmptyView>
+                <Label
+                    HorizontalOptions="Center"
+                    Margin="24"
+                    Text="Keine offenen Getränke vorhanden." />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="data:AuslieferungTischDto">
+                    <Frame
+                        Margin="8"
+                        Padding="12"
+                        BorderColor="#CCCCCC"
+                        CornerRadius="8">
+                        <VerticalStackLayout Spacing="8">
+                            <Label
+                                FontAttributes="Bold"
+                                FontSize="16"
+                                Text="{Binding TischTitel}" />
+                            <CollectionView ItemsSource="{Binding Positionen}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="data:AuslieferungPositionDto">
+                                        <Grid
+                                            Margin="0,4"
+                                            ColumnDefinitions="*,Auto,Auto,Auto"
+                                            RowDefinitions="Auto,Auto"
+                                            ColumnSpacing="8">
+                                            <Label
+                                                Grid.Column="0"
+                                                Grid.Row="0"
+                                                VerticalOptions="Center"
+                                                Text="{Binding AnzeigeText}" />
+                                            <Label
+                                                Grid.Column="0"
+                                                Grid.Row="1"
+                                                FontSize="11"
+                                                TextColor="Gray"
+                                                VerticalOptions="Center"
+                                                Text="{Binding GeliefertText}" />
+                                            <Button
+                                                Grid.Column="1"
+                                                Grid.Row="0"
+                                                Grid.RowSpan="2"
+                                                Clicked="OnMinusClicked"
+                                                CommandParameter="{Binding .}"
+                                                HeightRequest="40"
+                                                Text="−"
+                                                WidthRequest="48" />
+                                            <Label
+                                                Grid.Column="2"
+                                                Grid.Row="0"
+                                                Grid.RowSpan="2"
+                                                HorizontalTextAlignment="Center"
+                                                VerticalOptions="Center"
+                                                Text="{Binding SeitenMengeText}"
+                                                WidthRequest="32" />
+                                            <Button
+                                                Grid.Column="3"
+                                                Grid.Row="0"
+                                                Grid.RowSpan="2"
+                                                Clicked="OnPlusClicked"
+                                                CommandParameter="{Binding .}"
+                                                HeightRequest="40"
+                                                Text="+"
+                                                WidthRequest="48" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                            <Button
+                                Clicked="OnFertigClicked"
+                                CommandParameter="{Binding .}"
+                                HorizontalOptions="End"
+                                Text="Fertig" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

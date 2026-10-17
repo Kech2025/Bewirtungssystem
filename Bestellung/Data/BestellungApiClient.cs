@@ -57,6 +57,28 @@ public class BestellungApiClient
     }
 
     /// <summary>
+    /// Markiert die angegebenen Positionen als vollständig geliefert (MengeGeliefert = Menge)
+    /// und setzt StatusLieferung = 1 für Aufträge, deren Positionen alle geliefert sind.
+    /// </summary>
+    public async Task GeliefertSetzenAsync(
+        IEnumerable<OffeneBestellungPosition> positionen,
+        CancellationToken cancellationToken = default)
+    {
+        var liste = positionen
+            .Select(p => new { p.AuftragId, p.PosNr })
+            .ToList();
+
+        if (liste.Count == 0)
+        {
+            return;
+        }
+
+        var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/bestellung/geliefert";
+        var response = await _httpClient.PostAsJsonAsync(url, new { Positionen = liste }, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
     /// Bezahlt eine Teilmenge je Position (Teilrechnung). Vollständig bezahlte Aufträge
     /// werden serverseitig auf Status = 1 gesetzt.
     /// </summary>
@@ -132,6 +154,41 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
                 _teilMenge = begrenzt;
                 OnPropertyChanged(nameof(TeilMenge));
                 OnPropertyChanged(nameof(TeilMengeText));
+            }
+        }
+    }
+
+    private bool _geliefert = true;
+
+    /// <summary>
+    /// Für Tische > 99: gibt an, ob diese Position als geliefert markiert ist (Checkbox).
+    /// Standard: true (angehakt).
+    /// </summary>
+    public bool Geliefert
+    {
+        get => _geliefert;
+        set
+        {
+            if (_geliefert != value)
+            {
+                _geliefert = value;
+                OnPropertyChanged(nameof(Geliefert));
+            }
+        }
+    }
+
+    private bool _zeigeGeliefert;
+
+    /// <summary>Steuert die Sichtbarkeit der "geliefert"-Checkbox (nur für Tische > 99).</summary>
+    public bool ZeigeGeliefert
+    {
+        get => _zeigeGeliefert;
+        set
+        {
+            if (_zeigeGeliefert != value)
+            {
+                _zeigeGeliefert = value;
+                OnPropertyChanged(nameof(ZeigeGeliefert));
             }
         }
     }

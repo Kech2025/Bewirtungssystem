@@ -7,9 +7,15 @@ public partial class MainPage : ContentPage
     private readonly TerminApiClient _terminApiClient = new();
     private readonly BenutzerApiClient _benutzerApiClient = new();
 
+    // Zuletzt verwendete Anmeldung, um sie bei Rückkehr zur Anmeldeseite vorzubelegen.
+    private int? _letzterBewirtungsDatum;
+    private long? _letzterVereinId;
+    private long? _letzterUserId;
+
     public MainPage()
     {
         InitializeComponent();
+        ModusPicker.SelectedIndex = 0;
     }
 
     protected override async void OnAppearing()
@@ -24,7 +30,14 @@ public partial class MainPage : ContentPage
         {
             var benutzer = await _benutzerApiClient.GetBenutzerFuerTerminAsync(termin.BewirtungsDatum, termin.VereinId);
             BenutzerPicker.ItemsSource = benutzer;
-            BenutzerPicker.SelectedIndex = benutzer.Count > 0 ? 0 : -1;
+
+            var index = -1;
+            if (_letzterUserId is long userId)
+            {
+                index = benutzer.FindIndex(b => b.UserId == userId);
+            }
+
+            BenutzerPicker.SelectedIndex = index >= 0 ? index : (benutzer.Count > 0 ? 0 : -1);
         }
         catch (Exception ex)
         {
@@ -39,8 +52,15 @@ public partial class MainPage : ContentPage
         {
             var termine = await _terminApiClient.GetTermineAsync();
             TerminPicker.ItemsSource = termine;
-            // Standard: aktuellster/erster Termin (API liefert neueste zuerst).
-            TerminPicker.SelectedIndex = termine.Count > 0 ? 0 : -1;
+
+            var index = -1;
+            if (_letzterBewirtungsDatum is int datum && _letzterVereinId is long vereinId)
+            {
+                index = termine.FindIndex(t => t.BewirtungsDatum == datum && t.VereinId == vereinId);
+            }
+
+            // Standard: zuletzt verwendeter Termin, sonst aktuellster/erster (API liefert neueste zuerst).
+            TerminPicker.SelectedIndex = index >= 0 ? index : (termine.Count > 0 ? 0 : -1);
         }
         catch (Exception ex)
         {
@@ -75,6 +95,22 @@ public partial class MainPage : ContentPage
             return;
         }
 
-        await Navigation.PushAsync(new BestellungSeite(benutzer, termin));
+        // Anmeldung merken, um sie bei Rückkehr zur Anmeldeseite vorzubelegen.
+        _letzterBewirtungsDatum = termin.BewirtungsDatum;
+        _letzterVereinId = termin.VereinId;
+        _letzterUserId = benutzer.UserId;
+
+        switch (ModusPicker.SelectedIndex)
+        {
+            case 1:
+                await Navigation.PushAsync(new AuslieferungGetraenkeSeite(benutzer, termin));
+                break;
+            case 2:
+                await Navigation.PushAsync(new AuslieferungSpeisenSeite(benutzer, termin));
+                break;
+            default:
+                await Navigation.PushAsync(new BestellungSeite(benutzer, termin));
+                break;
+        }
     }
 }
