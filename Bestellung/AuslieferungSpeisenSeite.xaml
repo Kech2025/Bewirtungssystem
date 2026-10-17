@@ -25,11 +25,11 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="data:AuslieferungTischDto">
-                    <Frame
+                    <Border
                         Margin="8"
                         Padding="12"
-                        BorderColor="#CCCCCC"
-                        CornerRadius="8">
+                        Stroke="#CCCCCC"
+                        StrokeShape="RoundRectangle 8">
                         <VerticalStackLayout Spacing="8">
                             <Label
                                 FontAttributes="Bold"
@@ -91,7 +91,7 @@
                                 HorizontalOptions="End"
                                 Text="Fertig" />
                         </VerticalStackLayout>
-                    </Frame>
+                    </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>

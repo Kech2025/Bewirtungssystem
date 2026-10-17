@@ -44,7 +44,7 @@ public partial class AuslieferungSpeisenSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Speisen konnten nicht geladen werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Offene Speisen konnten nicht vom Server geladen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Offene Speisen konnten nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -90,7 +90,7 @@ public partial class AuslieferungSpeisenSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Auslieferung konnte nicht gemeldet werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Die Auslieferung konnte nicht gespeichert werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Die Auslieferung konnte nicht gespeichert werden.", "OK");
         }
     }
 }

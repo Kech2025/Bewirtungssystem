@@ -48,7 +48,7 @@ public partial class BestellungSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Tischnummern konnten nicht geladen werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Tischnummern konnten nicht vom Server geladen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Tischnummern konnten nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -173,7 +173,7 @@ public partial class BestellungSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Preisliste konnte nicht geladen werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Die Preisliste konnte nicht vom Server geladen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Die Preisliste konnte nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -330,7 +330,7 @@ public partial class BestellungSeite : ContentPage
 
         if (TischPicker.SelectedItem is not TischDto tisch)
         {
-            await DisplayAlert("Hinweis", "Bitte zuerst eine Tischnummer wählen.", "OK");
+            await DisplayAlertAsync("Hinweis", "Bitte zuerst eine Tischnummer wählen.", "OK");
             return false;
         }
 
@@ -358,7 +358,7 @@ public partial class BestellungSeite : ContentPage
         {
             BestellenButton.IsEnabled = false;
             var auftragId = await _bestellungApiClient.BestellungSendenAsync(bestellung);
-            await DisplayAlert("Bestellung", $"Bestellung Nr. {auftragId} über {gesamt.ToString("C", EuroKultur)} wurde gespeichert.", "OK");
+            await DisplayAlertAsync("Bestellung", $"Bestellung Nr. {auftragId} über {gesamt.ToString("C", EuroKultur)} wurde gespeichert.", "OK");
 
             // Nach erfolgreicher Bestellung alle Mengen der Speisekarte auf 0 setzen.
             SetzeAlleMengenZurueck();
@@ -367,7 +367,7 @@ public partial class BestellungSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Bestellung konnte nicht gespeichert werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Die Bestellung konnte nicht an den Server gesendet werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Die Bestellung konnte nicht an den Server gesendet werden.", "OK");
             AktualisiereGesamtpreis();
             return false;
         }
@@ -544,7 +544,7 @@ public partial class BestellungSeite : ContentPage
         var zuZahlen = _offeneBestellung.Positionen.Where(p => p.TeilMenge > 0m).ToList();
         if (zuZahlen.Count == 0)
         {
-            await DisplayAlert("Hinweis", "Bitte mindestens eine Menge wählen.", "OK");
+            await DisplayAlertAsync("Hinweis", "Bitte mindestens eine Menge wählen.", "OK");
             return;
         }
 
@@ -557,7 +557,7 @@ public partial class BestellungSeite : ContentPage
             if (!decimal.TryParse(TeilRechnungSummeEntry.Text, NumberStyles.Number, EuroKultur, out betrag)
                 || betrag <= 0m)
             {
-                await DisplayAlert("Hinweis", "Bitte einen gültigen Teilbetrag eingeben.", "OK");
+                await DisplayAlertAsync("Hinweis", "Bitte einen gültigen Teilbetrag eingeben.", "OK");
                 return;
             }
         }
@@ -577,7 +577,7 @@ public partial class BestellungSeite : ContentPage
             }
 
             await _bestellungApiClient.TeilzahlenAsync(betrag, zuZahlen);
-            await DisplayAlert("Teilrechnung",
+            await DisplayAlertAsync("Teilrechnung",
                 $"Teilbetrag {betrag.ToString("C", EuroKultur)} wurde verbucht.", "OK");
 
             // Offene Bestellung neu laden (aktualisiert offene/bezahlte Mengen).
@@ -608,7 +608,7 @@ public partial class BestellungSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Teilzahlung fehlgeschlagen: {ex.Message}");
-            await DisplayAlert("Fehler", "Die Teilrechnung konnte nicht verbucht werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Die Teilrechnung konnte nicht verbucht werden.", "OK");
         }
         finally
         {
@@ -659,7 +659,7 @@ public partial class BestellungSeite : ContentPage
         if (!decimal.TryParse(BetragEntry.Text, System.Globalization.NumberStyles.Number, EuroKultur, out var betrag)
             || betrag < 0m)
         {
-            await DisplayAlert("Hinweis", "Bitte einen gültigen Betrag eingeben.", "OK");
+            await DisplayAlertAsync("Hinweis", "Bitte einen gültigen Betrag eingeben.", "OK");
             return;
         }
 
@@ -679,7 +679,7 @@ public partial class BestellungSeite : ContentPage
             }
 
             await _bestellungApiClient.BezahlenAsync(_offeneBestellung.AlleAuftragIds, betrag);
-            await DisplayAlert("Rechnung",
+            await DisplayAlertAsync("Rechnung",
                 $"{_offeneBestellung.AlleAuftragIds.Count} Auftrag/Aufträge wurden mit {betrag.ToString("C", EuroKultur)} abgeschlossen.",
                 "OK");
 
@@ -697,7 +697,7 @@ public partial class BestellungSeite : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Bezahlen fehlgeschlagen: {ex.Message}");
-            await DisplayAlert("Fehler", "Die Rechnung konnte nicht abgeschlossen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Die Rechnung konnte nicht abgeschlossen werden.", "OK");
             RechnungButton.IsEnabled = true;
             BezahlenButton.IsEnabled = true;
         }

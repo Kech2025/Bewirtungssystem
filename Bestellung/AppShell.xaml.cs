@@ -1,4 +1,4 @@
-﻿namespace Bestellung
+namespace Bestellung
 {
     public partial class AppShell : Shell
     {

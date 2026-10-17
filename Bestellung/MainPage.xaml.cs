@@ -42,7 +42,7 @@ public partial class MainPage : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Benutzer konnten nicht geladen werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Benutzer konnten nicht vom Server geladen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Benutzer konnten nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -65,7 +65,7 @@ public partial class MainPage : ContentPage
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Termine konnten nicht geladen werden: {ex.Message}");
-            await DisplayAlert("Fehler", "Preislisten (Termine) konnten nicht vom Server geladen werden.", "OK");
+            await DisplayAlertAsync("Fehler", "Preislisten (Termine) konnten nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -85,13 +85,13 @@ public partial class MainPage : ContentPage
     {
         if (BenutzerPicker.SelectedItem is not BenutzerDto benutzer)
         {
-            await DisplayAlert("Hinweis", "Bitte einen Benutzer auswählen.", "OK");
+            await DisplayAlertAsync("Hinweis", "Bitte einen Benutzer auswählen.", "OK");
             return;
         }
 
         if (TerminPicker.SelectedItem is not TerminDto termin)
         {
-            await DisplayAlert("Hinweis", "Bitte eine Preisliste (Termin) auswählen.", "OK");
+            await DisplayAlertAsync("Hinweis", "Bitte eine Preisliste (Termin) auswählen.", "OK");
             return;
         }
 

@@ -31,7 +31,7 @@ public class BenutzerApiClient
 
     /// <summary>
     /// Liefert die einem Termin zugeordneten Helfer/Benutzer
-    /// (GET /api/benutzer/termin?datum=...&vereinId=...), gefiltert über die Tabelle HelferTermin.
+    /// (GET /api/benutzer/termin?datum=...&amp;vereinId=...), gefiltert über die Tabelle HelferTermin.
     /// </summary>
     public async Task<List<BenutzerDto>> GetBenutzerFuerTerminAsync(int bewirtungsDatum, long vereinId, CancellationToken cancellationToken = default)
     {

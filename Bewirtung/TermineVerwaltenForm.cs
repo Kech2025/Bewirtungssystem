@@ -219,13 +219,13 @@ namespace Bewirtung
             string tabText = aktuelleSeite.Text;
 
             // Standard-Schriftart für nicht-selektierte Tabs definieren
-            Font tabFont = e.Font;
+            Font tabFont = e.Font ?? tabControl1.Font;
 
             // Prüfen, ob der aktuell zu zeichnende Tab der ausgewählte ist
             if (e.Index == tabControl1.SelectedIndex)
             {
                 // Wenn ja, erstelle die Schriftart in FETT
-                tabFont = new Font(e.Font, FontStyle.Bold);
+                tabFont = new Font(tabFont, FontStyle.Bold);
             }
 
             // Hintergrund des Tabs zeichnen (Standard-Grau/Weiß)
