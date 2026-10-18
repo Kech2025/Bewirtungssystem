@@ -85,6 +85,19 @@ namespace Bewirtung
             form.Show();
         }
 
+        private void mehrwertsteuerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var existing = MdiChildren.OfType<MwstVerwaltenForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new MwstVerwaltenForm { MdiParent = this };
+            form.Show();
+        }
+
         private void tischeVerwaltenToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var existing = MdiChildren.OfType<TischeVerwaltenForm>().FirstOrDefault();

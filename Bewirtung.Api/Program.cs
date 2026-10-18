@@ -279,9 +279,9 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
         posCmd.Transaction = transaction;
         posCmd.CommandText = @"
             INSERT INTO BewirtungsPosition
-                (BewirtungsauftragId, Bewirtungsposition, PreislisteId, PreislisteZusatzId, Preis, Status, Menge, Besonderheit)
+                (BewirtungsauftragId, Bewirtungsposition, PreislisteId, PreislisteZusatzId, Preis, Status, Menge, Besonderheit, Buchungszeitpunkt)
             VALUES
-                ($auftragId, $posNr, $preislisteId, $zusatzId, $preis, 0, $menge, $besonderheit);";
+                ($auftragId, $posNr, $preislisteId, $zusatzId, $preis, 0, $menge, $besonderheit, $buchungszeitpunkt);";
         posCmd.Parameters.AddWithValue("$auftragId", auftragId);
         posCmd.Parameters.AddWithValue("$posNr", positionsNummer++);
         posCmd.Parameters.AddWithValue("$preislisteId", pos.PreislisteId);
@@ -289,6 +289,7 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
         posCmd.Parameters.AddWithValue("$preis", (double)pos.Preis);
         posCmd.Parameters.AddWithValue("$menge", (double)pos.Menge);
         posCmd.Parameters.AddWithValue("$besonderheit", (object?)pos.Besonderheit ?? string.Empty);
+        posCmd.Parameters.AddWithValue("$buchungszeitpunkt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         posCmd.ExecuteNonQuery();
     }
 

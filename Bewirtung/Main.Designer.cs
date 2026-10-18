@@ -16,6 +16,7 @@
         private ToolStripMenuItem termineVerwaltenToolStripMenuItem;
         private ToolStripMenuItem bereichTischeToolStripMenuItem;
         private ToolStripMenuItem tischeVerwaltenToolStripMenuItem;
+        private ToolStripMenuItem mehrwertsteuerToolStripMenuItem;
         private ToolStripMenuItem tischeProTerminToolStripMenuItem;
         private ToolStripMenuItem aktuellePreislisteToolStripMenuItem;
         private ToolStripMenuItem abrechnungToolStripMenuItem;
@@ -57,6 +58,7 @@
             termineVerwaltenToolStripMenuItem = new ToolStripMenuItem();
             bereichTischeToolStripMenuItem = new ToolStripMenuItem();
             tischeVerwaltenToolStripMenuItem = new ToolStripMenuItem();
+            mehrwertsteuerToolStripMenuItem = new ToolStripMenuItem();
             tischeProTerminToolStripMenuItem = new ToolStripMenuItem();
             aktuellePreislisteToolStripMenuItem = new ToolStripMenuItem();
             abrechnungToolStripMenuItem = new ToolStripMenuItem();
@@ -80,7 +82,7 @@
             // 
             // stammdatenToolStripMenuItem
             // 
-            stammdatenToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { benutzerToolStripMenuItem, vereinToolStripMenuItem, globalePreislisteToolStripMenuItem, termineVerwaltenToolStripMenuItem, bereichTischeToolStripMenuItem, tischeVerwaltenToolStripMenuItem });
+            stammdatenToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { benutzerToolStripMenuItem, vereinToolStripMenuItem, globalePreislisteToolStripMenuItem, termineVerwaltenToolStripMenuItem, bereichTischeToolStripMenuItem, tischeVerwaltenToolStripMenuItem, mehrwertsteuerToolStripMenuItem });
             stammdatenToolStripMenuItem.Name = "stammdatenToolStripMenuItem";
             stammdatenToolStripMenuItem.Size = new Size(133, 29);
             stammdatenToolStripMenuItem.Text = "Stammdaten";
@@ -133,6 +135,13 @@
             bereichTischeToolStripMenuItem.Size = new Size(270, 34);
             bereichTischeToolStripMenuItem.Text = "Bewirtungsbereiche verwalten";
             bereichTischeToolStripMenuItem.Click += bereichTischeToolStripMenuItem_Click;
+            // 
+            // mehrwertsteuerToolStripMenuItem
+            // 
+            mehrwertsteuerToolStripMenuItem.Name = "mehrwertsteuerToolStripMenuItem";
+            mehrwertsteuerToolStripMenuItem.Size = new Size(270, 34);
+            mehrwertsteuerToolStripMenuItem.Text = "Mehrwertsteuer";
+            mehrwertsteuerToolStripMenuItem.Click += mehrwertsteuerToolStripMenuItem_Click;
             // 
             // tischeVerwaltenToolStripMenuItem
             // 

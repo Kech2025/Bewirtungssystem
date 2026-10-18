@@ -32,5 +32,9 @@
             Margin="0,16,0,0"
             Clicked="OnAnmeldenClicked"
             Text="Anmelden" />
+        <Button
+            Margin="0,8,0,0"
+            Clicked="OnAbmeldenClicked"
+            Text="Abmelden" />
     </VerticalStackLayout>
 </ContentPage>

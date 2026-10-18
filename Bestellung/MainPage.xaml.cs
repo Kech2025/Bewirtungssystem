@@ -113,4 +113,17 @@ public partial class MainPage : ContentPage
                 break;
         }
     }
+
+    private void OnAbmeldenClicked(object? sender, EventArgs e)
+    {
+        // Gemerkte Anmeldung verwerfen und Auswahl zurücksetzen.
+        _letzterBewirtungsDatum = null;
+        _letzterVereinId = null;
+        _letzterUserId = null;
+
+        TerminPicker.SelectedIndex = -1;
+        BenutzerPicker.ItemsSource = null;
+        BenutzerPicker.SelectedIndex = -1;
+        ModusPicker.SelectedIndex = 0;
+    }
 }
