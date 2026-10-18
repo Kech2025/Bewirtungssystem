@@ -21,6 +21,8 @@ namespace Bewirtung
             cmbFilterBenutzer = new ComboBox();
             lblTisch = new Label();
             cmbFilterTisch = new ComboBox();
+            lblBereich = new Label();
+            cmbFilterBereich = new ComboBox();
             grpArt = new GroupBox();
             rbBeides = new RadioButton();
             rbGetraenke = new RadioButton();
@@ -73,7 +75,7 @@ namespace Bewirtung
             // lblTisch
             // 
             lblTisch.AutoSize = true;
-            lblTisch.Location = new Point(500, 15);
+            lblTisch.Location = new Point(517, 55);
             lblTisch.Name = "lblTisch";
             lblTisch.Size = new Size(55, 25);
             lblTisch.TabIndex = 4;
@@ -82,11 +84,29 @@ namespace Bewirtung
             // cmbFilterTisch
             // 
             cmbFilterTisch.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbFilterTisch.Location = new Point(590, 12);
+            cmbFilterTisch.Location = new Point(578, 52);
             cmbFilterTisch.Name = "cmbFilterTisch";
             cmbFilterTisch.Size = new Size(309, 33);
             cmbFilterTisch.TabIndex = 5;
             cmbFilterTisch.SelectedIndexChanged += cmbFilter_Changed;
+            // 
+            // lblBereich
+            // 
+            lblBereich.AutoSize = true;
+            lblBereich.Location = new Point(500, 15);
+            lblBereich.Name = "lblBereich";
+            lblBereich.Size = new Size(72, 25);
+            lblBereich.TabIndex = 12;
+            lblBereich.Text = "Bereich:";
+            // 
+            // cmbFilterBereich
+            // 
+            cmbFilterBereich.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbFilterBereich.Location = new Point(578, 12);
+            cmbFilterBereich.Name = "cmbFilterBereich";
+            cmbFilterBereich.Size = new Size(309, 33);
+            cmbFilterBereich.TabIndex = 13;
+            cmbFilterBereich.SelectedIndexChanged += cmbFilterBereich_Changed;
             // 
             // grpArt
             // 
@@ -152,6 +172,7 @@ namespace Bewirtung
             // lblUmsatzVerkauf
             // 
             lblUmsatzVerkauf.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            lblUmsatzVerkauf.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblUmsatzVerkauf.Location = new Point(12, 542);
             lblUmsatzVerkauf.Name = "lblUmsatzVerkauf";
             lblUmsatzVerkauf.Size = new Size(1312, 32);
@@ -162,6 +183,7 @@ namespace Bewirtung
             // lblMwstSumme
             // 
             lblMwstSumme.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            lblMwstSumme.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblMwstSumme.Location = new Point(12, 576);
             lblMwstSumme.Name = "lblMwstSumme";
             lblMwstSumme.Size = new Size(1312, 32);
@@ -172,11 +194,12 @@ namespace Bewirtung
             // lblUmsatzAuftrag
             // 
             lblUmsatzAuftrag.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            lblUmsatzAuftrag.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblUmsatzAuftrag.Location = new Point(12, 610);
             lblUmsatzAuftrag.Name = "lblUmsatzAuftrag";
             lblUmsatzAuftrag.Size = new Size(1312, 32);
             lblUmsatzAuftrag.TabIndex = 10;
-            lblUmsatzAuftrag.Text = "Umsatz aus Auftrag:";
+            lblUmsatzAuftrag.Text = "Umsatz Barzahlung:";
             lblUmsatzAuftrag.TextAlign = ContentAlignment.MiddleRight;
             // 
             // lblTrinkgeld
@@ -201,6 +224,8 @@ namespace Bewirtung
             Controls.Add(cmbFilterBenutzer);
             Controls.Add(lblTisch);
             Controls.Add(cmbFilterTisch);
+            Controls.Add(lblBereich);
+            Controls.Add(cmbFilterBereich);
             Controls.Add(grpArt);
             Controls.Add(dataGridViewAbrechnung);
             Controls.Add(lblUmsatzVerkauf);
@@ -222,6 +247,8 @@ namespace Bewirtung
         private ComboBox cmbFilterBenutzer;
         private Label lblTisch;
         private ComboBox cmbFilterTisch;
+        private Label lblBereich;
+        private ComboBox cmbFilterBereich;
         private GroupBox grpArt;
         private RadioButton rbBeides;
         private RadioButton rbGetraenke;

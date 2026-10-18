@@ -30,13 +30,17 @@ namespace Bewirtung.Data
                        SUM(bp.Preis * bp.Menge) AS GesamtpreisSumme,
                        a.TischNummer,
                        COALESCE(p.Preiskategorie, 0) AS Preiskategorie,
-                       COALESCE(m.Mwst, 0) AS MwstSatz
+                       COALESCE(m.Mwst, 0) AS MwstSatz,
+                       COALESCE(t.BereichId, 0) AS BereichId,
+                       COALESCE(bt.Bezeichnung, '') AS BereichName
                 FROM BewirtungsPosition bp
                 INNER JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
                 LEFT JOIN Benutzer u ON u.UserId = a.UserId
                 LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
                 LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
                 LEFT JOIN Mwst m ON m.Preiskategorie = p.Preiskategorie
+                LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
+                LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
                 WHERE a.Bewirtungstermin = $datum
                 GROUP BY a.UserId, a.TischNummer, bp.PreislisteId,
                          COALESCE(bp.PreislisteZusatzId, 0), COALESCE(bp.Besonderheit, '')
@@ -62,7 +66,9 @@ namespace Bewirtung.Data
                     Gesamtpreis = gesamtpreis,
                     Tischnummer = (int)reader.GetInt64(9),
                     Preiskategorie = (int)reader.GetInt64(10),
-                    Mwst = mwstSatz > 0m ? gesamtpreis - (gesamtpreis * 100m / (100m + mwstSatz)) : gesamtpreis
+                    Mwst = mwstSatz > 0m ? gesamtpreis - (gesamtpreis * 100m / (100m + mwstSatz)) : gesamtpreis,
+                    BereichId = reader.GetInt64(12),
+                    BereichName = reader.IsDBNull(13) ? string.Empty : reader.GetString(13)
                 });
             }
             return result;
@@ -73,12 +79,12 @@ namespace Bewirtung.Data
         /// für das angegebene Datum (yyyyMMdd), optional eingeschränkt auf einen
         /// Benutzer (userId) und/oder eine Tischnummer (tischnummer).
         /// </summary>
-        public decimal GetAuftragSumme(int bewirtungsDatum, long? userId = null, int? tischnummer = null)
+        public decimal GetTrinkgeldSumme(int bewirtungsDatum, long? userId = null, int? tischnummer = null)
         {
             using var connection = Database.CreateConnection();
             using var command = connection.CreateCommand();
             var sql = @"
-                SELECT COALESCE(SUM(a.Gesamtpreis), 0)
+                SELECT COALESCE(SUM(a.Bezahlt), 0) - COALESCE(SUM(a.Gesamtpreis), 0)
                 FROM Bewirtungsauftrag a
                 WHERE a.Bewirtungstermin = $datum";
             command.Parameters.AddWithValue("$datum", bewirtungsDatum);

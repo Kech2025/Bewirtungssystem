@@ -29,6 +29,13 @@ namespace Bewirtung
             public override string ToString() => Anzeige;
         }
 
+        private sealed class BereichFilter
+        {
+            public long? BereichId { get; init; }
+            public string Anzeige { get; init; } = string.Empty;
+            public override string ToString() => Anzeige;
+        }
+
         public AbrechnungTagForm()
         {
             InitializeComponent();
@@ -39,12 +46,6 @@ namespace Bewirtung
         {
             dataGridViewAbrechnung.AutoGenerateColumns = false;
             dataGridViewAbrechnung.Columns.Clear();
-            dataGridViewAbrechnung.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(AbrechnungZeile.Benutzer),
-                HeaderText = "Benutzer",
-                Width = 180
-            });
             dataGridViewAbrechnung.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(AbrechnungZeile.Artikel),
@@ -76,12 +77,6 @@ namespace Bewirtung
                 HeaderText = "Mwst",
                 Width = 130,
                 DefaultCellStyle = new DataGridViewCellStyle { Format = "C", Alignment = DataGridViewContentAlignment.MiddleRight }
-            });
-            dataGridViewAbrechnung.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                DataPropertyName = nameof(AbrechnungZeile.Tischnummer),
-                HeaderText = "Tischnummer",
-                Width = 120
             });
             dataGridViewAbrechnung.DataSource = _bindingSource;
             GridSortHelper.EnableHeaderSorting(dataGridViewAbrechnung);
@@ -123,9 +118,11 @@ namespace Bewirtung
             else
             {
                 _zeilen = _abrechnungRepository.GetForTermin(termin.BewirtungsDatum);
+
             }
 
             LoadFilterBenutzer();
+            LoadFilterBereiche();
             LoadFilterTische();
             ApplyFilter();
         }
@@ -148,10 +145,13 @@ namespace Bewirtung
 
         private void LoadFilterTische()
         {
+            long? bereichId = cmbFilterBereich.SelectedItem is BereichFilter brf ? brf.BereichId : null;
+
             cmbFilterTisch.SelectedIndexChanged -= cmbFilter_Changed;
             cmbFilterTisch.Items.Clear();
             cmbFilterTisch.Items.Add(new TischFilter { Tischnummer = null, Anzeige = "Alle" });
             foreach (var tisch in _zeilen
+                .Where(z => !bereichId.HasValue || z.BereichId == bereichId.Value)
                 .Select(z => z.Tischnummer)
                 .Distinct()
                 .OrderBy(n => n))
@@ -160,6 +160,29 @@ namespace Bewirtung
             }
             cmbFilterTisch.SelectedIndex = 0;
             cmbFilterTisch.SelectedIndexChanged += cmbFilter_Changed;
+        }
+
+        private void LoadFilterBereiche()
+        {
+            cmbFilterBereich.SelectedIndexChanged -= cmbFilter_Changed;
+            cmbFilterBereich.Items.Clear();
+            cmbFilterBereich.Items.Add(new BereichFilter { BereichId = null, Anzeige = "Alle" });
+            foreach (var bereich in _zeilen
+                .Where(z => z.BereichId > 0)
+                .GroupBy(z => z.BereichId)
+                .Select(g => new BereichFilter { BereichId = g.Key, Anzeige = g.First().BereichName })
+                .OrderBy(b => b.Anzeige))
+            {
+                cmbFilterBereich.Items.Add(bereich);
+            }
+            cmbFilterBereich.SelectedIndex = 0;
+            cmbFilterBereich.SelectedIndexChanged += cmbFilterBereich_Changed;
+        }
+
+        private void cmbFilterBereich_Changed(object? sender, EventArgs e)
+        {
+            LoadFilterTische();
+            ApplyFilter();
         }
 
         private void cmbFilter_Changed(object? sender, EventArgs e)
@@ -181,6 +204,11 @@ namespace Bewirtung
                 gefiltert = gefiltert.Where(z => z.Tischnummer == tf.Tischnummer.Value);
             }
 
+            if (cmbFilterBereich.SelectedItem is BereichFilter brf && brf.BereichId.HasValue)
+            {
+                gefiltert = gefiltert.Where(z => z.BereichId == brf.BereichId.Value);
+            }
+
             if (rbSpeisen.Checked)
             {
                 gefiltert = gefiltert.Where(z => z.Preiskategorie == (int)Preiskategorie.Speisen);
@@ -190,21 +218,34 @@ namespace Bewirtung
                 gefiltert = gefiltert.Where(z => z.Preiskategorie == (int)Preiskategorie.Getraenke);
             }
 
-            _bindingSource.DataSource = new SortableBindingList<AbrechnungZeile>(gefiltert.ToList());
+            
             if (dataGridViewAbrechnung.Rows.Count > 0)
             {
                 dataGridViewAbrechnung.ClearSelection();
             }
-
-            UpdateSummen(gefiltert.ToList());
+            IEnumerable<AbrechnungZeile> groupiert = gefiltert
+                .GroupBy(z => new { z.PreislisteId, z.PreislisteZusatzId, z.Besonderheit })
+                .Select(g => new AbrechnungZeile
+                {
+                    PreislisteId = g.Key.PreislisteId,
+                    PreislisteZusatzId = g.Key.PreislisteZusatzId,
+                    Artikel = g.First().Artikel,
+                    Menge = g.Sum(z => z.Menge),
+                    Besonderheit = g.Key.Besonderheit,
+                    Gesamtpreis = g.Sum(z => z.Gesamtpreis),
+                    Mwst = g.Sum(z => z.Mwst)
+                });
+            _bindingSource.DataSource = new SortableBindingList<AbrechnungZeile>(groupiert.ToList());
+            UpdateSummen(groupiert.ToList());
         }
 
         private void UpdateSummen(List<AbrechnungZeile> gefiltert)
         {
             var umsatzVerkauf = gefiltert.Sum(z => z.Gesamtpreis);
-            var mwstSumme = gefiltert.Sum(z => z.Gesamtpreis - z.Mwst);
+            var mwstSumme = gefiltert.Sum(z => z.Mwst);
 
             decimal umsatzAuftrag = 0m;
+            decimal trinkgeld = 0m;
             if (cmbFilterTermin.SelectedItem is Termin termin)
             {
                 long? userId = cmbFilterBenutzer.SelectedItem is BenutzerFilter bf && bf.UserId >= 0
@@ -213,14 +254,12 @@ namespace Bewirtung
                 int? tischnummer = cmbFilterTisch.SelectedItem is TischFilter tf && tf.Tischnummer.HasValue
                     ? tf.Tischnummer.Value
                     : null;
-                umsatzAuftrag = _abrechnungRepository.GetAuftragSumme(termin.BewirtungsDatum, userId, tischnummer);
+                trinkgeld = _abrechnungRepository.GetTrinkgeldSumme(termin.BewirtungsDatum, userId, tischnummer);
             }
-
-            var trinkgeld = umsatzAuftrag - umsatzVerkauf;
 
             lblUmsatzVerkauf.Text = $"Umsatz aus Verkauf: {umsatzVerkauf:C}";
             lblMwstSumme.Text = $"Mehrwertsteuer: {mwstSumme:C}";
-            lblUmsatzAuftrag.Text = $"Umsatz aus Auftrag: {umsatzAuftrag:C}";
+            lblUmsatzAuftrag.Text = $"Umsatz aus Auftrag: {umsatzVerkauf + trinkgeld:C}";
             lblTrinkgeld.Text = $"Trinkgeld: {trinkgeld:C}";
         }
     }

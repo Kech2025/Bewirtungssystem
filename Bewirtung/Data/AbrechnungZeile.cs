@@ -19,6 +19,9 @@ namespace Bewirtung.Data
         public decimal Gesamtpreis { get; set; }
         public int Tischnummer { get; set; }
 
+        public long BereichId { get; set; }
+        public string BereichName { get; set; } = string.Empty;
+
         /// <summary>Nettobetrag = Gesamtpreis * 100 / (100 + Mwst-Prozentsatz).</summary>
         public decimal Mwst { get; set; }
 
