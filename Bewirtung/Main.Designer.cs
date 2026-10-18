@@ -18,9 +18,8 @@
         private ToolStripMenuItem tischeVerwaltenToolStripMenuItem;
         private ToolStripMenuItem tischeProTerminToolStripMenuItem;
         private ToolStripMenuItem aktuellePreislisteToolStripMenuItem;
-        private ToolStripMenuItem auftraegeToolStripMenuItem;
-        private ToolStripMenuItem auftragErfassenToolStripMenuItem;
-        private ToolStripMenuItem auftragAbrechnenToolStripMenuItem;
+        private ToolStripMenuItem abrechnungToolStripMenuItem;
+        private ToolStripMenuItem tagAbrechnenToolStripMenuItem;
         private ToolStripMenuItem listenToolStripMenuItem;
         private ToolStripMenuItem offeneLieferpositionenToolStripMenuItem;
         private ToolStripMenuItem offeneRechnungspositionenToolStripMenuItem;
@@ -60,9 +59,8 @@
             tischeVerwaltenToolStripMenuItem = new ToolStripMenuItem();
             tischeProTerminToolStripMenuItem = new ToolStripMenuItem();
             aktuellePreislisteToolStripMenuItem = new ToolStripMenuItem();
-            auftraegeToolStripMenuItem = new ToolStripMenuItem();
-            auftragErfassenToolStripMenuItem = new ToolStripMenuItem();
-            auftragAbrechnenToolStripMenuItem = new ToolStripMenuItem();
+            abrechnungToolStripMenuItem = new ToolStripMenuItem();
+            tagAbrechnenToolStripMenuItem = new ToolStripMenuItem();
             listenToolStripMenuItem = new ToolStripMenuItem();
             offeneLieferpositionenToolStripMenuItem = new ToolStripMenuItem();
             offeneRechnungspositionenToolStripMenuItem = new ToolStripMenuItem();
@@ -73,7 +71,7 @@
             // 
             // menuStripMain
             // 
-            menuStripMain.Items.AddRange(new ToolStripItem[] { stammdatenToolStripMenuItem, einstellungenProTerminToolStripMenuItem, auftraegeToolStripMenuItem, listenToolStripMenuItem });
+            menuStripMain.Items.AddRange(new ToolStripItem[] { stammdatenToolStripMenuItem, einstellungenProTerminToolStripMenuItem, abrechnungToolStripMenuItem, listenToolStripMenuItem });
             menuStripMain.Location = new Point(0, 0);
             menuStripMain.Name = "menuStripMain";
             menuStripMain.Size = new Size(2047, 33);
@@ -157,26 +155,19 @@
             aktuellePreislisteToolStripMenuItem.Text = "Preisliste pro Termin verwalten";
             aktuellePreislisteToolStripMenuItem.Click += aktuellePreislisteToolStripMenuItem_Click;            
             // 
-            // auftraegeToolStripMenuItem
+            // abrechnungToolStripMenuItem
             // 
-            auftraegeToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { auftragErfassenToolStripMenuItem, auftragAbrechnenToolStripMenuItem });
-            auftraegeToolStripMenuItem.Name = "auftraegeToolStripMenuItem";
-            auftraegeToolStripMenuItem.Size = new Size(101, 29);
-            auftraegeToolStripMenuItem.Text = "Aufträge";
+            abrechnungToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { tagAbrechnenToolStripMenuItem});
+            abrechnungToolStripMenuItem.Name = "abrechnungToolStripMenuItem";
+            abrechnungToolStripMenuItem.Size = new Size(101, 29);
+            abrechnungToolStripMenuItem.Text = "Abrechnung";
             // 
-            // auftragErfassenToolStripMenuItem
+            // tagAbrechnenToolStripMenuItem
             // 
-            auftragErfassenToolStripMenuItem.Name = "auftragErfassenToolStripMenuItem";
-            auftragErfassenToolStripMenuItem.Size = new Size(250, 34);
-            auftragErfassenToolStripMenuItem.Text = "Auftrag erfassen";
-            auftragErfassenToolStripMenuItem.Click += auftragErfassenToolStripMenuItem_Click;
-            // 
-            // auftragAbrechnenToolStripMenuItem
-            // 
-            auftragAbrechnenToolStripMenuItem.Name = "auftragAbrechnenToolStripMenuItem";
-            auftragAbrechnenToolStripMenuItem.Size = new Size(250, 34);
-            auftragAbrechnenToolStripMenuItem.Text = "Auftrag abrechnen";
-            auftragAbrechnenToolStripMenuItem.Click += auftragAbrechnenToolStripMenuItem_Click;
+            tagAbrechnenToolStripMenuItem.Name = "tagAbrechnenToolStripMenuItem";
+            tagAbrechnenToolStripMenuItem.Size = new Size(250, 34);
+            tagAbrechnenToolStripMenuItem.Text = "Tagesabrechnung";
+            tagAbrechnenToolStripMenuItem.Click += tagAbrechnenToolStripMenuItem_Click;           
             // 
             // listenToolStripMenuItem
             // 

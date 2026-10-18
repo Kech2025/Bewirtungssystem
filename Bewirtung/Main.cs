@@ -124,13 +124,12 @@ namespace Bewirtung
             form.Show();
         }
 
-        private void auftragErfassenToolStripMenuItem_Click(object sender, EventArgs e)
+        private void tagAbrechnenToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            var form = new AbrechnungTagForm { MdiParent = this };
+            form.Show();
         }
 
-        private void auftragAbrechnenToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-        }
 
         private void offeneLieferpositionenToolStripMenuItem_Click(object sender, EventArgs e)
         {
