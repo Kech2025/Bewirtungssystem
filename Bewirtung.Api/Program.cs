@@ -45,7 +45,7 @@ string ConnectionString() =>
     }.ToString();
 
 // GET /api/tische  -> [{ Tischnummer, Bereich }, ...]
-app.MapGet("/api/tische", () =>
+app.MapGet("/api/tische", (int datum) =>
 {
     var tische = new List<object>();
     using var connection = new SqliteConnection(ConnectionString());
@@ -54,8 +54,10 @@ app.MapGet("/api/tische", () =>
     command.CommandText = @"
         SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, 0)
         FROM Tisch t
+        INNER JOIN TischTermin tt ON tt.Tischnummer = t.Tischnummer AND tt.Bewirtungsdatum = $datum
         LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
         ORDER BY t.Tischnummer ASC;";
+    command.Parameters.AddWithValue("$datum", datum);
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
@@ -121,6 +123,7 @@ app.MapGet("/api/benutzer/termin", (int datum, long vereinId) =>
 app.MapGet("/api/termine", () =>
 {
     var termine = new List<object>();
+    int nowDate = DateTime.Now.Year * 10000 + DateTime.Now.Month * 100 + DateTime.Now.Day;
     using var connection = new SqliteConnection(ConnectionString());
     connection.Open();
     using var command = connection.CreateCommand();
@@ -128,7 +131,9 @@ app.MapGet("/api/termine", () =>
         SELECT t.BewirtungsDatum, t.VereinId, v.Name
         FROM Termin t
         LEFT JOIN Verein v ON v.Id = t.VereinId
+        WHERE t.BewirtungsDatum >= $datum
         ORDER BY t.BewirtungsDatum DESC, v.Name;";
+    command.Parameters.AddWithValue("$datum", nowDate);
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
