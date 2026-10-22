@@ -71,3 +71,6 @@ Desktop.ini
 
 # LibreOffice portable (not part of the source repository)
 LibreOffice/
+
+# SQLite databases
+*.sqlite3
