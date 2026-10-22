@@ -1,0 +1,151 @@
+@page "/benutzer"
+@rendermode RenderMode.InteractiveServer
+@inject BenutzerRepository BenutzerRepo
+@inject VereinRepository VereinRepo
+
+<PageTitle>Benutzer verwalten</PageTitle>
+
+<h1>Benutzer verwalten</h1>
+
+@if (_benutzerListe is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neuer Benutzer</button>
+
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>E-Mail</th>
+				<th>Telefon</th>
+				<th>Verein</th>
+				<th>Admin</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var b in _benutzerListe)
+			{
+				<tr>
+					<td>@b.Name</td>
+					<td>@b.Email</td>
+					<td>@b.Telefon</td>
+					<td>@b.VereinName</td>
+					<td>@(b.Administrator ? "Ja" : "Nein")</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(b)">Bearbeiten</button>
+						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(b)">Löschen</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="card mt-4">
+		<div class="card-header">@(_bearbeiten.UserId == 0 ? "Neuer Benutzer" : "Benutzer bearbeiten")</div>
+		<div class="card-body">
+			<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+				<DataAnnotationsValidator />
+
+				<div class="mb-2">
+					<label class="form-label">Name</label>
+					<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+				</div>
+				<div class="mb-2">
+					<label class="form-label">E-Mail</label>
+					<InputText class="form-control" @bind-Value="_bearbeiten.Email" />
+				</div>
+				<div class="mb-2">
+					<label class="form-label">Passwort</label>
+					<InputText class="form-control" @bind-Value="_bearbeiten.Password" />
+				</div>
+				<div class="mb-2">
+					<label class="form-label">Telefon</label>
+					<InputText class="form-control" @bind-Value="_bearbeiten.Telefon" />
+				</div>
+				<div class="mb-2">
+					<label class="form-label">Verein</label>
+					<InputSelect class="form-select" @bind-Value="_bearbeiten.VereinId">
+						<option value="">(kein Verein)</option>
+						@foreach (var v in _vereine)
+						{
+							<option value="@v.Id">@v.Name</option>
+						}
+					</InputSelect>
+				</div>
+				<div class="form-check mb-3">
+					<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Administrator" id="adminCheck" />
+					<label class="form-check-label" for="adminCheck">Administrator</label>
+				</div>
+
+				<button type="submit" class="btn btn-primary">Speichern</button>
+				<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+			</EditForm>
+		</div>
+	</div>
+}
+
+@code {
+	private List<Data.Benutzer>? _benutzerListe;
+	private List<VereinOption> _vereine = new();
+	private Data.Benutzer? _bearbeiten;
+
+	protected override void OnInitialized()
+	{
+		_vereine = VereinRepo.GetAll();
+		Laden();
+	}
+
+	private void Laden() => _benutzerListe = BenutzerRepo.GetAll();
+
+	private void Neu() => _bearbeiten = new Data.Benutzer();
+
+	private void Bearbeiten(Data.Benutzer b) => _bearbeiten = new Data.Benutzer
+	{
+		UserId = b.UserId,
+		Name = b.Name,
+		Email = b.Email,
+		Password = b.Password,
+		Administrator = b.Administrator,
+		Telefon = b.Telefon,
+		VereinId = b.VereinId
+	};
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		if (_bearbeiten.UserId == 0)
+		{
+			BenutzerRepo.Insert(_bearbeiten);
+		}
+		else
+		{
+			BenutzerRepo.Update(_bearbeiten);
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+
+	private void Loeschen(Data.Benutzer b)
+	{
+		BenutzerRepo.Delete(b.UserId);
+		if (_bearbeiten?.UserId == b.UserId)
+		{
+			_bearbeiten = null;
+		}
+		Laden();
+	}
+}
