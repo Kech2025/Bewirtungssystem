@@ -104,9 +104,7 @@ namespace Bewirtung
         private void LoadTermine()
         {
             var termine = _terminRepository.GetAll();
-            cmbTermine.DisplayMember = nameof(Termin.Anzeige);
-            cmbTermine.DataSource = termine;
-            cmbTermine.SelectedIndex = termine.Count > 0 ? 0 : -1;
+            _terminRepository.LoadTerminCombobox(cmbTermine, termine);
         }
 
         private void CmbTermine_SelectedIndexChanged(object? sender, EventArgs e)
@@ -167,6 +165,7 @@ namespace Bewirtung
         {
             var ausgewaehlt = _zeilen.Where(z => z.Ausgewaehlt).ToList();
             gridAuswahl.DataSource = new BindingSource { DataSource = new SortableBindingList<SpeisekartenZeile>(ausgewaehlt) };
+            cmdDrucken.Enabled = gridAuswahl.RowCount > 0;
         }
 
         private void BtnSpeichern_Click(object? sender, EventArgs e)
@@ -184,6 +183,26 @@ namespace Bewirtung
             _speisekarteRepository.Speichern(termin.BewirtungsDatum, termin.VereinId, _zeilen);
             MessageBox.Show("Die Speisekarte für den Termin wurde gespeichert.", "Gespeichert",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void cmdDrucken_Click(object sender, EventArgs e)
+        {
+            if (cmbTermine.SelectedItem is not Termin termin)
+            {
+                MessageBox.Show("Bitte zuerst einen Termin auswählen.", "Hinweis",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var existing = MdiChildren.OfType<PreislisteForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new PreislisteForm { MdiParent = this.ParentForm };
+            form.TerminPreisliste = termin.BewirtungsDatum;
+            form.Show();
         }
     }
 }

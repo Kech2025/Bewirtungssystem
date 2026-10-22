@@ -55,12 +55,7 @@ namespace Bewirtung
             var termine = _terminRepository.GetAll();
 
             cmbFilterTermin.SelectedIndexChanged -= cmbFilterTermin_SelectedIndexChanged;
-            cmbFilterTermin.DisplayMember = nameof(Termin.Anzeige);
-            cmbFilterTermin.Items.Clear();
-            foreach (var termin in termine)
-            {
-                cmbFilterTermin.Items.Add(termin);
-            }
+            _terminRepository.LoadTerminCombobox(cmbFilterTermin, termine);
             cmbFilterTermin.SelectedIndex = 0;
             cmbFilterTermin.SelectedIndexChanged += cmbFilterTermin_SelectedIndexChanged;
         }

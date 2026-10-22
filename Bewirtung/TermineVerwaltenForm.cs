@@ -416,6 +416,7 @@ namespace Bewirtung
         {
             var ausgewaehlt = _zeilen.Where(z => z.Ausgewaehlt).ToList();
             gridAuswahl.DataSource = new BindingSource { DataSource = new SortableBindingList<SpeisekartenZeile>(ausgewaehlt) };
+            cmdDrucken.Enabled = gridAuswahl.RowCount > 0;
         }
 
         private void BtnSpeisekarteSpeichern_Click(object? sender, EventArgs e)
@@ -710,6 +711,28 @@ namespace Bewirtung
 
             _repository.RemoveHelfer(termin.BewirtungsDatum, termin.VereinId, helfer.UserId);
             LoadHelfer(termin);
+        }
+
+        private void cmdDrucken_Click(object sender, EventArgs e)
+        {
+            var termin = AktuellerTermin;
+            if (termin == null)
+            {
+                MessageBox.Show("Bitte zuerst einen Termin auswählen.", "Hinweis",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var existing = MdiChildren.OfType<PreislisteForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new PreislisteForm { MdiParent = this.ParentForm };
+            form.TerminPreisliste = termin.BewirtungsDatum;
+            form.Show();
         }
     }
 }

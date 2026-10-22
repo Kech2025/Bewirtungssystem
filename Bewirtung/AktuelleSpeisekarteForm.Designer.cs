@@ -27,15 +27,15 @@ namespace Bewirtung
         private void InitializeComponent()
         {
             topPanel = new Panel();
+            btnSpeichern = new Button();
+            cmdDrucken = new Button();
             cmbTermine = new ComboBox();
             lblTermin = new Label();
             bottomPanel = new Panel();
-            btnSpeichern = new Button();
             split = new SplitContainer();
             gridGlobal = new DataGridView();
             gridAuswahl = new DataGridView();
             topPanel.SuspendLayout();
-            bottomPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)split).BeginInit();
             split.Panel1.SuspendLayout();
             split.Panel2.SuspendLayout();
@@ -46,6 +46,8 @@ namespace Bewirtung
             // 
             // topPanel
             // 
+            topPanel.Controls.Add(btnSpeichern);
+            topPanel.Controls.Add(cmdDrucken);
             topPanel.Controls.Add(cmbTermine);
             topPanel.Controls.Add(lblTermin);
             topPanel.Dock = DockStyle.Top;
@@ -54,6 +56,27 @@ namespace Bewirtung
             topPanel.Padding = new Padding(8);
             topPanel.Size = new Size(1100, 48);
             topPanel.TabIndex = 0;
+            // 
+            // btnSpeichern
+            // 
+            btnSpeichern.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSpeichern.Location = new Point(949, 6);
+            btnSpeichern.Name = "btnSpeichern";
+            btnSpeichern.Size = new Size(140, 38);
+            btnSpeichern.TabIndex = 0;
+            btnSpeichern.Text = "Speichern";
+            btnSpeichern.Click += BtnSpeichern_Click;
+            // 
+            // cmdDrucken
+            // 
+            cmdDrucken.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cmdDrucken.Enabled = false;
+            cmdDrucken.Location = new Point(791, 6);
+            cmdDrucken.Name = "cmdDrucken";
+            cmdDrucken.Size = new Size(140, 38);
+            cmdDrucken.TabIndex = 2;
+            cmdDrucken.Text = "Drucken";
+            cmdDrucken.Click += cmdDrucken_Click;
             // 
             // cmbTermine
             // 
@@ -75,22 +98,12 @@ namespace Bewirtung
             // 
             // bottomPanel
             // 
-            bottomPanel.Controls.Add(btnSpeichern);
             bottomPanel.Dock = DockStyle.Bottom;
             bottomPanel.Location = new Point(0, 642);
             bottomPanel.Name = "bottomPanel";
             bottomPanel.Padding = new Padding(8);
             bottomPanel.Size = new Size(1100, 58);
             bottomPanel.TabIndex = 2;
-            // 
-            // btnSpeichern
-            // 
-            btnSpeichern.Location = new Point(8, 10);
-            btnSpeichern.Name = "btnSpeichern";
-            btnSpeichern.Size = new Size(140, 38);
-            btnSpeichern.TabIndex = 0;
-            btnSpeichern.Text = "Speichern";
-            btnSpeichern.Click += BtnSpeichern_Click;
             // 
             // split
             // 
@@ -150,7 +163,6 @@ namespace Bewirtung
             Text = "Aktuelle Speisekarte";
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
-            bottomPanel.ResumeLayout(false);
             split.Panel1.ResumeLayout(false);
             split.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)split).EndInit();
@@ -170,5 +182,6 @@ namespace Bewirtung
         private SplitContainer split;
         private DataGridView gridGlobal;
         private DataGridView gridAuswahl;
+        private Button cmdDrucken;
     }
 }

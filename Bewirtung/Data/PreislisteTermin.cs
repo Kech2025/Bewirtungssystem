@@ -21,9 +21,28 @@ namespace Bewirtung.Data
 
         /// <summary>Überschreibbarer Preis für den Termin (Vorbelegung = GlobalPreis).</summary>
         public decimal TerminPreis { get; set; }
-
+        public int DruckParent { get; set; }
+        public int DruckClient { get; set; }
         public string Produkt =>
             string.IsNullOrEmpty(ZusatzText) ? Name : $"{Name} – {ZusatzText}";
+    }
+
+    public class FehlerAbrechnungZeile : SpeisekartenZeile
+    {
+        public string Tisch { get; set; }
+        public string Bereich { get; set; }
+        public DateTime Bewirtungszeitpunkt { get; set; }
+        public string UserName { get; set; }
+        public string ArtikelName { get; set; }
+        public string Besonderheit { get; set; }
+        public decimal Menge { get; set; }
+        public decimal Gesamtpreis { get; set; }
+        public decimal MengeGeliefert { get; set; }
+        public decimal MengeBezahlt { get; set; }
+        public bool chkLöschen { get; set; }
+        public bool chkFehlerKorrigieren { get; set; }
+        public long BewirtungsauftragId { get; set; }
+        public long Bewirtungsposition { get; set; }
     }
 
     /// <summary>

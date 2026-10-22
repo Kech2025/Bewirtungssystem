@@ -47,46 +47,50 @@ else
 
 @if (_bearbeiten is not null)
 {
-	<div class="card mt-4">
-		<div class="card-header">@(_bearbeiten.UserId == 0 ? "Neuer Benutzer" : "Benutzer bearbeiten")</div>
-		<div class="card-body">
-			<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
-				<DataAnnotationsValidator />
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_bearbeiten.UserId == 0 ? "Neuer Benutzer" : "Benutzer bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
 
-				<div class="mb-2">
-					<label class="form-label">Name</label>
-					<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
-				</div>
-				<div class="mb-2">
-					<label class="form-label">E-Mail</label>
-					<InputText class="form-control" @bind-Value="_bearbeiten.Email" />
-				</div>
-				<div class="mb-2">
-					<label class="form-label">Passwort</label>
-					<InputText class="form-control" @bind-Value="_bearbeiten.Password" />
-				</div>
-				<div class="mb-2">
-					<label class="form-label">Telefon</label>
-					<InputText class="form-control" @bind-Value="_bearbeiten.Telefon" />
-				</div>
-				<div class="mb-2">
-					<label class="form-label">Verein</label>
-					<InputSelect class="form-select" @bind-Value="_bearbeiten.VereinId">
-						<option value="">(kein Verein)</option>
-						@foreach (var v in _vereine)
-						{
-							<option value="@v.Id">@v.Name</option>
-						}
-					</InputSelect>
-				</div>
-				<div class="form-check mb-3">
-					<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Administrator" id="adminCheck" />
-					<label class="form-check-label" for="adminCheck">Administrator</label>
-				</div>
+						<div class="mb-2">
+							<label class="form-label">Name</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">E-Mail</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Email" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Passwort</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Password" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Telefon</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Telefon" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Verein</label>
+							<InputSelect class="form-select" @bind-Value="_bearbeiten.VereinId">
+								<option value="">(kein Verein)</option>
+								@foreach (var v in _vereine)
+								{
+									<option value="@v.Id">@v.Name</option>
+								}
+							</InputSelect>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Administrator" id="adminCheck" />
+							<label class="form-check-label" for="adminCheck">Administrator</label>
+						</div>
 
-				<button type="submit" class="btn btn-primary">Speichern</button>
-				<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
-			</EditForm>
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
 		</div>
 	</div>
 }

@@ -42,6 +42,7 @@ namespace Bewirtung
             // 
             // btnLoeschen
             // 
+            btnLoeschen.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnLoeschen.Location = new Point(968, 6);
             btnLoeschen.Name = "btnLoeschen";
             btnLoeschen.Size = new Size(120, 40);
@@ -52,6 +53,7 @@ namespace Bewirtung
             // 
             // btnAendern
             // 
+            btnAendern.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnAendern.Location = new Point(852, 6);
             btnAendern.Name = "btnAendern";
             btnAendern.Size = new Size(120, 40);
@@ -62,6 +64,7 @@ namespace Bewirtung
             // 
             // btnNeu
             // 
+            btnNeu.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnNeu.Location = new Point(736, 6);
             btnNeu.Name = "btnNeu";
             btnNeu.Size = new Size(120, 40);

@@ -42,7 +42,7 @@ public partial class BestellungSeite : ContentPage
     {
         try
         {
-            var tische = await _tischApiClient.GetTischeAsync();
+            var tische = await _tischApiClient.GetTischeAsync(_termin.BewirtungsDatum);
             TischPicker.ItemsSource = tische;
         }
         catch (Exception ex)

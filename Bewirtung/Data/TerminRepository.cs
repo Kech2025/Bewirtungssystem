@@ -7,6 +7,38 @@ namespace Bewirtung.Data
     /// </summary>
     public class TerminRepository
     {
+        public void LoadTerminCombobox(ComboBox comboBox, List<Termin> termine)
+        {
+            Termin nextdate = new Termin            
+            {
+                BewirtungsDatum = 0,
+                VereinId = 0,
+                VereinName = "Nächster Termin"
+            };
+            comboBox.DisplayMember = nameof(Termin.Anzeige);
+            comboBox.DataSource = null;
+            //comboBox.DataSource = termine;
+            foreach (var termin in termine.OrderBy(t => t.BewirtungsDatum))
+            {
+                comboBox.Items.Add(termin);
+                if(termin.BewirtungsDatum > (DateTime.Now.Year * 10000 + DateTime.Now.Month * 100 + DateTime.Now.Day) && nextdate.BewirtungsDatum == 0)
+                {
+                    nextdate = termin;
+                }
+            }
+            foreach (var item in comboBox.Items)
+            {
+                if (item is Termin t && t.BewirtungsDatum == nextdate.BewirtungsDatum && t.VereinId == nextdate.VereinId)
+                {
+                    comboBox.SelectedItem = item;
+                    break;
+                }
+            }
+            if (comboBox.SelectedItem == null && comboBox.Items.Count > 0)
+            {
+                comboBox.SelectedIndex = 0;
+            }
+        }
         public List<Termin> GetAll()
         {
             var result = new List<Termin>();

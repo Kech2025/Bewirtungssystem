@@ -5,6 +5,8 @@ namespace Bewirtung
         public Main()
         {
             InitializeComponent();
+            
+            Cursor.Current = Cursors.Default;
         }
 
         private void benutzerToolStripMenuItem_Click(object sender, EventArgs e)
@@ -158,6 +160,32 @@ namespace Bewirtung
 
         private void uebersichtTagToolStripMenuItem_Click(object sender, EventArgs e)
         {
+        }
+
+        private void preislisteToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var existing = MdiChildren.OfType<PreislisteForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new PreislisteForm { MdiParent = this };
+            form.Show();
+        }
+
+        private void fehlerhafteAufträgeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var existing = MdiChildren.OfType<FehlerForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new FehlerForm { MdiParent = this };
+            form.Show();
         }
     }
 }

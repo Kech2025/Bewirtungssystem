@@ -87,18 +87,8 @@ namespace Bewirtung
         private void LoadFilterTermine()
         {
             var termine = _terminRepository.GetAll();
-
             cmbFilterTermin.SelectedIndexChanged -= cmbFilterTermin_SelectedIndexChanged;
-            cmbFilterTermin.DisplayMember = nameof(Termin.Anzeige);
-            cmbFilterTermin.Items.Clear();
-            foreach (var termin in termine)
-            {
-                cmbFilterTermin.Items.Add(termin);
-            }
-            if (cmbFilterTermin.Items.Count > 0)
-            {
-                cmbFilterTermin.SelectedIndex = 0;
-            }
+            _terminRepository.LoadTerminCombobox(cmbFilterTermin, termine);
             cmbFilterTermin.SelectedIndexChanged += cmbFilterTermin_SelectedIndexChanged;
 
             LoadZeilen();
@@ -114,11 +104,20 @@ namespace Bewirtung
             if (cmbFilterTermin.SelectedItem is not Termin termin)
             {
                 _zeilen = new List<AbrechnungZeile>();
+                btnFehler.Visible = false;
             }
             else
             {
                 _zeilen = _abrechnungRepository.GetForTermin(termin.BewirtungsDatum);
-
+                var fehlerhafteZeilen = _abrechnungRepository.GetFehlerListe(termin.BewirtungsDatum);
+                if(fehlerhafteZeilen.Any())
+                {
+                    btnFehler.Visible = true;
+                }
+                else
+                {
+                    btnFehler.Visible = false;
+                }
             }
 
             LoadFilterBenutzer();
@@ -218,7 +217,7 @@ namespace Bewirtung
                 gefiltert = gefiltert.Where(z => z.Preiskategorie == (int)Preiskategorie.Getraenke);
             }
 
-            
+
             if (dataGridViewAbrechnung.Rows.Count > 0)
             {
                 dataGridViewAbrechnung.ClearSelection();
@@ -259,8 +258,22 @@ namespace Bewirtung
 
             lblUmsatzVerkauf.Text = $"Umsatz aus Verkauf: {umsatzVerkauf:C}";
             lblMwstSumme.Text = $"Mehrwertsteuer: {mwstSumme:C}";
-            lblUmsatzAuftrag.Text = $"Umsatz aus Auftrag: {umsatzVerkauf + trinkgeld:C}";
+            lblUmsatzAuftrag.Text = $"Bareinnahmen: {umsatzVerkauf + trinkgeld:C}";
             lblTrinkgeld.Text = $"Trinkgeld: {trinkgeld:C}";
+        }
+
+        private void btnFehler_Click(object sender, EventArgs e)
+        {
+            var existing = MdiChildren.OfType<FehlerForm>().FirstOrDefault();
+            if (existing != null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var form = new FehlerForm { MdiParent = this.ParentForm };
+            form.TerminPreisliste = (cmbFilterTermin.SelectedItem as Termin)?.BewirtungsDatum ?? 0;
+            form.Show();
         }
     }
 }

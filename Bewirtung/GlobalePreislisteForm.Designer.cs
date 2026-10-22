@@ -50,7 +50,7 @@ namespace Bewirtung
             dataGridViewMain.RowHeadersVisible = false;
             dataGridViewMain.RowHeadersWidth = 62;
             dataGridViewMain.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridViewMain.Size = new Size(869, 942);
+            dataGridViewMain.Size = new Size(793, 942);
             dataGridViewMain.TabIndex = 0;
             dataGridViewMain.CellDoubleClick += dataGridViewMain_CellDoubleClick;
             dataGridViewMain.SelectionChanged += dataGridViewMain_SelectionChanged;
@@ -58,7 +58,7 @@ namespace Bewirtung
             // btnLoeschen
             // 
             btnLoeschen.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnLoeschen.Location = new Point(761, 80);
+            btnLoeschen.Location = new Point(687, 80);
             btnLoeschen.Name = "btnLoeschen";
             btnLoeschen.Size = new Size(120, 40);
             btnLoeschen.TabIndex = 2;
@@ -69,7 +69,7 @@ namespace Bewirtung
             // btnSpeichern
             // 
             btnSpeichern.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnSpeichern.Location = new Point(649, 80);
+            btnSpeichern.Location = new Point(575, 80);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
             btnSpeichern.TabIndex = 1;
@@ -80,7 +80,7 @@ namespace Bewirtung
             // btnNeu
             // 
             btnNeu.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnNeu.Location = new Point(533, 80);
+            btnNeu.Location = new Point(459, 80);
             btnNeu.Name = "btnNeu";
             btnNeu.Size = new Size(120, 40);
             btnNeu.TabIndex = 0;
@@ -90,7 +90,7 @@ namespace Bewirtung
             // 
             // btnZusatzLoeschen
             // 
-            btnZusatzLoeschen.Location = new Point(440, 31);
+            btnZusatzLoeschen.Location = new Point(540, 31);
             btnZusatzLoeschen.Name = "btnZusatzLoeschen";
             btnZusatzLoeschen.Size = new Size(120, 40);
             btnZusatzLoeschen.TabIndex = 2;
@@ -100,7 +100,7 @@ namespace Bewirtung
             // 
             // btnZusatzSpeichern
             // 
-            btnZusatzSpeichern.Location = new Point(323, 31);
+            btnZusatzSpeichern.Location = new Point(423, 31);
             btnZusatzSpeichern.Name = "btnZusatzSpeichern";
             btnZusatzSpeichern.Size = new Size(120, 40);
             btnZusatzSpeichern.TabIndex = 1;
@@ -110,7 +110,7 @@ namespace Bewirtung
             // 
             // btnZusatzNeu
             // 
-            btnZusatzNeu.Location = new Point(206, 31);
+            btnZusatzNeu.Location = new Point(306, 31);
             btnZusatzNeu.Name = "btnZusatzNeu";
             btnZusatzNeu.Size = new Size(120, 40);
             btnZusatzNeu.TabIndex = 0;
@@ -126,12 +126,12 @@ namespace Bewirtung
             groupBoxZusatz.Controls.Add(btnZusatzLoeschen);
             groupBoxZusatz.Controls.Add(pictureBoxZusatz);
             groupBoxZusatz.Controls.Add(dataGridViewZusatz);
-            groupBoxZusatz.Location = new Point(897, 74);
+            groupBoxZusatz.Location = new Point(813, 74);
             groupBoxZusatz.Name = "groupBoxZusatz";
-            groupBoxZusatz.Size = new Size(582, 988);
+            groupBoxZusatz.Size = new Size(666, 988);
             groupBoxZusatz.TabIndex = 1;
             groupBoxZusatz.TabStop = false;
-            groupBoxZusatz.Text = "Zusatzpositionen";
+            groupBoxZusatz.Text = "Unterpositionen";
             // 
             // pictureBoxZusatz
             // 
@@ -139,7 +139,7 @@ namespace Bewirtung
             pictureBoxZusatz.BorderStyle = BorderStyle.FixedSingle;
             pictureBoxZusatz.Location = new Point(164, 726);
             pictureBoxZusatz.Name = "pictureBoxZusatz";
-            pictureBoxZusatz.Size = new Size(256, 256);
+            pictureBoxZusatz.Size = new Size(340, 256);
             pictureBoxZusatz.SizeMode = PictureBoxSizeMode.Zoom;
             pictureBoxZusatz.TabIndex = 5;
             pictureBoxZusatz.TabStop = false;
@@ -151,14 +151,14 @@ namespace Bewirtung
             dataGridViewZusatz.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             dataGridViewZusatz.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dataGridViewZusatz.EditMode = DataGridViewEditMode.EditProgrammatically;
-            dataGridViewZusatz.Location = new Point(20, 71);
+            dataGridViewZusatz.Location = new Point(6, 71);
             dataGridViewZusatz.MultiSelect = false;
             dataGridViewZusatz.Name = "dataGridViewZusatz";
             dataGridViewZusatz.ReadOnly = true;
             dataGridViewZusatz.RowHeadersVisible = false;
             dataGridViewZusatz.RowHeadersWidth = 62;
             dataGridViewZusatz.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridViewZusatz.Size = new Size(540, 636);
+            dataGridViewZusatz.Size = new Size(654, 636);
             dataGridViewZusatz.TabIndex = 0;
             dataGridViewZusatz.CellDoubleClick += dataGridViewZusatz_CellDoubleClick;
             // 

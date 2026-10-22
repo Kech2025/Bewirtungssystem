@@ -1,4 +1,8 @@
+using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Office2010.Excel;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Data.Sqlite;
+using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 namespace Bewirtung.Data
 {
@@ -9,12 +13,7 @@ namespace Bewirtung.Data
     /// </summary>
     public class SpeisekarteRepository
     {
-        /// <summary>
-        /// Liefert alle Positionen (inkl. Zusatz-Varianten) der globalen Speisekarte.
-        /// GlobalPreis wird aus GlobalerPreis der zum Datum gültigen Periode ermittelt.
-        /// Bereits für den Termin gespeicherte Auswahl/Preise werden übernommen.
-        /// </summary>
-        public List<SpeisekartenZeile> GetSpeisekarte(int bewirtungsdatum, long vereinId)
+        public List<SpeisekartenZeile> GetFehlerAbrechnung(int bewirtungsdatum)
         {
             var zeilen = new List<SpeisekartenZeile>();
             using var connection = Database.CreateConnection();
@@ -22,14 +21,16 @@ namespace Bewirtung.Data
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = @"
-                    SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung, COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0)  AS GlobalPreis  
+                    SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung, COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0)  AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient  
                     FROM GlobalePreisliste p
-                    LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id
+                    LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id --AND z.Druck = 1
                     LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = p.Id AND gp.ZusatzId = 0 AND gp.Preis > 0 
                         AND gp.GueltigAb <= 20260928 AND (gp.GueltigBis = 0 OR gp.GueltigBis >= 20260928)
                     LEFT JOIN GlobalerPreis gp2 ON gp2.GlobalePreislisteId = p.Id and gp2.ZusatzId = z.Id
                         AND gp2.GueltigAb <= 20260928 AND (gp2.GueltigBis = 0 OR gp2.GueltigBis >= 20260928)
+                    --WHERE p.Druck = 1
                     ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
+
                 command.Parameters.AddWithValue("$datum", bewirtungsdatum);
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
@@ -44,7 +45,54 @@ namespace Bewirtung.Data
                         KategorieText = kategorie == Preiskategorie.Getraenke ? "Getränke" : "Speisen",
                         ZusatzId = reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
                         ZusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                        GlobalPreis = reader.IsDBNull(5) ? null : (decimal?)reader.GetDouble(5)
+                        GlobalPreis = reader.IsDBNull(5) ? null : (decimal?)reader.GetDouble(5),
+                        DruckParent = reader.IsDBNull(6) ? 0 : (int)reader.GetInt32(6),
+                        DruckClient = reader.IsDBNull(7) ? 0 : (int)reader.GetInt32(7)
+                    });
+                }
+            }
+            return zeilen;
+        }
+        /// <summary>
+        /// Liefert alle Positionen (inkl. Zusatz-Varianten) der globalen Speisekarte.
+        /// GlobalPreis wird aus GlobalerPreis der zum Datum gültigen Periode ermittelt.
+        /// Bereits für den Termin gespeicherte Auswahl/Preise werden übernommen.
+        /// </summary>
+        public List<SpeisekartenZeile> GetSpeisekarte(int bewirtungsdatum, long vereinId)
+        {
+            var zeilen = new List<SpeisekartenZeile>();
+            using var connection = Database.CreateConnection();
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = @"
+                    SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung, COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0)  AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient  
+                    FROM GlobalePreisliste p
+                    LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id --AND z.Druck = 1
+                    LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = p.Id AND gp.ZusatzId = 0 AND gp.Preis > 0 
+                        AND gp.GueltigAb <= 20260928 AND (gp.GueltigBis = 0 OR gp.GueltigBis >= 20260928)
+                    LEFT JOIN GlobalerPreis gp2 ON gp2.GlobalePreislisteId = p.Id and gp2.ZusatzId = z.Id
+                        AND gp2.GueltigAb <= 20260928 AND (gp2.GueltigBis = 0 OR gp2.GueltigBis >= 20260928)
+                    --WHERE p.Druck = 1
+                    ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
+               
+                command.Parameters.AddWithValue("$datum", bewirtungsdatum);
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var kategorie = reader.IsDBNull(2)
+                        ? Preiskategorie.Speisen
+                        : (Preiskategorie)reader.GetInt64(2);
+                    zeilen.Add(new SpeisekartenZeile
+                    {
+                        PreislisteId = reader.GetInt64(0),
+                        Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                        KategorieText = kategorie == Preiskategorie.Getraenke ? "Getränke" : "Speisen",
+                        ZusatzId = reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                        ZusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                        GlobalPreis = reader.IsDBNull(5) ? null : (decimal?)reader.GetDouble(5),
+                        DruckParent = reader.IsDBNull(6) ? 0 : (int)reader.GetInt32(6),
+                        DruckClient = reader.IsDBNull(7) ? 0 : (int)reader.GetInt32(7)
                     });
                 }
             }

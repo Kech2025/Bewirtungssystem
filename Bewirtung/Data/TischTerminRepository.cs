@@ -7,6 +7,7 @@ namespace Bewirtung.Data
     /// </summary>
     public class TischTerminRepository
     {
+        
         public List<TischTermin> GetAll()
         {
             var result = new List<TischTermin>();

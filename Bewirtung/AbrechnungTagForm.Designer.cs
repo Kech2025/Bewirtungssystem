@@ -32,6 +32,7 @@ namespace Bewirtung
             lblMwstSumme = new Label();
             lblUmsatzAuftrag = new Label();
             lblTrinkgeld = new Label();
+            btnFehler = new Button();
             grpArt.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridViewAbrechnung).BeginInit();
             SuspendLayout();
@@ -166,16 +167,16 @@ namespace Bewirtung
             dataGridViewAbrechnung.RowHeadersVisible = false;
             dataGridViewAbrechnung.RowHeadersWidth = 62;
             dataGridViewAbrechnung.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridViewAbrechnung.Size = new Size(1312, 434);
+            dataGridViewAbrechnung.Size = new Size(1615, 549);
             dataGridViewAbrechnung.TabIndex = 7;
             // 
             // lblUmsatzVerkauf
             // 
             lblUmsatzVerkauf.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lblUmsatzVerkauf.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblUmsatzVerkauf.Location = new Point(12, 542);
+            lblUmsatzVerkauf.Location = new Point(12, 657);
             lblUmsatzVerkauf.Name = "lblUmsatzVerkauf";
-            lblUmsatzVerkauf.Size = new Size(1312, 32);
+            lblUmsatzVerkauf.Size = new Size(1615, 32);
             lblUmsatzVerkauf.TabIndex = 8;
             lblUmsatzVerkauf.Text = "Umsatz aus Verkauf:";
             lblUmsatzVerkauf.TextAlign = ContentAlignment.MiddleRight;
@@ -184,9 +185,9 @@ namespace Bewirtung
             // 
             lblMwstSumme.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lblMwstSumme.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblMwstSumme.Location = new Point(12, 576);
+            lblMwstSumme.Location = new Point(12, 691);
             lblMwstSumme.Name = "lblMwstSumme";
-            lblMwstSumme.Size = new Size(1312, 32);
+            lblMwstSumme.Size = new Size(1615, 32);
             lblMwstSumme.TabIndex = 9;
             lblMwstSumme.Text = "Mehrwertsteuer:";
             lblMwstSumme.TextAlign = ContentAlignment.MiddleRight;
@@ -195,9 +196,9 @@ namespace Bewirtung
             // 
             lblUmsatzAuftrag.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lblUmsatzAuftrag.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblUmsatzAuftrag.Location = new Point(12, 610);
+            lblUmsatzAuftrag.Location = new Point(12, 725);
             lblUmsatzAuftrag.Name = "lblUmsatzAuftrag";
-            lblUmsatzAuftrag.Size = new Size(1312, 32);
+            lblUmsatzAuftrag.Size = new Size(1615, 32);
             lblUmsatzAuftrag.TabIndex = 10;
             lblUmsatzAuftrag.Text = "Umsatz Barzahlung:";
             lblUmsatzAuftrag.TextAlign = ContentAlignment.MiddleRight;
@@ -206,18 +207,29 @@ namespace Bewirtung
             // 
             lblTrinkgeld.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lblTrinkgeld.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblTrinkgeld.Location = new Point(12, 644);
+            lblTrinkgeld.Location = new Point(12, 759);
             lblTrinkgeld.Name = "lblTrinkgeld";
-            lblTrinkgeld.Size = new Size(1312, 32);
+            lblTrinkgeld.Size = new Size(1615, 32);
             lblTrinkgeld.TabIndex = 11;
             lblTrinkgeld.Text = "Trinkgeld:";
             lblTrinkgeld.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // btnFehler
+            // 
+            btnFehler.Location = new Point(1267, 35);
+            btnFehler.Name = "btnFehler";
+            btnFehler.Size = new Size(201, 38);
+            btnFehler.TabIndex = 14;
+            btnFehler.Text = "Fehler beseitigen";
+            btnFehler.UseVisualStyleBackColor = true;
+            btnFehler.Click += btnFehler_Click;
             // 
             // AbrechnungTagForm
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1336, 700);
+            ClientSize = new Size(1639, 815);
+            Controls.Add(btnFehler);
             Controls.Add(lblTermin);
             Controls.Add(cmbFilterTermin);
             Controls.Add(lblBenutzer);
@@ -258,5 +270,6 @@ namespace Bewirtung
         private Label lblMwstSumme;
         private Label lblUmsatzAuftrag;
         private Label lblTrinkgeld;
+        private Button btnFehler;
     }
 }

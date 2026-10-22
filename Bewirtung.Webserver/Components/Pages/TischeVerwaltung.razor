@@ -1,0 +1,174 @@
+@page "/tische"
+@rendermode RenderMode.InteractiveServer
+@inject TischRepository TischRepo
+@inject BereichTischeRepository BereichRepo
+
+<PageTitle>Tische verwalten</PageTitle>
+
+<h1>Tische verwalten</h1>
+
+@if (_tische is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neuer Tisch</button>
+
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Tischnummer</th>
+				<th>Bereich</th>
+				<th>Sofortlieferung</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var t in _tische)
+			{
+				<tr>
+					<td>@t.Tischnummer</td>
+					<td>@t.BereichName</td>
+					<td>@(t.SofortLieferung == 1 ? "Ja" : "Nein")</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(t)">Bearbeiten</button>
+						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(t)">Löschen</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (!string.IsNullOrEmpty(_fehler))
+{
+	<div class="alert-danger">@_fehler</div>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_istNeu ? "Neuer Tisch" : "Tisch bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Tischnummer</label>
+							<InputNumber class="form-control" @bind-Value="_bearbeiten.Tischnummer" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Bereich</label>
+							<InputSelect class="form-select" @bind-Value="_bearbeiten.BereichId">
+								<option value="">(kein Bereich)</option>
+								@foreach (var bereich in _bereiche)
+								{
+									<option value="@bereich.BereichId">@bereich.Bezeichnung</option>
+								}
+							</InputSelect>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_sofortLieferung" id="sofortCheck" />
+							<label class="form-check-label" for="sofortCheck">Sofortlieferung</label>
+						</div>
+
+						@if (!string.IsNullOrEmpty(_dialogFehler))
+						{
+							<div class="alert-danger mb-2">@_dialogFehler</div>
+						}
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<Tisch>? _tische;
+	private List<BereichOption> _bereiche = new();
+	private Tisch? _bearbeiten;
+	private bool _istNeu;
+	private int _alteNummer;
+	private bool _sofortLieferung;
+	private string? _fehler;
+	private string? _dialogFehler;
+
+	protected override void OnInitialized()
+	{
+		_bereiche = BereichRepo.GetAll();
+		Laden();
+	}
+
+	private void Laden() => _tische = TischRepo.GetAll();
+
+	private void Neu()
+	{
+		_fehler = null;
+		_dialogFehler = null;
+		_istNeu = true;
+		_bearbeiten = new Tisch();
+		_sofortLieferung = false;
+	}
+
+	private void Bearbeiten(Tisch t)
+	{
+		_fehler = null;
+		_dialogFehler = null;
+		_istNeu = false;
+		_alteNummer = t.Tischnummer;
+		_bearbeiten = new Tisch
+		{
+			Tischnummer = t.Tischnummer,
+			BereichId = t.BereichId,
+			SofortLieferung = t.SofortLieferung
+		};
+		_sofortLieferung = t.SofortLieferung == 1;
+	}
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		_bearbeiten.SofortLieferung = _sofortLieferung ? 1 : 0;
+		_dialogFehler = null;
+
+		if (_istNeu)
+		{
+			if (TischRepo.Exists(_bearbeiten.Tischnummer))
+			{
+				_dialogFehler = "Diese Tischnummer existiert bereits.";
+				return;
+			}
+			TischRepo.Insert(_bearbeiten);
+		}
+		else
+		{
+			if (_bearbeiten.Tischnummer != _alteNummer && TischRepo.Exists(_bearbeiten.Tischnummer))
+			{
+				_dialogFehler = "Diese Tischnummer existiert bereits.";
+				return;
+			}
+			TischRepo.Update(_alteNummer, _bearbeiten);
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+
+	private void Loeschen(Tisch t)
+	{
+		TischRepo.Delete(t.Tischnummer);
+		Laden();
+	}
+}

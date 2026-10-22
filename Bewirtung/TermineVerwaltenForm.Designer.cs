@@ -21,6 +21,7 @@ namespace Bewirtung
             cmbVereine = new ComboBox();
             tabControl1 = new TabControl();
             tabSpeisekarte = new TabPage();
+            cmdDrucken = new Button();
             cmdNeuePositionSpeiseplan = new Button();
             button1 = new Button();
             split = new SplitContainer();
@@ -35,6 +36,7 @@ namespace Bewirtung
             dataGridViewHelfer = new DataGridView();
             btnHelferEntfernen = new Button();
             btnHelferHinzufuegen = new Button();
+            groupBox1 = new GroupBox();
             tabControl1.SuspendLayout();
             tabSpeisekarte.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)split).BeginInit();
@@ -47,12 +49,13 @@ namespace Bewirtung
             ((System.ComponentModel.ISupportInitialize)dataGridViewTische).BeginInit();
             tabHelfer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dataGridViewHelfer).BeginInit();
+            groupBox1.SuspendLayout();
             SuspendLayout();
             // 
             // btnSpeichern
             // 
             btnSpeichern.Enabled = false;
-            btnSpeichern.Location = new Point(585, 17);
+            btnSpeichern.Location = new Point(417, 21);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
             btnSpeichern.TabIndex = 5;
@@ -62,8 +65,7 @@ namespace Bewirtung
             // 
             // btnNeuerVerein
             // 
-            btnNeuerVerein.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnNeuerVerein.Location = new Point(1371, 17);
+            btnNeuerVerein.Location = new Point(555, 21);
             btnNeuerVerein.Name = "btnNeuerVerein";
             btnNeuerVerein.Size = new Size(320, 40);
             btnNeuerVerein.TabIndex = 6;
@@ -83,9 +85,9 @@ namespace Bewirtung
             // cmbVereine
             // 
             cmbVereine.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbVereine.Location = new Point(257, 22);
+            cmbVereine.Location = new Point(14, 26);
             cmbVereine.Name = "cmbVereine";
-            cmbVereine.Size = new Size(320, 33);
+            cmbVereine.Size = new Size(383, 33);
             cmbVereine.TabIndex = 4;
             cmbVereine.SelectedIndexChanged += cmbVereine_SelectedIndexChanged;
             // 
@@ -98,10 +100,10 @@ namespace Bewirtung
             tabControl1.Controls.Add(tabHelfer);
             tabControl1.DrawMode = TabDrawMode.OwnerDrawFixed;
             tabControl1.ItemSize = new Size(160, 33);
-            tabControl1.Location = new Point(257, 63);
+            tabControl1.Location = new Point(257, 81);
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.Size = new Size(1443, 797);
+            tabControl1.Size = new Size(1443, 779);
             tabControl1.SizeMode = TabSizeMode.Fixed;
             tabControl1.TabIndex = 7;
             tabControl1.DrawItem += tabControl1_DrawItem;
@@ -110,20 +112,33 @@ namespace Bewirtung
             // 
             tabSpeisekarte.BackColor = SystemColors.Control;
             tabSpeisekarte.BorderStyle = BorderStyle.FixedSingle;
+            tabSpeisekarte.Controls.Add(cmdDrucken);
             tabSpeisekarte.Controls.Add(cmdNeuePositionSpeiseplan);
             tabSpeisekarte.Controls.Add(button1);
             tabSpeisekarte.Controls.Add(split);
             tabSpeisekarte.Location = new Point(4, 37);
             tabSpeisekarte.Name = "tabSpeisekarte";
             tabSpeisekarte.Padding = new Padding(3, 50, 3, 3);
-            tabSpeisekarte.Size = new Size(1435, 756);
+            tabSpeisekarte.Size = new Size(1435, 738);
             tabSpeisekarte.TabIndex = 0;
             tabSpeisekarte.Text = "Speisekarte";
             // 
+            // cmdDrucken
+            // 
+            cmdDrucken.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            cmdDrucken.BackColor = SystemColors.ControlLightLight;
+            cmdDrucken.Enabled = false;
+            cmdDrucken.Location = new Point(1141, 6);
+            cmdDrucken.Name = "cmdDrucken";
+            cmdDrucken.Size = new Size(140, 38);
+            cmdDrucken.TabIndex = 5;
+            cmdDrucken.Text = "Drucken";
+            cmdDrucken.UseVisualStyleBackColor = false;
+            cmdDrucken.Click += cmdDrucken_Click;
+            // 
             // cmdNeuePositionSpeiseplan
             // 
-            cmdNeuePositionSpeiseplan.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            cmdNeuePositionSpeiseplan.Location = new Point(3, 6);
+            cmdNeuePositionSpeiseplan.Location = new Point(6, 6);
             cmdNeuePositionSpeiseplan.Name = "cmdNeuePositionSpeiseplan";
             cmdNeuePositionSpeiseplan.Size = new Size(502, 38);
             cmdNeuePositionSpeiseplan.TabIndex = 4;
@@ -155,8 +170,8 @@ namespace Bewirtung
             // split.Panel2
             // 
             split.Panel2.Controls.Add(gridAuswahl);
-            split.Size = new Size(1427, 701);
-            split.SplitterDistance = 903;
+            split.Size = new Size(1427, 683);
+            split.SplitterDistance = 762;
             split.SplitterWidth = 6;
             split.TabIndex = 2;
             // 
@@ -171,7 +186,7 @@ namespace Bewirtung
             gridGlobal.RowHeadersVisible = false;
             gridGlobal.RowHeadersWidth = 62;
             gridGlobal.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            gridGlobal.Size = new Size(903, 701);
+            gridGlobal.Size = new Size(762, 683);
             gridGlobal.TabIndex = 0;
             // 
             // gridAuswahl
@@ -184,7 +199,7 @@ namespace Bewirtung
             gridAuswahl.Name = "gridAuswahl";
             gridAuswahl.RowHeadersVisible = false;
             gridAuswahl.RowHeadersWidth = 62;
-            gridAuswahl.Size = new Size(518, 701);
+            gridAuswahl.Size = new Size(659, 683);
             gridAuswahl.TabIndex = 0;
             // 
             // tabTische
@@ -198,7 +213,7 @@ namespace Bewirtung
             tabTische.Location = new Point(4, 37);
             tabTische.Name = "tabTische";
             tabTische.Padding = new Padding(3);
-            tabTische.Size = new Size(1435, 756);
+            tabTische.Size = new Size(1435, 738);
             tabTische.TabIndex = 1;
             tabTische.Text = "Tische zuordnen";
             // 
@@ -246,7 +261,7 @@ namespace Bewirtung
             dataGridViewTische.RowHeadersVisible = false;
             dataGridViewTische.RowHeadersWidth = 62;
             dataGridViewTische.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridViewTische.Size = new Size(1421, 700);
+            dataGridViewTische.Size = new Size(1421, 682);
             dataGridViewTische.TabIndex = 4;
             // 
             // tabHelfer
@@ -258,7 +273,7 @@ namespace Bewirtung
             tabHelfer.Controls.Add(btnHelferHinzufuegen);
             tabHelfer.Location = new Point(4, 37);
             tabHelfer.Name = "tabHelfer";
-            tabHelfer.Size = new Size(1435, 756);
+            tabHelfer.Size = new Size(1435, 738);
             tabHelfer.TabIndex = 2;
             tabHelfer.Text = "Helfer zuordnen";
             // 
@@ -276,7 +291,7 @@ namespace Bewirtung
             dataGridViewHelfer.RowHeadersVisible = false;
             dataGridViewHelfer.RowHeadersWidth = 62;
             dataGridViewHelfer.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dataGridViewHelfer.Size = new Size(1415, 700);
+            dataGridViewHelfer.Size = new Size(1415, 682);
             dataGridViewHelfer.TabIndex = 5;
             // 
             // btnHelferEntfernen
@@ -299,6 +314,19 @@ namespace Bewirtung
             btnHelferHinzufuegen.Text = "Hinzufügen";
             btnHelferHinzufuegen.UseVisualStyleBackColor = true;
             // 
+            // groupBox1
+            // 
+            groupBox1.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            groupBox1.Controls.Add(btnNeuerVerein);
+            groupBox1.Controls.Add(cmbVereine);
+            groupBox1.Controls.Add(btnSpeichern);
+            groupBox1.FlatStyle = FlatStyle.Flat;
+            groupBox1.Location = new Point(259, 6);
+            groupBox1.Name = "groupBox1";
+            groupBox1.Size = new Size(895, 69);
+            groupBox1.TabIndex = 8;
+            groupBox1.TabStop = false;
+            // 
             // TermineVerwaltenForm
             // 
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -306,10 +334,8 @@ namespace Bewirtung
             BackColor = SystemColors.ControlLightLight;
             ClientSize = new Size(1701, 865);
             Controls.Add(tabControl1);
-            Controls.Add(cmbVereine);
             Controls.Add(monthCalendar1);
-            Controls.Add(btnSpeichern);
-            Controls.Add(btnNeuerVerein);
+            Controls.Add(groupBox1);
             Name = "TermineVerwaltenForm";
             Text = "Termine verwalten";
             tabControl1.ResumeLayout(false);
@@ -324,6 +350,7 @@ namespace Bewirtung
             ((System.ComponentModel.ISupportInitialize)dataGridViewTische).EndInit();
             tabHelfer.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dataGridViewHelfer).EndInit();
+            groupBox1.ResumeLayout(false);
             ResumeLayout(false);
         }
 
@@ -347,5 +374,7 @@ namespace Bewirtung
         private DataGridView gridAuswahl;
         private Button button1;
         private Button cmdNeuePositionSpeiseplan;
+        private Button cmdDrucken;
+        private GroupBox groupBox1;
     }
 }

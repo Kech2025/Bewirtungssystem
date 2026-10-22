@@ -28,8 +28,9 @@ namespace Bewirtung
             _eintrag = eintrag ?? new TischTermin();
             Text = eintrag == null ? "Neue Tisch-Zuordnung" : "Tisch-Zuordnung ändern";
 
-            cmbTermin.DisplayMember = nameof(Termin.Anzeige);
-            cmbTermin.DataSource = termine.ToList();
+            TerminRepository terminRepository = new();
+            var terminedate = terminRepository.GetAll();
+            terminRepository.LoadTerminCombobox(cmbTermin, terminedate);
 
             SetupTischeGrid();
             dataGridViewTische.DataSource = new SortableBindingList<Tisch>(tische.ToList());

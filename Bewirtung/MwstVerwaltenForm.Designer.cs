@@ -30,13 +30,15 @@ namespace Bewirtung
             dataGridViewMwst.MultiSelect = false;
             dataGridViewMwst.Name = "dataGridViewMwst";
             dataGridViewMwst.RowHeadersVisible = false;
+            dataGridViewMwst.RowHeadersWidth = 62;
             dataGridViewMwst.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dataGridViewMwst.Size = new Size(576, 428);
             dataGridViewMwst.TabIndex = 0;
             // 
             // btnSpeichern
             // 
-            btnSpeichern.Location = new Point(468, 6);
+            btnSpeichern.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSpeichern.Location = new Point(468, 19);
             btnSpeichern.Name = "btnSpeichern";
             btnSpeichern.Size = new Size(120, 40);
             btnSpeichern.TabIndex = 1;

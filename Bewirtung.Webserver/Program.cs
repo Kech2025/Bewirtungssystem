@@ -11,6 +11,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<Database>();
 builder.Services.AddScoped<BenutzerRepository>();
 builder.Services.AddScoped<VereinRepository>();
+builder.Services.AddScoped<TischRepository>();
+builder.Services.AddScoped<BereichTischeRepository>();
 
 var app = builder.Build();
 

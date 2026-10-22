@@ -83,6 +83,7 @@ main {
 .card {
     border: 1px solid #ddd;
     border-radius: 6px;
+    background: #ffffff;
     max-width: 560px;
 }
 
@@ -110,3 +111,33 @@ main {
 .mt-4 { margin-top: 1.5rem; }
 .form-check { display: flex; align-items: center; gap: 0.4rem; }
 .text-danger { color: #c23b3b; }
+
+.alert-danger {
+    background: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 3rem 1rem;
+    z-index: 1050;
+}
+
+.modal-dialog {
+    width: 100%;
+    max-width: 560px;
+}
+
+.modal-dialog .card {
+    max-width: none;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}

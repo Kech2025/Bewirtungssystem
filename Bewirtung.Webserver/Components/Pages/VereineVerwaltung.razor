@@ -1,0 +1,147 @@
+@page "/vereine"
+@rendermode RenderMode.InteractiveServer
+@inject VereinRepository VereinRepo
+
+<PageTitle>Vereine verwalten</PageTitle>
+
+<h1>Vereine verwalten</h1>
+
+@if (_vereine is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neuer Verein</button>
+
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Ort</th>
+				<th>Straße</th>
+				<th>Ansprechpartner</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var v in _vereine)
+			{
+				<tr>
+					<td>@v.Name</td>
+					<td>@v.Ort</td>
+					<td>@v.Strasse</td>
+					<td>@v.AnsprechpartnerName</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(v)">Bearbeiten</button>
+						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(v)">Löschen</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_bearbeiten.Id == 0 ? "Neuer Verein" : "Verein bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Name</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Straße</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Strasse" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">PLZ</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Plz" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Ort</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Ort" />
+						</div>
+						<div class="mb-3">
+							<label class="form-label">Ansprechpartner</label>
+							<InputSelect class="form-select" @bind-Value="_bearbeiten.AnsprechpartnerId">
+								<option value="">(kein Ansprechpartner)</option>
+								@foreach (var b in _benutzer)
+								{
+									<option value="@b.UserId">@b.Name</option>
+								}
+							</InputSelect>
+						</div>
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<Verein>? _vereine;
+	private List<BenutzerOption> _benutzer = new();
+	private Verein? _bearbeiten;
+
+	protected override void OnInitialized()
+	{
+		_benutzer = VereinRepo.GetBenutzer();
+		Laden();
+	}
+
+	private void Laden() => _vereine = VereinRepo.GetAllVereine();
+
+	private void Neu() => _bearbeiten = new Verein();
+
+	private void Bearbeiten(Verein v) => _bearbeiten = new Verein
+	{
+		Id = v.Id,
+		Name = v.Name,
+		AnsprechpartnerId = v.AnsprechpartnerId,
+		Strasse = v.Strasse,
+		Plz = v.Plz,
+		Ort = v.Ort
+	};
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		if (_bearbeiten.Id == 0)
+		{
+			VereinRepo.Insert(_bearbeiten);
+		}
+		else
+		{
+			VereinRepo.Update(_bearbeiten);
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+
+	private void Loeschen(Verein v)
+	{
+		VereinRepo.Delete(v.Id);
+		if (_bearbeiten?.Id == v.Id)
+		{
+			_bearbeiten = null;
+		}
+		Laden();
+	}
+}

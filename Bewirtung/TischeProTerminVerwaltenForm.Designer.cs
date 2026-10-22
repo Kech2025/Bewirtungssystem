@@ -42,12 +42,45 @@ namespace Bewirtung
             dataGridViewTischTermin.TabIndex = 0;
             dataGridViewTischTermin.CellDoubleClick += dataGridViewTischTermin_CellDoubleClick;
             // 
+            // btnLoeschen
+            // 
+            btnLoeschen.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnLoeschen.Location = new Point(968, 52);
+            btnLoeschen.Name = "btnLoeschen";
+            btnLoeschen.Size = new Size(120, 40);
+            btnLoeschen.TabIndex = 2;
+            btnLoeschen.Text = "Löschen";
+            btnLoeschen.UseVisualStyleBackColor = true;
+            btnLoeschen.Click += btnLoeschen_Click;
+            // 
+            // btnAendern
+            // 
+            btnAendern.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnAendern.Location = new Point(852, 52);
+            btnAendern.Name = "btnAendern";
+            btnAendern.Size = new Size(120, 40);
+            btnAendern.TabIndex = 1;
+            btnAendern.Text = "Ändern";
+            btnAendern.UseVisualStyleBackColor = true;
+            btnAendern.Click += btnAendern_Click;
+            // 
+            // btnNeu
+            // 
+            btnNeu.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNeu.Location = new Point(736, 52);
+            btnNeu.Name = "btnNeu";
+            btnNeu.Size = new Size(120, 40);
+            btnNeu.TabIndex = 0;
+            btnNeu.Text = "Neu";
+            btnNeu.UseVisualStyleBackColor = true;
+            btnNeu.Click += btnNeu_Click;
+            // 
             // lblFilter
             // 
             lblFilter.AutoSize = true;
             lblFilter.Location = new Point(12, 56);
             lblFilter.Name = "lblFilter";
-            lblFilter.Size = new Size(100, 25);
+            lblFilter.Size = new Size(113, 25);
             lblFilter.TabIndex = 3;
             lblFilter.Text = "Termin-Filter:";
             // 
@@ -59,36 +92,6 @@ namespace Bewirtung
             cmbFilterTermin.Size = new Size(400, 33);
             cmbFilterTermin.TabIndex = 4;
             cmbFilterTermin.SelectedIndexChanged += cmbFilterTermin_SelectedIndexChanged;
-            // 
-            // btnLoeschen
-            // 
-            btnLoeschen.Location = new Point(968, 6);
-            btnLoeschen.Name = "btnLoeschen";
-            btnLoeschen.Size = new Size(120, 40);
-            btnLoeschen.TabIndex = 2;
-            btnLoeschen.Text = "Löschen";
-            btnLoeschen.UseVisualStyleBackColor = true;
-            btnLoeschen.Click += btnLoeschen_Click;
-            // 
-            // btnAendern
-            // 
-            btnAendern.Location = new Point(852, 6);
-            btnAendern.Name = "btnAendern";
-            btnAendern.Size = new Size(120, 40);
-            btnAendern.TabIndex = 1;
-            btnAendern.Text = "Ändern";
-            btnAendern.UseVisualStyleBackColor = true;
-            btnAendern.Click += btnAendern_Click;
-            // 
-            // btnNeu
-            // 
-            btnNeu.Location = new Point(736, 6);
-            btnNeu.Name = "btnNeu";
-            btnNeu.Size = new Size(120, 40);
-            btnNeu.TabIndex = 0;
-            btnNeu.Text = "Neu";
-            btnNeu.UseVisualStyleBackColor = true;
-            btnNeu.Click += btnNeu_Click;
             // 
             // TischeProTerminVerwaltenForm
             // 
@@ -105,6 +108,7 @@ namespace Bewirtung
             Text = "Tische pro Termin verwalten";
             ((System.ComponentModel.ISupportInitialize)dataGridViewTischTermin).EndInit();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         private DataGridView dataGridViewTischTermin;

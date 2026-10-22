@@ -17,8 +17,7 @@ public class AuslieferungApiClient
     /// Lädt offene Getränke-Positionen (Preiskategorie=1, MengeGeliefert &lt; Menge)
     /// gruppiert je Tisch für den angegebenen Termin.
     /// </summary>
-    public async Task<List<AuslieferungTischDto>> GetGetraenkeAsync(
-        int termin, CancellationToken cancellationToken = default)
+    public async Task<List<AuslieferungTischDto>> GetGetraenkeAsync(int termin, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/getraenke?termin={termin}";
         var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
@@ -29,8 +28,7 @@ public class AuslieferungApiClient
     /// Lädt offene Speisen-Positionen (Preiskategorie=0, MengeGeliefert &lt; Menge)
     /// gruppiert je Tisch für den angegebenen Termin.
     /// </summary>
-    public async Task<List<AuslieferungTischDto>> GetSpeisenAsync(
-        int termin, CancellationToken cancellationToken = default)
+    public async Task<List<AuslieferungTischDto>> GetSpeisenAsync(int termin, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/speisen?termin={termin}";
         var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
@@ -40,9 +38,7 @@ public class AuslieferungApiClient
     /// <summary>
     /// Meldet die Auslieferung für einen Tisch: setzt je Position MengeGeliefert (und ggf. Menge).
     /// </summary>
-    public async Task FertigAsync(
-        IEnumerable<AuslieferungFertigPosition> positionen,
-        CancellationToken cancellationToken = default)
+    public async Task FertigAsync(IEnumerable<AuslieferungFertigPosition> positionen, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/fertig";
         var body = new { Positionen = positionen.ToList() };

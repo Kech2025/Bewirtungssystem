@@ -68,3 +68,6 @@ Desktop.ini
 
 # Projekt-Datenbank bewusst versionieren
 !Bewirtung.sqlite3
+
+# LibreOffice portable (not part of the source repository)
+LibreOffice/

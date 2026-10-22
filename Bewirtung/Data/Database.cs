@@ -18,7 +18,8 @@ namespace Bewirtung.Data
             new SqliteConnectionStringBuilder
             {
                 DataSource = DatabasePath,
-                Mode = SqliteOpenMode.ReadWrite
+                Mode = SqliteOpenMode.ReadWrite,
+                DefaultTimeout = 10
             }.ToString();
 
         public static SqliteConnection CreateConnection()
