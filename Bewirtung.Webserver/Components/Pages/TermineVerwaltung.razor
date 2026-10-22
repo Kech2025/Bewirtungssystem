@@ -1,0 +1,640 @@
+@page "/termine"
+@rendermode RenderMode.InteractiveServer
+@using Bewirtung.Webserver.Data
+@inject TerminRepository TerminRepo
+@inject VereinRepository VereinRepo
+@inject BenutzerRepository BenutzerRepo
+@inject TischRepository TischRepo
+@inject TischTerminRepository TischTerminRepo
+@inject SpeisekarteRepository SpeisekarteRepo
+@inject BereichTischeRepository BereichRepo
+
+<PageTitle>Termine verwalten</PageTitle>
+
+<h1>Termine verwalten</h1>
+
+@if (_vereine is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<div class="row">
+		<div class="col-12">
+			<div class="card termin-card mb-3">
+				<div class="card-body">
+					<h5>Termin auswählen</h5>
+					<div class="termin-auswahl">
+						<div class="calendar">
+							<div class="calendar-header">
+							<button class="btn btn-sm btn-outline-secondary" @onclick="VorherigerMonat">&laquo;</button>
+							<span class="calendar-title">@_angezeigterMonat.ToString("MMMM yyyy")</span>
+							<button class="btn btn-sm btn-outline-secondary" @onclick="NaechsterMonat">&raquo;</button>
+						</div>
+						<table class="calendar-table">
+							<thead>
+								<tr>
+									@foreach (var tag in _wochentage)
+									{
+										<th>@tag</th>
+									}
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var woche in Wochen())
+								{
+									<tr>
+										@foreach (var tag in woche)
+										{
+											@if (tag is null)
+											{
+												<td class="calendar-empty"></td>
+											}
+											else
+											{
+												<td class="calendar-day @(IstAusgewaehlt(tag.Value) ? "selected" : "") @(HatTermin(tag.Value) ? "has-termin" : "")"
+													@onclick="() => TagWaehlen(tag.Value)">
+													@tag.Value.Day
+												</td>
+											}
+										}
+									</tr>
+								}
+									</tbody>
+									</table>
+									</div>
+
+									<div class="termin-verein">
+										<label class="form-label">Verein</label>
+										<select class="form-select" @bind="_selectedVereinId">
+											@foreach (var v in _vereine)
+											{
+												<option value="@v.Id">@v.Name</option>
+											}
+										</select>
+									</div>
+									<div class="termin-speichern">
+										<button class="btn btn-primary" @onclick="Speichern">Speichern</button>
+									</div>
+								</div>
+							</div>
+			</div>
+		</div>
+
+		<div class="col-12">
+			@if (_aktuellerTermin is null)
+			{
+				<div class="alert alert-info">
+					Für den gewählten Tag ist kein Termin mit Verein hinterlegt.
+					Wählen Sie einen Verein und speichern Sie, um Speisekarte, Tische und Helfer zuzuordnen.
+				</div>
+			}
+			else
+			{
+				<ul class="nav nav-tabs mb-3">
+					<li class="nav-item">
+						<button class="nav-link @(ActiveTab == Tab.Speisekarte ? "active" : "")"
+								@onclick="() => ActiveTab = Tab.Speisekarte">Speisekarte</button>
+					</li>
+					<li class="nav-item">
+						<button class="nav-link @(ActiveTab == Tab.Tische ? "active" : "")"
+								@onclick="() => ActiveTab = Tab.Tische">Tische</button>
+					</li>
+					<li class="nav-item">
+						<button class="nav-link @(ActiveTab == Tab.Helfer ? "active" : "")"
+								@onclick="() => ActiveTab = Tab.Helfer">Helfer</button>
+					</li>
+				</ul>
+
+				@if (ActiveTab == Tab.Speisekarte)
+				{
+					<div class="speisekarte-grids">
+						<div class="speisekarte-grid">
+							<h6>Globale Preisliste</h6>
+							<table class="table table-sm table-striped speisekarte-table">
+								<thead>
+									<tr>
+										<th>Auswahl</th>
+										<th>Kategorie</th>
+										<th>Position</th>
+										<th class="text-end">Globaler Preis</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var z in _zeilen)
+									{
+										<tr>
+											<td>
+												<input type="checkbox" checked="@z.Ausgewaehlt"
+													   @onchange="e => AuswahlGeaendert(z, e)" />
+											</td>
+											<td>@z.KategorieText</td>
+											<td>@z.Produkt</td>
+											<td class="text-end">@(z.GlobalPreis?.ToString("N2") ?? "")</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+						<div class="speisekarte-grid">
+							<div class="d-flex justify-content-between align-items-center mb-2">
+								<h6 class="mb-0">Aktuelle Preisliste</h6>
+								<button class="btn btn-success btn-sm" @onclick="SpeisekarteSpeichern">Aktuelle Speisekarte speichern</button>
+							</div>
+							<table class="table table-sm table-striped speisekarte-table">
+								<thead>
+									<tr>
+										<th>Kategorie</th>
+										<th>Position</th>
+										<th class="text-end">Terminpreis</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var z in AusgewaehlteZeilen)
+									{
+										<tr>
+											<td>@z.KategorieText</td>
+											<td>@z.Produkt</td>
+											<td class="text-end">
+												<input type="number" step="0.01" class="form-control form-control-sm text-end speisekarte-preis"
+													   @bind="z.TerminPreis" />
+											</td>
+										</tr>
+									}
+									@if (!AusgewaehlteZeilen.Any())
+									{
+										<tr><td colspan="3" class="text-muted">Keine Positionen ausgewählt.</td></tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				}
+
+				@if (ActiveTab == Tab.Tische)
+				{
+					<div class="helfer-zeile mb-2">
+						<select class="form-select tisch-select" @bind="_neuerTisch">
+							<option value="0">– Tisch wählen –</option>
+							@foreach (var t in VerfuegbareTische())
+							{
+								<option value="@t.Tischnummer">@t.Tischnummer (@t.BereichName)</option>
+							}
+						</select>
+						<button class="btn btn-outline-primary" @onclick="NeuerTisch">Neuer Tisch zur Auswahlliste hinzufügen</button>
+					</div>
+					<div class="mb-2">
+						<button class="btn btn-primary helfer-hinzufuegen" @onclick="TischHinzufuegen">Hinzufügen</button>
+					</div>
+					<table class="table table-sm table-striped">
+						<thead>
+							<tr><th>Tischnummer</th><th>Bereich</th><th></th></tr>
+						</thead>
+						<tbody>
+							@foreach (var tt in _tischEintraege)
+							{
+								<tr>
+									<td>@tt.Tischnummer</td>
+									<td>@tt.BereichName</td>
+									<td><button class="btn btn-sm btn-danger" @onclick="() => TischEntfernen(tt)">Entfernen</button></td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+
+				@if (ActiveTab == Tab.Helfer)
+				{
+					<div class="helfer-zeile mb-2">
+						<select class="form-select tisch-select" @bind="_neuerHelfer">
+							<option value="0">– Helfer wählen –</option>
+							@foreach (var b in VerfuegbareHelfer())
+							{
+								<option value="@b.UserId">@b.Name</option>
+							}
+						</select>
+						<button class="btn btn-outline-primary" @onclick="NeuerBenutzer">Neuer Benutzer zur Auswahlliste hinzufügen</button>
+					</div>
+					<div class="mb-2">
+						<button class="btn btn-primary helfer-hinzufuegen" @onclick="HelferHinzufuegen">Hinzufügen</button>
+					</div>
+					<table class="table table-sm table-striped">
+						<thead>
+							<tr><th>Name</th><th>Verein</th><th></th></tr>
+						</thead>
+						<tbody>
+							@foreach (var h in _helfer)
+							{
+								<tr>
+									<td>@h.Name</td>
+									<td>@h.VereinName</td>
+									<td><button class="btn btn-sm btn-danger" @onclick="() => HelferEntfernen(h)">Entfernen</button></td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			}
+		</div>
+	</div>
+}
+
+@if (_neuerBenutzer is not null)
+{
+	<div class="modal-overlay" @onclick="BenutzerAbbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">Neuer Benutzer</div>
+				<div class="card-body">
+					<EditForm Model="_neuerBenutzer" OnValidSubmit="BenutzerSpeichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Name</label>
+							<InputText class="form-control" @bind-Value="_neuerBenutzer.Name" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">E-Mail</label>
+							<InputText class="form-control" @bind-Value="_neuerBenutzer.Email" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Passwort</label>
+							<InputText class="form-control" @bind-Value="_neuerBenutzer.Password" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Telefon</label>
+							<InputText class="form-control" @bind-Value="_neuerBenutzer.Telefon" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Verein</label>
+							<InputSelect class="form-select" @bind-Value="_neuerBenutzer.VereinId">
+								<option value="">(kein Verein)</option>
+								@foreach (var v in VereinRepo.GetAll())
+								{
+									<option value="@v.Id">@v.Name</option>
+								}
+							</InputSelect>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_neuerBenutzer.Administrator" id="termAdminCheck" />
+							<label class="form-check-label" for="termAdminCheck">Administrator</label>
+						</div>
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="BenutzerAbbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@if (_neuerTischObjekt is not null)
+{
+	<div class="modal-overlay" @onclick="TischAbbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">Neuer Tisch</div>
+				<div class="card-body">
+					<EditForm Model="_neuerTischObjekt" OnValidSubmit="TischSpeichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Tischnummer</label>
+							<InputNumber class="form-control" @bind-Value="_neuerTischObjekt.Tischnummer" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Bereich</label>
+							<InputSelect class="form-select" @bind-Value="_neuerTischObjekt.BereichId">
+								<option value="">(kein Bereich)</option>
+								@foreach (var bereich in _bereiche)
+								{
+									<option value="@bereich.BereichId">@bereich.Bezeichnung</option>
+								}
+							</InputSelect>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_neuerTischSofort" id="termSofortCheck" />
+							<label class="form-check-label" for="termSofortCheck">Sofortlieferung</label>
+						</div>
+
+						@if (!string.IsNullOrEmpty(_tischDialogFehler))
+						{
+							<div class="alert-danger mb-2">@_tischDialogFehler</div>
+						}
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="TischAbbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private enum Tab { Speisekarte, Tische, Helfer }
+	private Tab ActiveTab { get; set; } = Tab.Speisekarte;
+
+	private List<VereinOption>? _vereine;
+	private List<Termin> _termine = new();
+	private DateTime _datum = DateTime.Today;
+	private DateTime _angezeigterMonat = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+	private long _selectedVereinId;
+
+	private static readonly string[] _wochentage = { "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So" };
+
+	private Termin? _aktuellerTermin;
+
+	private List<SpeisekartenZeile> _zeilen = new();
+
+	private List<TischTermin> _tischEintraege = new();
+	private List<Tisch> _alleTische = new();
+	private int _neuerTisch;
+
+	private Tisch? _neuerTischObjekt;
+	private bool _neuerTischSofort;
+	private string? _tischDialogFehler;
+	private List<BereichOption> _bereiche = new();
+
+	private List<Benutzer> _helfer = new();
+	private List<Benutzer> _alleBenutzer = new();
+	private long _neuerHelfer;
+
+	private Benutzer? _neuerBenutzer;
+
+	protected override void OnInitialized()
+	{
+		LadeVereine();
+		LadeTermine();
+		_alleTische = TischRepo.GetAll();
+		_alleBenutzer = BenutzerRepo.GetAll();
+		_bereiche = BereichRepo.GetAll();
+		AktualisiereAuswahl();
+	}
+
+	private void LadeVereine()
+	{
+		_vereine = new List<VereinOption> { new() { Id = 0, Name = "Keine Bewirtung" } };
+		_vereine.AddRange(VereinRepo.GetAll());
+	}
+
+	private void LadeTermine()
+	{
+		_termine = TerminRepo.GetAll();
+	}
+
+	private Termin? SelectedTermin =>
+		_termine.FirstOrDefault(t => t.BewirtungsDatum == Termin.ToYyyyMmDd(_datum));
+
+	private bool IstAusgewaehlt(DateTime tag) => tag.Date == _datum.Date;
+
+	private bool HatTermin(DateTime tag)
+	{
+		var key = Termin.ToYyyyMmDd(tag);
+		return _termine.Any(t => t.BewirtungsDatum == key);
+	}
+
+	private void VorherigerMonat()
+	{
+		_angezeigterMonat = _angezeigterMonat.AddMonths(-1);
+	}
+
+	private void NaechsterMonat()
+	{
+		_angezeigterMonat = _angezeigterMonat.AddMonths(1);
+	}
+
+	private IEnumerable<DateTime?[]> Wochen()
+	{
+		var ersterTag = new DateTime(_angezeigterMonat.Year, _angezeigterMonat.Month, 1);
+		var tageImMonat = DateTime.DaysInMonth(_angezeigterMonat.Year, _angezeigterMonat.Month);
+
+		// Montag = 0 … Sonntag = 6
+		var offset = ((int)ersterTag.DayOfWeek + 6) % 7;
+
+		var woche = new DateTime?[7];
+		var spalte = 0;
+
+		for (var i = 0; i < offset; i++)
+		{
+			woche[spalte++] = null;
+		}
+
+		for (var tag = 1; tag <= tageImMonat; tag++)
+		{
+			woche[spalte++] = new DateTime(_angezeigterMonat.Year, _angezeigterMonat.Month, tag);
+			if (spalte == 7)
+			{
+				yield return woche;
+				woche = new DateTime?[7];
+				spalte = 0;
+			}
+		}
+
+		if (spalte > 0)
+		{
+			for (var i = spalte; i < 7; i++)
+			{
+				woche[i] = null;
+			}
+			yield return woche;
+		}
+	}
+
+	private void TagWaehlen(DateTime tag)
+	{
+		_datum = tag.Date;
+		AktualisiereAuswahl();
+	}
+
+	private void AktualisiereAuswahl()
+	{
+		var termin = SelectedTermin;
+		_selectedVereinId = termin?.VereinId ?? 0L;
+		_aktuellerTermin = termin;
+		if (termin != null)
+		{
+			LadeTabs(termin);
+		}
+	}
+
+	private void LadeTabs(Termin termin)
+	{
+		_zeilen = SpeisekarteRepo.GetSpeisekarte(termin.BewirtungsDatum, termin.VereinId);
+		_tischEintraege = TischTerminRepo.GetAll()
+			.Where(x => x.Bewirtungsdatum == termin.BewirtungsDatum && x.VereinId == termin.VereinId)
+			.ToList();
+		_helfer = TerminRepo.GetHelfer(termin.BewirtungsDatum, termin.VereinId);
+	}
+
+	private void Speichern()
+	{
+		var datum = Termin.ToYyyyMmDd(_datum);
+		var vorhanden = SelectedTermin;
+		var neueVereinId = _selectedVereinId;
+
+		if (neueVereinId == 0)
+		{
+			if (vorhanden != null)
+			{
+				TerminRepo.Delete(vorhanden.BewirtungsDatum, vorhanden.VereinId);
+			}
+		}
+		else if (vorhanden == null)
+		{
+			TerminRepo.Insert(new Termin { BewirtungsDatum = datum, VereinId = neueVereinId });
+		}
+		else if (vorhanden.VereinId != neueVereinId)
+		{
+			TerminRepo.Update(vorhanden.BewirtungsDatum, vorhanden.VereinId,
+				new Termin { BewirtungsDatum = datum, VereinId = neueVereinId });
+		}
+
+		LadeTermine();
+		AktualisiereAuswahl();
+	}
+
+	// ----- Speisekarte -----
+
+	private IEnumerable<SpeisekartenZeile> AusgewaehlteZeilen =>
+		_zeilen.Where(z => z.Ausgewaehlt);
+
+	private void AuswahlGeaendert(SpeisekartenZeile zeile, ChangeEventArgs e)
+	{
+		zeile.Ausgewaehlt = e.Value is bool b && b;
+		if (zeile.Ausgewaehlt && zeile.TerminPreis == 0m)
+		{
+			zeile.TerminPreis = zeile.GlobalPreis ?? 0m;
+		}
+	}
+
+	private void SpeisekarteSpeichern()
+	{
+		if (_aktuellerTermin == null)
+		{
+			return;
+		}
+		SpeisekarteRepo.Speichern(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, _zeilen);
+	}
+
+	// ----- Tische -----
+
+	private IEnumerable<Tisch> VerfuegbareTische()
+	{
+		var belegt = _tischEintraege.Select(x => x.Tischnummer).ToHashSet();
+		return _alleTische.Where(t => !belegt.Contains(t.Tischnummer));
+	}
+
+	private void TischHinzufuegen()
+	{
+		if (_aktuellerTermin == null || _neuerTisch == 0)
+		{
+			return;
+		}
+		if (_tischEintraege.Any(x => x.Tischnummer == _neuerTisch))
+		{
+			return;
+		}
+		TischTerminRepo.Insert(new TischTermin
+		{
+			Bewirtungsdatum = _aktuellerTermin.BewirtungsDatum,
+			VereinId = _aktuellerTermin.VereinId,
+			Tischnummer = _neuerTisch
+		});
+		_neuerTisch = 0;
+		LadeTabs(_aktuellerTermin);
+	}
+
+	private void TischEntfernen(TischTermin tt)
+	{
+		if (_aktuellerTermin == null)
+		{
+			return;
+		}
+		TischTerminRepo.Delete(tt.Bewirtungsdatum, tt.VereinId, tt.Tischnummer);
+		LadeTabs(_aktuellerTermin);
+	}
+
+	private void NeuerTisch()
+	{
+		_tischDialogFehler = null;
+		_neuerTischSofort = false;
+		_neuerTischObjekt = new Tisch();
+	}
+
+	private void TischAbbrechen() => _neuerTischObjekt = null;
+
+	private void TischSpeichern()
+	{
+		if (_neuerTischObjekt is null)
+		{
+			return;
+		}
+
+		_tischDialogFehler = null;
+
+		if (TischRepo.Exists(_neuerTischObjekt.Tischnummer))
+		{
+			_tischDialogFehler = "Diese Tischnummer existiert bereits.";
+			return;
+		}
+
+		_neuerTischObjekt.SofortLieferung = _neuerTischSofort ? 1 : 0;
+		TischRepo.Insert(_neuerTischObjekt);
+
+		// Tischliste neu laden und den neuen Tisch in der Combobox auswählen.
+		var neueNummer = _neuerTischObjekt.Tischnummer;
+		_alleTische = TischRepo.GetAll();
+		_neuerTisch = neueNummer;
+		_neuerTischObjekt = null;
+	}
+
+	// ----- Helfer -----
+
+	private IEnumerable<Benutzer> VerfuegbareHelfer()
+	{
+		var belegt = _helfer.Select(h => h.UserId).ToHashSet();
+		return _alleBenutzer.Where(b => !belegt.Contains(b.UserId));
+	}
+
+	private void HelferHinzufuegen()
+	{
+		if (_aktuellerTermin == null || _neuerHelfer == 0)
+		{
+			return;
+		}
+		TerminRepo.AddHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, _neuerHelfer);
+		_neuerHelfer = 0;
+		LadeTabs(_aktuellerTermin);
+	}
+
+	private void NeuerBenutzer() => _neuerBenutzer = new Benutzer();
+
+	private void BenutzerAbbrechen() => _neuerBenutzer = null;
+
+	private void BenutzerSpeichern()
+	{
+		if (_neuerBenutzer is null)
+		{
+			return;
+		}
+
+		var neueId = BenutzerRepo.Insert(_neuerBenutzer);
+
+		// Benutzerliste neu laden und den neuen Benutzer in der Combobox auswählen.
+		_alleBenutzer = BenutzerRepo.GetAll();
+		_neuerHelfer = neueId;
+		_neuerBenutzer = null;
+	}
+
+	private void HelferEntfernen(Benutzer h)
+	{
+		if (_aktuellerTermin == null)
+		{
+			return;
+		}
+		TerminRepo.RemoveHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, h.UserId);
+		LadeTabs(_aktuellerTermin);
+	}
+}

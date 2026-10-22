@@ -13,6 +13,9 @@ builder.Services.AddScoped<BenutzerRepository>();
 builder.Services.AddScoped<VereinRepository>();
 builder.Services.AddScoped<TischRepository>();
 builder.Services.AddScoped<BereichTischeRepository>();
+builder.Services.AddScoped<TerminRepository>();
+builder.Services.AddScoped<SpeisekarteRepository>();
+builder.Services.AddScoped<TischTerminRepository>();
 
 var app = builder.Build();
 
