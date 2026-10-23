@@ -1,0 +1,139 @@
+@page "/bereiche"
+@rendermode RenderMode.InteractiveServer
+@inject BereichTischeRepository BereichRepo
+
+<PageTitle>Bereiche verwalten</PageTitle>
+
+<h1>Bereiche verwalten</h1>
+
+@if (_bereiche is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neuer Bereich</button>
+
+	<table class="table table-striped" style="max-width: 600px;">
+		<thead>
+			<tr>
+				<th>Bezeichnung</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var b in _bereiche)
+			{
+				<tr>
+					<td>@b.Bezeichnung</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(b)">Ändern</button>
+						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(b)">Löschen</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (!string.IsNullOrEmpty(_fehler))
+{
+	<div class="alert-danger">@_fehler</div>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_istNeu ? "Neuer Bereich" : "Bereich bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Bezeichnung</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Bezeichnung" />
+						</div>
+
+						@if (!string.IsNullOrEmpty(_dialogFehler))
+						{
+							<div class="alert-danger mb-2">@_dialogFehler</div>
+						}
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<BereichOption>? _bereiche;
+	private BereichOption? _bearbeiten;
+	private bool _istNeu;
+	private string? _fehler;
+	private string? _dialogFehler;
+
+	protected override void OnInitialized() => Laden();
+
+	private void Laden() => _bereiche = BereichRepo.GetAll();
+
+	private void Neu()
+	{
+		_fehler = null;
+		_dialogFehler = null;
+		_istNeu = true;
+		_bearbeiten = new BereichOption();
+	}
+
+	private void Bearbeiten(BereichOption b)
+	{
+		_fehler = null;
+		_dialogFehler = null;
+		_istNeu = false;
+		_bearbeiten = new BereichOption
+		{
+			BereichId = b.BereichId,
+			Bezeichnung = b.Bezeichnung
+		};
+	}
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(_bearbeiten.Bezeichnung))
+		{
+			_dialogFehler = "Bitte eine Bezeichnung eingeben.";
+			return;
+		}
+
+		_dialogFehler = null;
+
+		if (_istNeu)
+		{
+			BereichRepo.Insert(_bearbeiten);
+		}
+		else
+		{
+			BereichRepo.Update(_bearbeiten);
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+
+	private void Loeschen(BereichOption b)
+	{
+		BereichRepo.Delete(b.BereichId);
+		Laden();
+	}
+}

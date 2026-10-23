@@ -1,4 +1,3 @@
-using System.Drawing.Printing;
 using System.Runtime.CompilerServices;
 using Bewirtung.Data;
 using DocumentFormat.OpenXml.Office.Word;

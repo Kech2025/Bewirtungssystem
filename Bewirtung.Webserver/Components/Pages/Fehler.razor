@@ -1,0 +1,151 @@
+@page "/fehler"
+@rendermode RenderMode.InteractiveServer
+@inject TerminRepository TerminRepo
+@inject AbrechnungRepository AbrechnungRepo
+@inject NavigationManager Nav
+
+<PageTitle>Fehlerhafte Abrechnungen</PageTitle>
+
+<h1>Fehlerhafte Abrechnungen</h1>
+
+<div class="abr-filter">
+	<div class="abr-filter-item">
+		<label class="form-label">Termin</label>
+		<select class="form-select" @onchange="TerminGeaendert">
+			<option value="">(bitte wählen)</option>
+			@foreach (var t in _termine)
+			{
+				<option value="@t.BewirtungsDatum" selected="@(t.BewirtungsDatum == _terminDatum)">@t.Anzeige</option>
+			}
+		</select>
+	</div>
+</div>
+
+<table class="table table-striped">
+	<thead>
+		<tr>
+			<th>Wer</th>
+			<th>Bewirtungszeitpunkt</th>
+			<th>Tisch</th>
+			<th>Bereich</th>
+			<th>Artikel</th>
+			<th>Besonderheit</th>
+			<th class="text-end">Menge</th>
+			<th class="text-end">Gesamtpreis</th>
+			<th class="text-end">Menge geliefert</th>
+			<th class="text-end">Menge bezahlt</th>
+			<th>Löschen</th>
+			<th>Fehler korrigieren</th>
+		</tr>
+	</thead>
+	<tbody>
+		@if (_zeilen.Count == 0)
+		{
+			<tr><td colspan="12"><em>Keine fehlerhaften Zeilen.</em></td></tr>
+		}
+		else
+		{
+			@foreach (var z in _zeilen)
+			{
+				<tr>
+					<td>@z.UserName</td>
+					<td>@z.ZeitpunktText</td>
+					<td>@z.Tisch</td>
+					<td>@z.Bereich</td>
+					<td>@z.ArtikelName</td>
+					<td>@z.Besonderheit</td>
+					<td class="text-end">@z.Menge</td>
+					<td class="text-end">@z.Gesamtpreis.ToString("C")</td>
+					<td class="text-end">@z.MengeGeliefert</td>
+					<td class="text-end">@z.MengeBezahlt</td>
+					<td><input type="checkbox" @bind="z.ChkLoeschen" /></td>
+					<td><input type="checkbox" @bind="z.ChkFehlerKorrigieren" /></td>
+				</tr>
+			}
+		}
+	</tbody>
+</table>
+
+<button class="btn btn-primary" disabled="@(_zeilen.Count == 0)" @onclick="Korrigieren">Korrekturen anwenden</button>
+
+@if (!string.IsNullOrEmpty(_meldung))
+{
+	<div class="alert-success mt-2">@_meldung</div>
+}
+@if (!string.IsNullOrEmpty(_fehler))
+{
+	<div class="alert-danger mt-2">@_fehler</div>
+}
+
+@code {
+	[SupplyParameterFromQuery(Name = "termin")]
+	public int? TerminParam { get; set; }
+
+	private List<Termin> _termine = new();
+	private List<FehlerAbrechnungZeile> _zeilen = new();
+	private int? _terminDatum;
+	private string? _meldung;
+	private string? _fehler;
+
+	protected override void OnInitialized()
+	{
+		_termine = TerminRepo.GetAll();
+		if (TerminParam.HasValue && TerminParam.Value != 0)
+		{
+			_terminDatum = TerminParam.Value;
+			LadeZeilen();
+		}
+	}
+
+	private void TerminGeaendert(ChangeEventArgs e)
+	{
+		_terminDatum = int.TryParse(e.Value?.ToString(), out var d) ? d : (int?)null;
+		_meldung = null;
+		_fehler = null;
+		LadeZeilen();
+	}
+
+	private void LadeZeilen()
+	{
+		_zeilen = _terminDatum.HasValue
+			? AbrechnungRepo.GetFehlerListe(_terminDatum.Value)
+			: new List<FehlerAbrechnungZeile>();
+	}
+
+	private void Korrigieren()
+	{
+		_meldung = null;
+		_fehler = null;
+		bool fehlerAufgetreten = false;
+
+		foreach (var zeile in _zeilen)
+		{
+			if (zeile.ChkLoeschen)
+			{
+				AbrechnungRepo.DeleteFehlerAbrechnungZeile(zeile);
+			}
+			else if (zeile.ChkFehlerKorrigieren)
+			{
+				if (zeile.Bewirtungsposition != 0)
+				{
+					AbrechnungRepo.UpdateFehlerAbrechnungZeile(zeile);
+				}
+				else
+				{
+					fehlerAufgetreten = true;
+				}
+			}
+		}
+
+		if (fehlerAufgetreten)
+		{
+			_fehler = "Einige Zeilen konnten nicht korrigiert werden, da die Bewirtungsposition 0 ist.";
+		}
+		else
+		{
+			_meldung = "Die ausgewählten Korrekturen wurden angewendet.";
+		}
+
+		LadeZeilen();
+	}
+}

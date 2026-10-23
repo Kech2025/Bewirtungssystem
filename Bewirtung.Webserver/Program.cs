@@ -16,6 +16,11 @@ builder.Services.AddScoped<BereichTischeRepository>();
 builder.Services.AddScoped<TerminRepository>();
 builder.Services.AddScoped<SpeisekarteRepository>();
 builder.Services.AddScoped<TischTerminRepository>();
+builder.Services.AddScoped<GlobalePreislisteRepository>();
+builder.Services.AddScoped<MwstRepository>();
+builder.Services.AddScoped<AbrechnungRepository>();
+builder.Services.AddScoped<WordVorlageRepository>();
+builder.Services.AddScoped<PreislisteDokumentService>();
 
 var app = builder.Build();
 

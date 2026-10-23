@@ -1,0 +1,255 @@
+@page "/tagesabrechnung"
+@rendermode RenderMode.InteractiveServer
+@inject TerminRepository TerminRepo
+@inject AbrechnungRepository AbrechnungRepo
+@inject NavigationManager Nav
+<PageTitle>Tagesabrechnung</PageTitle>
+
+<h1>Tagesabrechnung</h1>
+
+<div class="abr-filter">
+	<div class="abr-filter-item">
+		<label class="form-label">Termin</label>
+		<select class="form-select" @onchange="TerminGeaendert">
+			<option value="">(bitte wählen)</option>
+			@foreach (var t in _termine)
+			{
+				<option value="@t.BewirtungsDatum" selected="@(t.BewirtungsDatum == _terminDatum)">@t.Anzeige</option>
+			}
+		</select>
+	</div>
+
+	<div class="abr-filter-item">
+		<label class="form-label">Benutzer</label>
+		<select class="form-select" @onchange="BenutzerGeaendert">
+			<option value="">Alle</option>
+			@foreach (var b in _benutzerFilter)
+			{
+				<option value="@b.UserId" selected="@(b.UserId == _userId)">@b.Anzeige</option>
+			}
+		</select>
+	</div>
+
+	<div class="abr-filter-item">
+		<label class="form-label">Bereich</label>
+		<select class="form-select" @onchange="BereichGeaendert">
+			<option value="">Alle</option>
+			@foreach (var br in _bereichFilter)
+			{
+				<option value="@br.BereichId" selected="@(br.BereichId == _bereichId)">@br.Anzeige</option>
+			}
+		</select>
+	</div>
+
+	<div class="abr-filter-item">
+		<label class="form-label">Tisch</label>
+		<select class="form-select" @onchange="TischGeaendert">
+			<option value="">Alle</option>
+			@foreach (var tf in _tischFilter)
+			{
+				<option value="@tf.Tischnummer" selected="@(tf.Tischnummer == _tischnummer)">Tisch @tf.Tischnummer</option>
+			}
+		</select>
+	</div>
+
+	<div class="abr-filter-item">
+		<label class="form-label">Art</label>
+		<select class="form-select" @onchange="ArtGeaendert">
+			<option value="-1" selected="@(_art == -1)">Beides</option>
+			<option value="0" selected="@(_art == 0)">Speisen</option>
+			<option value="1" selected="@(_art == 1)">Getränke</option>
+		</select>
+	</div>
+</div>
+
+<table class="table table-striped">
+	<thead>
+		<tr>
+			<th>Artikel</th>
+			<th class="text-end">Menge</th>
+			<th>Besonderheit</th>
+			<th class="text-end">Gesamtpreis</th>
+			<th class="text-end">Mwst</th>
+		</tr>
+	</thead>
+	<tbody>
+		@if (_anzeige.Count == 0)
+		{
+			<tr><td colspan="5"><em>Keine Positionen.</em></td></tr>
+		}
+		else
+		{
+			@foreach (var z in _anzeige)
+			{
+				<tr>
+					<td>@z.Artikel</td>
+					<td class="text-end">@z.Menge</td>
+					<td>@z.Besonderheit</td>
+					<td class="text-end">@z.Gesamtpreis.ToString("C")</td>
+					<td class="text-end">@z.Mwst.ToString("C")</td>
+				</tr>
+			}
+		}
+	</tbody>
+</table>
+
+<div class="abr-summen">
+	<div><strong>Umsatz aus Verkauf:</strong> @_umsatzVerkauf.ToString("C")</div>
+	<div><strong>Mehrwertsteuer:</strong> @_mwstSumme.ToString("C")</div>
+	<div><strong>Trinkgeld:</strong> @_trinkgeld.ToString("C")</div>
+	<div><strong>Bareinnahmen:</strong> @((_umsatzVerkauf + _trinkgeld).ToString("C"))</div>
+</div>
+
+@if (_hatFehler)
+{
+	<div class="mt-3">
+		<button class="btn btn-danger" @onclick="FehlerAnzeigen">Fehlerhafte Abrechnungen anzeigen</button>
+	</div>
+}
+
+@code {
+	private List<Termin> _termine = new();
+	private List<AbrechnungZeile> _zeilen = new();
+	private List<AbrechnungZeile> _anzeige = new();
+
+	private List<(long UserId, string Anzeige)> _benutzerFilter = new();
+	private List<(long BereichId, string Anzeige)> _bereichFilter = new();
+	private List<(int Tischnummer, string Anzeige)> _tischFilter = new();
+
+	private int? _terminDatum;
+	private long? _userId;
+	private long? _bereichId;
+	private int? _tischnummer;
+	private int _art = -1;
+
+	private decimal _umsatzVerkauf;
+	private decimal _mwstSumme;
+	private decimal _trinkgeld;
+	private bool _hatFehler;
+
+	protected override void OnInitialized()
+	{
+		_termine = TerminRepo.GetAll();
+	}
+
+	private void TerminGeaendert(ChangeEventArgs e)
+	{
+		_terminDatum = int.TryParse(e.Value?.ToString(), out var d) ? d : (int?)null;
+		_userId = null;
+		_bereichId = null;
+		_tischnummer = null;
+		LadeZeilen();
+	}
+
+	private void BenutzerGeaendert(ChangeEventArgs e)
+	{
+		_userId = long.TryParse(e.Value?.ToString(), out var v) ? v : (long?)null;
+		Filtern();
+	}
+
+	private void BereichGeaendert(ChangeEventArgs e)
+	{
+		_bereichId = long.TryParse(e.Value?.ToString(), out var v) ? v : (long?)null;
+		_tischnummer = null;
+		BaueTischFilter();
+		Filtern();
+	}
+
+	private void TischGeaendert(ChangeEventArgs e)
+	{
+		_tischnummer = int.TryParse(e.Value?.ToString(), out var v) ? v : (int?)null;
+		Filtern();
+	}
+
+	private void ArtGeaendert(ChangeEventArgs e)
+	{
+		_art = int.TryParse(e.Value?.ToString(), out var v) ? v : -1;
+		Filtern();
+	}
+
+	private void LadeZeilen()
+	{
+		_zeilen = _terminDatum.HasValue
+			? AbrechnungRepo.GetForTermin(_terminDatum.Value)
+			: new List<AbrechnungZeile>();
+
+		_hatFehler = _terminDatum.HasValue && AbrechnungRepo.GetFehlerListe(_terminDatum.Value).Count > 0;
+
+		_benutzerFilter = _zeilen
+			.GroupBy(z => z.UserId)
+			.Select(g => (g.Key, g.First().Benutzer))
+			.OrderBy(b => b.Item2)
+			.ToList();
+
+		_bereichFilter = _zeilen
+			.Where(z => z.BereichId > 0)
+			.GroupBy(z => z.BereichId)
+			.Select(g => (g.Key, g.First().BereichName))
+			.OrderBy(b => b.Item2)
+			.ToList();
+
+		BaueTischFilter();
+		Filtern();
+	}
+
+	private void BaueTischFilter()
+	{
+		_tischFilter = _zeilen
+			.Where(z => !_bereichId.HasValue || z.BereichId == _bereichId.Value)
+			.Select(z => z.Tischnummer)
+			.Distinct()
+			.OrderBy(n => n)
+			.Select(n => (n, $"Tisch {n}"))
+			.ToList();
+	}
+
+	private void Filtern()
+	{
+		IEnumerable<AbrechnungZeile> gefiltert = _zeilen;
+
+		if (_userId.HasValue)
+		{
+			gefiltert = gefiltert.Where(z => z.UserId == _userId.Value);
+		}
+		if (_bereichId.HasValue)
+		{
+			gefiltert = gefiltert.Where(z => z.BereichId == _bereichId.Value);
+		}
+		if (_tischnummer.HasValue)
+		{
+			gefiltert = gefiltert.Where(z => z.Tischnummer == _tischnummer.Value);
+		}
+		if (_art >= 0)
+		{
+			gefiltert = gefiltert.Where(z => z.Preiskategorie == _art);
+		}
+
+		_anzeige = gefiltert
+			.GroupBy(z => new { z.PreislisteId, z.PreislisteZusatzId, z.Besonderheit })
+			.Select(g => new AbrechnungZeile
+			{
+				PreislisteId = g.Key.PreislisteId,
+				PreislisteZusatzId = g.Key.PreislisteZusatzId,
+				Artikel = g.First().Artikel,
+				Menge = g.Sum(z => z.Menge),
+				Besonderheit = g.Key.Besonderheit,
+				Gesamtpreis = g.Sum(z => z.Gesamtpreis),
+				Mwst = g.Sum(z => z.Mwst)
+			})
+			.ToList();
+
+		_umsatzVerkauf = _anzeige.Sum(z => z.Gesamtpreis);
+		_mwstSumme = _anzeige.Sum(z => z.Mwst);
+		_trinkgeld = _terminDatum.HasValue
+			? AbrechnungRepo.GetTrinkgeldSumme(_terminDatum.Value, _userId, _tischnummer)
+			: 0m;
+	}
+
+	private void FehlerAnzeigen()
+	{
+		if (_terminDatum.HasValue)
+		{
+			Nav.NavigateTo($"/fehler?termin={_terminDatum.Value}");
+		}
+	}
+}

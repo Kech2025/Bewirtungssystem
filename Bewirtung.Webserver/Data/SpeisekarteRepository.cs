@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -30,27 +30,29 @@ namespace Bewirtung.Webserver.Data
             {
                 command.CommandText = @"
                     SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung,
-                           COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0) AS GlobalPreis
+                           COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0) AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient
                     FROM GlobalePreisliste p
                     LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id
                     LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = p.Id AND gp.ZusatzId = 0 AND gp.Preis > 0
-                        AND gp.GueltigAb <= $datum AND (gp.GueltigBis = 0 OR gp.GueltigBis >= $datum)
+                        AND gp.GueltigAb <= @datum AND (gp.GueltigBis IS NULL OR gp.GueltigBis >= @datum)
                     LEFT JOIN GlobalerPreis gp2 ON gp2.GlobalePreislisteId = p.Id AND gp2.ZusatzId = z.Id
-                        AND gp2.GueltigAb <= $datum AND (gp2.GueltigBis = 0 OR gp2.GueltigBis >= $datum)
+                        AND gp2.GueltigAb <= @datum AND (gp2.GueltigBis IS NULL OR gp2.GueltigBis >= @datum)
                     ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
-                command.Parameters.AddWithValue("$datum", bewirtungsdatum);
+                command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
-                    var kategorie = reader.IsDBNull(2) ? 0L : reader.GetInt64(2);
+                    var kategorie = reader.IsDBNull(2) ? 0L : reader.GetInt32(2);
                     zeilen.Add(new SpeisekartenZeile
                     {
-                        PreislisteId = reader.GetInt64(0),
+                        PreislisteId = reader.GetInt32(0),
                         Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                         KategorieText = kategorie == 1 ? "Getränke" : "Speisen",
-                        ZusatzId = reader.IsDBNull(3) ? 0 : reader.GetInt64(3),
+                        ZusatzId = reader.IsDBNull(3) ? 0 : reader.GetInt32(3),
                         ZusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                        GlobalPreis = reader.IsDBNull(5) ? null : (decimal?)reader.GetDouble(5)
+                        GlobalPreis = reader.IsDBNull(5) ? null : reader.GetDecimal(5),
+                        DruckParent = (!reader.IsDBNull(6) && reader.GetBoolean(6)) ? 1 : 0,
+                        DruckClient = (!reader.IsDBNull(7) && reader.GetBoolean(7)) ? 1 : 0
                     });
                 }
             }
@@ -74,21 +76,21 @@ namespace Bewirtung.Webserver.Data
             return zeilen;
         }
 
-        private static Dictionary<(long, long), decimal> GetPreislisteTermin(SqliteConnection connection, int datum, long vereinId)
+        private static Dictionary<(long, long), decimal> GetPreislisteTermin(NpgsqlConnection connection, int datum, long vereinId)
         {
             var result = new Dictionary<(long, long), decimal>();
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT PreislisteId, PreislisteZusatzId, Preis
                 FROM PreislisteTermin
-                WHERE Bewirtungsdatum = $datum AND VereinId = $vereinId;";
-            command.Parameters.AddWithValue("$datum", datum);
-            command.Parameters.AddWithValue("$vereinId", vereinId);
+                WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId;";
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+            command.Parameters.AddWithValue("vereinId", vereinId);
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                var key = (reader.GetInt64(0), reader.GetInt64(1));
-                result[key] = reader.IsDBNull(2) ? 0m : (decimal)reader.GetDouble(2);
+                var key = ((long)reader.GetInt32(0), (long)reader.GetInt32(1));
+                result[key] = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
             }
             return result;
         }
@@ -106,9 +108,9 @@ namespace Bewirtung.Webserver.Data
             {
                 delete.CommandText = @"
                     DELETE FROM PreislisteTermin
-                    WHERE Bewirtungsdatum = $datum AND VereinId = $vereinId;";
-                delete.Parameters.AddWithValue("$datum", bewirtungsdatum);
-                delete.Parameters.AddWithValue("$vereinId", vereinId);
+                    WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId;";
+                delete.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
+                delete.Parameters.AddWithValue("vereinId", vereinId);
                 delete.ExecuteNonQuery();
             }
 
@@ -123,12 +125,12 @@ namespace Bewirtung.Webserver.Data
                 insert.CommandText = @"
                     INSERT INTO PreislisteTermin
                         (PreislisteId, PreislisteZusatzId, VereinId, Bewirtungsdatum, Preis)
-                    VALUES ($preislisteId, $zusatzId, $vereinId, $datum, $preis);";
-                insert.Parameters.AddWithValue("$preislisteId", zeile.PreislisteId);
-                insert.Parameters.AddWithValue("$zusatzId", zeile.ZusatzId);
-                insert.Parameters.AddWithValue("$vereinId", vereinId);
-                insert.Parameters.AddWithValue("$datum", bewirtungsdatum);
-                insert.Parameters.AddWithValue("$preis", (double)zeile.TerminPreis);
+                    VALUES (@preislisteId, @zusatzId, @vereinId, @datum, @preis);";
+                insert.Parameters.AddWithValue("preislisteId", zeile.PreislisteId);
+                insert.Parameters.AddWithValue("zusatzId", zeile.ZusatzId);
+                insert.Parameters.AddWithValue("vereinId", vereinId);
+                insert.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
+                insert.Parameters.AddWithValue("preis", zeile.TerminPreis);
                 insert.ExecuteNonQuery();
             }
 

@@ -1,0 +1,79 @@
+@page "/mwst"
+@rendermode RenderMode.InteractiveServer
+@inject MwstRepository MwstRepo
+
+<PageTitle>Mehrwertsteuer verwalten</PageTitle>
+
+<h1>Mehrwertsteuer verwalten</h1>
+
+@if (_saetze is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<table class="table table-striped" style="max-width: 500px;">
+		<thead>
+			<tr>
+				<th>Kategorie</th>
+				<th>Mehrwertsteuer (%)</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var satz in _saetze)
+			{
+				<tr>
+					<td>@satz.KategorieText</td>
+					<td>
+						<InputNumber class="form-control" @bind-Value="satz.Mwst" style="max-width: 150px;" />
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+
+	<button class="btn btn-primary" @onclick="Speichern">Speichern</button>
+
+	@if (!string.IsNullOrEmpty(_meldung))
+	{
+		<div class="alert-success mt-2">@_meldung</div>
+	}
+	@if (!string.IsNullOrEmpty(_fehler))
+	{
+		<div class="alert-danger mt-2">@_fehler</div>
+	}
+}
+
+@code {
+	private List<MwstSatz>? _saetze;
+	private string? _meldung;
+	private string? _fehler;
+
+	protected override void OnInitialized()
+	{
+		_saetze = MwstRepo.GetAll();
+	}
+
+	private void Speichern()
+	{
+		_meldung = null;
+		_fehler = null;
+		if (_saetze is null)
+		{
+			return;
+		}
+
+		try
+		{
+			foreach (var satz in _saetze)
+			{
+				MwstRepo.Update(satz);
+			}
+			_meldung = "Die Mehrwertsteuersätze wurden gespeichert.";
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Fehler beim Speichern: " + ex.Message;
+		}
+	}
+}

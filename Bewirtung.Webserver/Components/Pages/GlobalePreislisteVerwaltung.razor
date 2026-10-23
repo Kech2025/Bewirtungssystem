@@ -1,0 +1,505 @@
+@page "/globalepreisliste"
+@rendermode RenderMode.InteractiveServer
+@using Bewirtung.Webserver.Data
+
+@inject GlobalePreislisteRepository PreislisteRepo
+
+<PageTitle>Globale Preisliste</PageTitle>
+
+<h1>Globale Preisliste</h1>
+
+@if (_eintraege is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<div class="gpl-toolbar mb-3">
+		<div>
+			<label class="form-label">Datum ab</label>
+			<select class="form-select gpl-datum" value="@_datumAb" @onchange="DatumChanged">
+				@foreach (var d in _datumsListe)
+				{
+					<option value="@Termin.ToYyyyMmDd(d)">@d.ToString("dd.MM.yyyy")</option>
+				}
+			</select>
+		</div>
+		<button class="btn btn-outline-primary gpl-align" @onclick="NeuerTermin">Neues Datum…</button>
+	</div>
+
+	<div class="gpl-grids">
+		<div class="gpl-grid gpl-grid-positionen">
+			<div class="gpl-grid-header">
+				<h5>Positionen</h5>
+				<div>
+					<button class="btn btn-sm btn-primary" @onclick="PositionNeu">Neu</button>
+					<button class="btn btn-sm btn-secondary" @onclick="PositionBearbeiten" disabled="@(_selected is null)">Ändern</button>
+					<button class="btn btn-sm btn-danger" @onclick="PositionLoeschen" disabled="@(_selected is null)">Löschen</button>
+				</div>
+			</div>
+			<table class="table table-sm table-striped">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Kategorie</th>
+						<th>Druck</th>
+						<th>Start-Datum</th>
+						<th>Gültig-Bis</th>
+						<th class="text-end">Preis</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var e in _eintraege)
+					{
+						<tr class="@(e.Id == _selected?.Id ? "gpl-selected" : "")" @onclick="() => SelectPosition(e)">
+							<td>@e.Name</td>
+							<td>@e.KategorieText</td>
+							<td>@(e.Druck ? "Ja" : "Nein")</td>
+							<td>@(e.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
+							<td>@(e.GueltigBisWert?.ToString("dd.MM.yyyy"))</td>
+							<td class="text-end">@(e.Preis?.ToString("N2"))</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<div class="gpl-grid gpl-grid-zusatz">
+			<div class="gpl-grid-header">
+				<h5>Zusatzpositionen</h5>
+				<div>
+					<button class="btn btn-sm btn-primary" @onclick="ZusatzNeu" disabled="@(_selected is null)">Neu</button>
+					<button class="btn btn-sm btn-secondary" @onclick="ZusatzBearbeiten" disabled="@(_selectedZusatz is null)">Ändern</button>
+					<button class="btn btn-sm btn-danger" @onclick="ZusatzLoeschen" disabled="@(_selectedZusatz is null)">Löschen</button>
+				</div>
+			</div>
+			<table class="table table-sm table-striped">
+				<thead>
+					<tr>
+						<th>Bezeichnung</th>
+						<th>Druck</th>
+						<th>Start-Datum</th>
+						<th class="text-end">Preis</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var z in _zusaetze)
+					{
+						<tr class="@(z.Id == _selectedZusatz?.Id ? "gpl-selected" : "")" @onclick="() => SelectZusatz(z)">
+							<td>@z.Bezeichnung</td>
+							<td>@(z.Druck ? "Ja" : "Nein")</td>
+							<td>@(z.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
+							<td class="text-end">@(z.Preis?.ToString("N2"))</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+@if (_positionDialog is not null)
+{
+	<div class="modal-overlay" @onclick="PositionAbbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_positionIstNeu ? "Neue Position" : "Position ändern")</div>
+				<div class="card-body">
+					<div class="mb-2">
+						<label class="form-label">Name</label>
+						<input class="form-control" @bind="_positionDialog.Name" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Kategorie</label>
+						<select class="form-select" @bind="_positionDialog.Preiskategorie">
+							<option value="@Preiskategorie.Speisen">Speisen</option>
+							<option value="@Preiskategorie.Getraenke">Getränke</option>
+						</select>
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Zusatztext</label>
+						<input class="form-control" @bind="_positionDialog.Zusatztext" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Bildpfad</label>
+						<input class="form-control" @bind="_positionDialog.BildPfad" />
+					</div>
+					<div class="form-check mb-2">
+						<input type="checkbox" class="form-check-input" id="posDruck" @bind="_positionDialog.Druck" />
+						<label class="form-check-label" for="posDruck">Druck</label>
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Preis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_dialogPreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Gültig ab</label>
+						<input type="date" class="form-control" @bind="_dialogGueltigAb" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Gültig bis (leer = offen)</label>
+						<input type="date" class="form-control" @bind="_dialogGueltigBis" />
+					</div>
+
+					@if (!string.IsNullOrEmpty(_dialogFehler))
+					{
+						<div class="alert-danger mb-2">@_dialogFehler</div>
+					}
+
+					<button class="btn btn-primary" @onclick="PositionSpeichern">Speichern</button>
+					<button class="btn btn-secondary" @onclick="PositionAbbrechen">Abbrechen</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@if (_zusatzDialog is not null)
+{
+	<div class="modal-overlay" @onclick="ZusatzAbbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_zusatzIstNeu ? "Neue Zusatzposition" : "Zusatzposition ändern")</div>
+				<div class="card-body">
+					<div class="mb-2">
+						<label class="form-label">Bezeichnung</label>
+						<input class="form-control" @bind="_zusatzDialog.Bezeichnung" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Bildpfad</label>
+						<input class="form-control" @bind="_zusatzDialog.BildPfad" />
+					</div>
+					<div class="form-check mb-2">
+						<input type="checkbox" class="form-check-input" id="zusatzDruck" @bind="_zusatzDialog.Druck" />
+						<label class="form-check-label" for="zusatzDruck">Druck</label>
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Preis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_zusatzPreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Gültig ab</label>
+						<input type="date" class="form-control" @bind="_zusatzGueltigAb" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Gültig bis (leer = offen)</label>
+						<input type="date" class="form-control" @bind="_zusatzGueltigBis" />
+					</div>
+
+					@if (!string.IsNullOrEmpty(_zusatzFehler))
+					{
+						<div class="alert-danger mb-2">@_zusatzFehler</div>
+					}
+
+					<button class="btn btn-primary" @onclick="ZusatzSpeichern">Speichern</button>
+					<button class="btn btn-secondary" @onclick="ZusatzAbbrechen">Abbrechen</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@if (_neuesDatumDialog)
+{
+	<div class="modal-overlay" @onclick="() => _neuesDatumDialog = false">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">Neues Datum</div>
+				<div class="card-body">
+					<div class="mb-2">
+						<label class="form-label">Datum</label>
+						<input type="date" class="form-control" @bind="_neuesDatum" />
+					</div>
+					<button class="btn btn-primary" @onclick="NeuesDatumSpeichern">Übernehmen</button>
+					<button class="btn btn-secondary" @onclick="() => _neuesDatumDialog = false">Abbrechen</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<GlobalePreisliste>? _eintraege;
+	private List<GlobalePreislisteZusatz> _zusaetze = new();
+	private List<DateTime> _datumsListe = new();
+	private int _datumAb;
+
+	private GlobalePreisliste? _selected;
+	private GlobalePreislisteZusatz? _selectedZusatz;
+
+	// Positions-Dialog
+	private GlobalePreisliste? _positionDialog;
+	private bool _positionIstNeu;
+	private int _positionAltGueltigAb;
+	private decimal _dialogPreis;
+	private DateTime _dialogGueltigAb = DateTime.Today;
+	private DateTime? _dialogGueltigBis;
+	private string? _dialogFehler;
+
+	// Zusatz-Dialog
+	private GlobalePreislisteZusatz? _zusatzDialog;
+	private bool _zusatzIstNeu;
+	private int _zusatzAltGueltigAb;
+	private decimal _zusatzPreis;
+	private DateTime _zusatzGueltigAb = DateTime.Today;
+	private DateTime? _zusatzGueltigBis;
+	private string? _zusatzFehler;
+
+	// Neues-Datum-Dialog
+	private bool _neuesDatumDialog;
+	private DateTime _neuesDatum = DateTime.Today;
+
+	protected override void OnInitialized()
+	{
+		LadeDatumsListe();
+		_datumAb = Termin.ToYyyyMmDd(_datumsListe[0]);
+		LadeDaten();
+	}
+
+	private void LadeDatumsListe()
+	{
+		var dates = PreislisteRepo.GetAllDates();
+		_datumsListe = dates.Select(d => Termin.FromYyyyMmDd(d).Date).ToList();
+		if (_datumsListe.Count == 0)
+		{
+			_datumsListe.Add(DateTime.Today);
+		}
+	}
+
+	private void LadeDaten()
+	{
+		PreislisteRepo.UebernehmeFehlendeVorperiodenPreise(_datumAb);
+		_eintraege = PreislisteRepo.GetAll(_datumAb);
+		_selected = _eintraege.FirstOrDefault();
+		LadeZusatz();
+	}
+
+	private void LadeZusatz()
+	{
+		if (_selected is null)
+		{
+			_zusaetze = new();
+			_selectedZusatz = null;
+			return;
+		}
+		_zusaetze = PreislisteRepo.GetZusatz(_selected.Id, _datumAb);
+		_selectedZusatz = _zusaetze.FirstOrDefault();
+	}
+
+	private void DatumChanged(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out var datum))
+		{
+			_datumAb = datum;
+			LadeDaten();
+		}
+	}
+
+	private void SelectPosition(GlobalePreisliste e)
+	{
+		_selected = e;
+		LadeZusatz();
+	}
+
+	private void SelectZusatz(GlobalePreislisteZusatz z) => _selectedZusatz = z;
+
+	// ----- Positionen -----
+
+	private void PositionNeu()
+	{
+		_positionIstNeu = true;
+		_positionAltGueltigAb = 0;
+		_positionDialog = new GlobalePreisliste();
+		_dialogPreis = 0m;
+		_dialogGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
+		_dialogGueltigBis = null;
+		_dialogFehler = null;
+	}
+
+	private void PositionBearbeiten()
+	{
+		if (_selected is null)
+		{
+			return;
+		}
+		_positionIstNeu = false;
+		_positionAltGueltigAb = _selected.StartDatum;
+		_positionDialog = new GlobalePreisliste
+		{
+			Id = _selected.Id,
+			Name = _selected.Name,
+			Preiskategorie = _selected.Preiskategorie,
+			BildPfad = _selected.BildPfad,
+			Druck = _selected.Druck,
+			Zusatztext = _selected.Zusatztext
+		};
+		_dialogPreis = _selected.Preis ?? 0m;
+		_dialogGueltigAb = _selected.StartDatumWert ?? DateTime.Today;
+		_dialogGueltigBis = _selected.GueltigBisWert;
+		_dialogFehler = null;
+	}
+
+	private void PositionAbbrechen() => _positionDialog = null;
+
+	private void PositionSpeichern()
+	{
+		if (_positionDialog is null)
+		{
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(_positionDialog.Name))
+		{
+			_dialogFehler = "Bitte einen Namen eingeben.";
+			return;
+		}
+
+		var gueltigAb = Termin.ToYyyyMmDd(_dialogGueltigAb.Date);
+		var gueltigBis = _dialogGueltigBis.HasValue ? Termin.ToYyyyMmDd(_dialogGueltigBis.Value.Date) : 0;
+		if (gueltigBis != 0 && gueltigBis < gueltigAb)
+		{
+			_dialogFehler = "Das Gültig-Bis-Datum darf nicht vor dem Gültig-Ab-Datum liegen.";
+			return;
+		}
+
+		long id;
+		if (_positionIstNeu)
+		{
+			id = PreislisteRepo.Insert(_positionDialog);
+		}
+		else
+		{
+			PreislisteRepo.Update(_positionDialog);
+			id = _positionDialog.Id;
+		}
+
+		PreislisteRepo.SpeichereGueltigkeit(id, 0, _positionAltGueltigAb, gueltigAb, gueltigBis, _dialogPreis);
+
+		_positionDialog = null;
+		LadeDaten();
+		_selected = _eintraege?.FirstOrDefault(e => e.Id == id) ?? _eintraege?.FirstOrDefault();
+		LadeZusatz();
+	}
+
+	private void PositionLoeschen()
+	{
+		if (_selected is null)
+		{
+			return;
+		}
+		PreislisteRepo.Delete(_selected.Id);
+		LadeDaten();
+	}
+
+	// ----- Zusatzpositionen -----
+
+	private void ZusatzNeu()
+	{
+		if (_selected is null)
+		{
+			return;
+		}
+		_zusatzIstNeu = true;
+		_zusatzAltGueltigAb = 0;
+		_zusatzDialog = new GlobalePreislisteZusatz { SpeisekarteId = _selected.Id };
+		_zusatzPreis = 0m;
+		_zusatzGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
+		_zusatzGueltigBis = null;
+		_zusatzFehler = null;
+	}
+
+	private void ZusatzBearbeiten()
+	{
+		if (_selectedZusatz is null)
+		{
+			return;
+		}
+		_zusatzIstNeu = false;
+		_zusatzAltGueltigAb = _selectedZusatz.StartDatum;
+		_zusatzDialog = new GlobalePreislisteZusatz
+		{
+			Id = _selectedZusatz.Id,
+			SpeisekarteId = _selectedZusatz.SpeisekarteId,
+			Bezeichnung = _selectedZusatz.Bezeichnung,
+			BildPfad = _selectedZusatz.BildPfad,
+			Druck = _selectedZusatz.Druck
+		};
+		_zusatzPreis = _selectedZusatz.Preis ?? 0m;
+		_zusatzGueltigAb = _selectedZusatz.StartDatumWert ?? DateTime.Today;
+		_zusatzGueltigBis = null;
+		_zusatzFehler = null;
+	}
+
+	private void ZusatzAbbrechen() => _zusatzDialog = null;
+
+	private void ZusatzSpeichern()
+	{
+		if (_zusatzDialog is null || _selected is null)
+		{
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(_zusatzDialog.Bezeichnung))
+		{
+			_zusatzFehler = "Bitte eine Bezeichnung eingeben.";
+			return;
+		}
+
+		var gueltigAb = Termin.ToYyyyMmDd(_zusatzGueltigAb.Date);
+		var gueltigBis = _zusatzGueltigBis.HasValue ? Termin.ToYyyyMmDd(_zusatzGueltigBis.Value.Date) : 0;
+		if (gueltigBis != 0 && gueltigBis < gueltigAb)
+		{
+			_zusatzFehler = "Das Gültig-Bis-Datum darf nicht vor dem Gültig-Ab-Datum liegen.";
+			return;
+		}
+
+		long id;
+		if (_zusatzIstNeu)
+		{
+			id = PreislisteRepo.InsertZusatz(_zusatzDialog);
+		}
+		else
+		{
+			PreislisteRepo.UpdateZusatz(_zusatzDialog);
+			id = _zusatzDialog.Id;
+		}
+
+		PreislisteRepo.SpeichereGueltigkeit(_selected.Id, id, _zusatzAltGueltigAb, gueltigAb, gueltigBis, _zusatzPreis);
+
+		_zusatzDialog = null;
+		LadeZusatz();
+		_selectedZusatz = _zusaetze.FirstOrDefault(z => z.Id == id) ?? _zusaetze.FirstOrDefault();
+	}
+
+	private void ZusatzLoeschen()
+	{
+		if (_selectedZusatz is null)
+		{
+			return;
+		}
+		PreislisteRepo.DeleteZusatz(_selectedZusatz.Id);
+		LadeZusatz();
+	}
+
+	// ----- Neues Datum -----
+
+	private void NeuerTermin()
+	{
+		_neuesDatum = DateTime.Today;
+		_neuesDatumDialog = true;
+	}
+
+	private void NeuesDatumSpeichern()
+	{
+		var neu = _neuesDatum.Date;
+		PreislisteRepo.AddDatum(_datumAb, Termin.ToYyyyMmDd(neu));
+
+		LadeDatumsListe();
+		if (!_datumsListe.Contains(neu))
+		{
+			_datumsListe.Add(neu);
+			_datumsListe.Sort();
+		}
+		_datumAb = Termin.ToYyyyMmDd(neu);
+		_neuesDatumDialog = false;
+		LadeDaten();
+	}
+}

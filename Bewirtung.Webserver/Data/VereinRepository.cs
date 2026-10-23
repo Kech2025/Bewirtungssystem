@@ -1,6 +1,6 @@
 namespace Bewirtung.Webserver.Data
 {
-    using Microsoft.Data.Sqlite;
+    using Npgsql;
 
     /// <summary>
     /// Datenzugriff für Vereine (Tabelle Verein) und deren Ansprechpartner (Tabelle Benutzer).
@@ -25,7 +25,7 @@ namespace Bewirtung.Webserver.Data
             {
                 result.Add(new VereinOption
                 {
-                    Id = reader.GetInt64(0),
+                    Id = reader.GetInt32(0),
                     Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
                 });
             }
@@ -61,7 +61,7 @@ namespace Bewirtung.Webserver.Data
             {
                 result.Add(new BenutzerOption
                 {
-                    UserId = reader.GetInt64(0),
+                    UserId = reader.GetInt32(0),
                     Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
                 });
             }
@@ -74,10 +74,10 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO Verein (Name, AnsprechpartnerId, Strasse, PLZ, Ort)
-                VALUES ($name, $ansprechpartnerId, $strasse, $plz, $ort);
-                SELECT last_insert_rowid();";
+                VALUES (@name, @ansprechpartnerId, @strasse, @plz, @ort)
+                RETURNING Id;";
             AddParameters(command, verein);
-            var id = (long)command.ExecuteScalar()!;
+            var id = Convert.ToInt64(command.ExecuteScalar()!);
             verein.Id = id;
             return id;
         }
@@ -88,14 +88,14 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 UPDATE Verein SET
-                    Name = $name,
-                    AnsprechpartnerId = $ansprechpartnerId,
-                    Strasse = $strasse,
-                    PLZ = $plz,
-                    Ort = $ort
-                WHERE Id = $id;";
+                    Name = @name,
+                    AnsprechpartnerId = @ansprechpartnerId,
+                    Strasse = @strasse,
+                    PLZ = @plz,
+                    Ort = @ort
+                WHERE Id = @id;";
             AddParameters(command, verein);
-            command.Parameters.AddWithValue("$id", verein.Id);
+            command.Parameters.AddWithValue("id", verein.Id);
             command.ExecuteNonQuery();
         }
 
@@ -103,25 +103,25 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM Verein WHERE Id = $id;";
-            command.Parameters.AddWithValue("$id", id);
+            command.CommandText = "DELETE FROM Verein WHERE Id = @id;";
+            command.Parameters.AddWithValue("id", id);
             command.ExecuteNonQuery();
         }
 
-        private static void AddParameters(SqliteCommand command, Verein verein)
+        private static void AddParameters(NpgsqlCommand command, Verein verein)
         {
-            command.Parameters.AddWithValue("$name", verein.Name);
-            command.Parameters.AddWithValue("$ansprechpartnerId", (object?)verein.AnsprechpartnerId ?? DBNull.Value);
-            command.Parameters.AddWithValue("$strasse", verein.Strasse);
-            command.Parameters.AddWithValue("$plz", verein.Plz);
-            command.Parameters.AddWithValue("$ort", verein.Ort);
+            command.Parameters.AddWithValue("name", (object?)verein.Name ?? DBNull.Value);
+            command.Parameters.AddWithValue("ansprechpartnerId", (object?)verein.AnsprechpartnerId ?? DBNull.Value);
+            command.Parameters.AddWithValue("strasse", (object?)verein.Strasse ?? DBNull.Value);
+            command.Parameters.AddWithValue("plz", (object?)verein.Plz ?? DBNull.Value);
+            command.Parameters.AddWithValue("ort", (object?)verein.Ort ?? DBNull.Value);
         }
 
-        private static Verein Map(SqliteDataReader reader) => new()
+        private static Verein Map(NpgsqlDataReader reader) => new()
         {
-            Id = reader.GetInt64(0),
+            Id = reader.GetInt32(0),
             Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-            AnsprechpartnerId = reader.IsDBNull(2) ? null : reader.GetInt64(2),
+            AnsprechpartnerId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
             Strasse = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
             Plz = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
             Ort = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),

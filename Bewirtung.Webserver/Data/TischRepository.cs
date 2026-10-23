@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -20,7 +20,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, 0)
+                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, false)
                 FROM Tisch t
                 LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
                 ORDER BY t.Tischnummer;";
@@ -29,10 +29,10 @@ namespace Bewirtung.Webserver.Data
             {
                 result.Add(new Tisch
                 {
-                    Tischnummer = (int)reader.GetInt64(0),
-                    BereichId = reader.IsDBNull(1) ? null : reader.GetInt64(1),
+                    Tischnummer = reader.GetInt32(0),
+                    BereichId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
                     BereichName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                    SofortLieferung = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3)
+                    SofortLieferung = (!reader.IsDBNull(3) && reader.GetBoolean(3)) ? 1 : 0
                 });
             }
             return result;
@@ -42,19 +42,19 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM Tisch WHERE Tischnummer = $nr;";
-            command.Parameters.AddWithValue("$nr", tischnummer);
-            return (long)command.ExecuteScalar()! > 0;
+            command.CommandText = "SELECT COUNT(*) FROM Tisch WHERE Tischnummer = @nr;";
+            command.Parameters.AddWithValue("nr", tischnummer);
+            return Convert.ToInt64(command.ExecuteScalar()!) > 0;
         }
 
         public void Insert(Tisch tisch)
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId, SofortLieferung) VALUES ($nr, $bereichId, $sofort);";
-            command.Parameters.AddWithValue("$nr", tisch.Tischnummer);
-            command.Parameters.AddWithValue("$bereichId", (object?)tisch.BereichId ?? DBNull.Value);
-            command.Parameters.AddWithValue("$sofort", tisch.SofortLieferung);
+            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId, SofortLieferung) VALUES (@nr, @bereichId, @sofort);";
+            command.Parameters.AddWithValue("nr", tisch.Tischnummer);
+            command.Parameters.AddWithValue("bereichId", (object?)tisch.BereichId ?? DBNull.Value);
+            command.Parameters.AddWithValue("sofort", tisch.SofortLieferung != 0);
             command.ExecuteNonQuery();
         }
 
@@ -62,11 +62,11 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE Tisch SET Tischnummer = $neu, BereichId = $bereichId, SofortLieferung = $sofort WHERE Tischnummer = $alt;";
-            command.Parameters.AddWithValue("$neu", neu.Tischnummer);
-            command.Parameters.AddWithValue("$bereichId", (object?)neu.BereichId ?? DBNull.Value);
-            command.Parameters.AddWithValue("$sofort", neu.SofortLieferung);
-            command.Parameters.AddWithValue("$alt", alteNummer);
+            command.CommandText = "UPDATE Tisch SET Tischnummer = @neu, BereichId = @bereichId, SofortLieferung = @sofort WHERE Tischnummer = @alt;";
+            command.Parameters.AddWithValue("neu", neu.Tischnummer);
+            command.Parameters.AddWithValue("bereichId", (object?)neu.BereichId ?? DBNull.Value);
+            command.Parameters.AddWithValue("sofort", neu.SofortLieferung != 0);
+            command.Parameters.AddWithValue("alt", alteNummer);
             command.ExecuteNonQuery();
         }
 
@@ -74,8 +74,8 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM Tisch WHERE Tischnummer = $nr;";
-            command.Parameters.AddWithValue("$nr", tischnummer);
+            command.CommandText = "DELETE FROM Tisch WHERE Tischnummer = @nr;";
+            command.Parameters.AddWithValue("nr", tischnummer);
             command.ExecuteNonQuery();
         }
     }

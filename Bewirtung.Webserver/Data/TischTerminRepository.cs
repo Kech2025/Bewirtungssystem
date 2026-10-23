@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -31,9 +31,9 @@ namespace Bewirtung.Webserver.Data
             {
                 result.Add(new TischTermin
                 {
-                    Bewirtungsdatum = (int)reader.GetInt64(0),
-                    VereinId = reader.GetInt64(1),
-                    Tischnummer = (int)reader.GetInt64(2),
+                    Bewirtungsdatum = Termin.ToYyyyMmDd(reader.GetDateTime(0)),
+                    VereinId = reader.GetInt32(1),
+                    Tischnummer = reader.GetInt32(2),
                     VereinName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                     BereichName = reader.IsDBNull(4) ? string.Empty : reader.GetString(4)
                 });
@@ -47,10 +47,10 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO TischTermin (Bewirtungsdatum, VereinId, Tischnummer)
-                VALUES ($datum, $vereinId, $tischnummer);";
-            command.Parameters.AddWithValue("$datum", eintrag.Bewirtungsdatum);
-            command.Parameters.AddWithValue("$vereinId", eintrag.VereinId);
-            command.Parameters.AddWithValue("$tischnummer", eintrag.Tischnummer);
+                VALUES (@datum, @vereinId, @tischnummer);";
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(eintrag.Bewirtungsdatum));
+            command.Parameters.AddWithValue("vereinId", eintrag.VereinId);
+            command.Parameters.AddWithValue("tischnummer", eintrag.Tischnummer);
             command.ExecuteNonQuery();
         }
 
@@ -60,10 +60,10 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM TischTermin
-                WHERE Bewirtungsdatum = $datum AND VereinId = $vereinId AND Tischnummer = $tischnummer;";
-            command.Parameters.AddWithValue("$datum", datum);
-            command.Parameters.AddWithValue("$vereinId", vereinId);
-            command.Parameters.AddWithValue("$tischnummer", tischnummer);
+                WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId AND Tischnummer = @tischnummer;";
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+            command.Parameters.AddWithValue("vereinId", vereinId);
+            command.Parameters.AddWithValue("tischnummer", tischnummer);
             command.ExecuteNonQuery();
         }
     }

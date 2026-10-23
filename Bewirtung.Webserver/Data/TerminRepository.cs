@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -29,8 +29,8 @@ namespace Bewirtung.Webserver.Data
             {
                 result.Add(new Termin
                 {
-                    BewirtungsDatum = (int)reader.GetInt64(0),
-                    VereinId = reader.GetInt64(1),
+                    BewirtungsDatum = Termin.ToYyyyMmDd(reader.GetDateTime(0)),
+                    VereinId = reader.GetInt32(1),
                     VereinName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2)
                 });
             }
@@ -43,9 +43,9 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO Termin (BewirtungsDatum, VereinId)
-                VALUES ($datum, $vereinId);";
-            command.Parameters.AddWithValue("$datum", termin.BewirtungsDatum);
-            command.Parameters.AddWithValue("$vereinId", termin.VereinId);
+                VALUES (@datum, @vereinId);";
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(termin.BewirtungsDatum));
+            command.Parameters.AddWithValue("vereinId", termin.VereinId);
             command.ExecuteNonQuery();
         }
 
@@ -58,12 +58,12 @@ namespace Bewirtung.Webserver.Data
             {
                 updateHelfer.CommandText = @"
                     UPDATE HelferTermin
-                    SET Bewirtungsdatum = $neuDatum, VereinId = $neuVerein
-                    WHERE Bewirtungsdatum = $altDatum AND VereinId = $altVerein;";
-                updateHelfer.Parameters.AddWithValue("$neuDatum", neu.BewirtungsDatum);
-                updateHelfer.Parameters.AddWithValue("$neuVerein", neu.VereinId);
-                updateHelfer.Parameters.AddWithValue("$altDatum", altDatum);
-                updateHelfer.Parameters.AddWithValue("$altVerein", altVereinId);
+                    SET Bewirtungsdatum = @neuDatum, VereinId = @neuVerein
+                    WHERE Bewirtungsdatum = @altDatum AND VereinId = @altVerein;";
+                updateHelfer.Parameters.AddWithValue("neuDatum", Termin.FromYyyyMmDd(neu.BewirtungsDatum));
+                updateHelfer.Parameters.AddWithValue("neuVerein", neu.VereinId);
+                updateHelfer.Parameters.AddWithValue("altDatum", Termin.FromYyyyMmDd(altDatum));
+                updateHelfer.Parameters.AddWithValue("altVerein", altVereinId);
                 updateHelfer.ExecuteNonQuery();
             }
 
@@ -71,12 +71,12 @@ namespace Bewirtung.Webserver.Data
             {
                 updateTermin.CommandText = @"
                     UPDATE Termin
-                    SET BewirtungsDatum = $neuDatum, VereinId = $neuVerein
-                    WHERE BewirtungsDatum = $altDatum AND VereinId = $altVerein;";
-                updateTermin.Parameters.AddWithValue("$neuDatum", neu.BewirtungsDatum);
-                updateTermin.Parameters.AddWithValue("$neuVerein", neu.VereinId);
-                updateTermin.Parameters.AddWithValue("$altDatum", altDatum);
-                updateTermin.Parameters.AddWithValue("$altVerein", altVereinId);
+                    SET BewirtungsDatum = @neuDatum, VereinId = @neuVerein
+                    WHERE BewirtungsDatum = @altDatum AND VereinId = @altVerein;";
+                updateTermin.Parameters.AddWithValue("neuDatum", Termin.FromYyyyMmDd(neu.BewirtungsDatum));
+                updateTermin.Parameters.AddWithValue("neuVerein", neu.VereinId);
+                updateTermin.Parameters.AddWithValue("altDatum", Termin.FromYyyyMmDd(altDatum));
+                updateTermin.Parameters.AddWithValue("altVerein", altVereinId);
                 updateTermin.ExecuteNonQuery();
             }
 
@@ -91,18 +91,18 @@ namespace Bewirtung.Webserver.Data
             using (var deleteHelfer = connection.CreateCommand())
             {
                 deleteHelfer.CommandText =
-                    "DELETE FROM HelferTermin WHERE Bewirtungsdatum = $datum AND VereinId = $vereinId;";
-                deleteHelfer.Parameters.AddWithValue("$datum", datum);
-                deleteHelfer.Parameters.AddWithValue("$vereinId", vereinId);
+                    "DELETE FROM HelferTermin WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId;";
+                deleteHelfer.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+                deleteHelfer.Parameters.AddWithValue("vereinId", vereinId);
                 deleteHelfer.ExecuteNonQuery();
             }
 
             using (var deleteTermin = connection.CreateCommand())
             {
                 deleteTermin.CommandText =
-                    "DELETE FROM Termin WHERE BewirtungsDatum = $datum AND VereinId = $vereinId;";
-                deleteTermin.Parameters.AddWithValue("$datum", datum);
-                deleteTermin.Parameters.AddWithValue("$vereinId", vereinId);
+                    "DELETE FROM Termin WHERE BewirtungsDatum = @datum AND VereinId = @vereinId;";
+                deleteTermin.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+                deleteTermin.Parameters.AddWithValue("vereinId", vereinId);
                 deleteTermin.ExecuteNonQuery();
             }
 
@@ -119,18 +119,18 @@ namespace Bewirtung.Webserver.Data
                 FROM HelferTermin h
                 JOIN Benutzer b ON b.UserId = h.UserId
                 LEFT JOIN Verein v ON v.Id = b.VereinId
-                WHERE h.Bewirtungsdatum = $datum AND h.VereinId = $vereinId
+                WHERE h.Bewirtungsdatum = @datum AND h.VereinId = @vereinId
                 ORDER BY b.Name;";
-            command.Parameters.AddWithValue("$datum", datum);
-            command.Parameters.AddWithValue("$vereinId", vereinId);
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+            command.Parameters.AddWithValue("vereinId", vereinId);
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
                 result.Add(new Benutzer
                 {
-                    UserId = reader.GetInt64(0),
+                    UserId = reader.GetInt32(0),
                     Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                    VereinId = reader.IsDBNull(2) ? null : reader.GetInt64(2),
+                    VereinId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
                     VereinName = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
                 });
             }
@@ -142,11 +142,12 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT OR IGNORE INTO HelferTermin (VereinId, Bewirtungsdatum, UserId)
-                VALUES ($vereinId, $datum, $userId);";
-            command.Parameters.AddWithValue("$vereinId", vereinId);
-            command.Parameters.AddWithValue("$datum", datum);
-            command.Parameters.AddWithValue("$userId", userId);
+                INSERT INTO HelferTermin (VereinId, Bewirtungsdatum, UserId)
+                VALUES (@vereinId, @datum, @userId)
+                ON CONFLICT DO NOTHING;";
+            command.Parameters.AddWithValue("vereinId", vereinId);
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+            command.Parameters.AddWithValue("userId", userId);
             command.ExecuteNonQuery();
         }
 
@@ -156,10 +157,10 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM HelferTermin
-                WHERE Bewirtungsdatum = $datum AND VereinId = $vereinId AND UserId = $userId;";
-            command.Parameters.AddWithValue("$datum", datum);
-            command.Parameters.AddWithValue("$vereinId", vereinId);
-            command.Parameters.AddWithValue("$userId", userId);
+                WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId AND UserId = @userId;";
+            command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
+            command.Parameters.AddWithValue("vereinId", vereinId);
+            command.Parameters.AddWithValue("userId", userId);
             command.ExecuteNonQuery();
         }
     }

@@ -1,0 +1,170 @@
+@page "/wordvorlage"
+@rendermode RenderMode.InteractiveServer
+@inject WordVorlageRepository VorlageRepo
+@inject IJSRuntime JS
+
+<PageTitle>Wordvorlage erstellen</PageTitle>
+
+<h1>Wordvorlage erstellen</h1>
+
+<p>
+	Hier wird die Preislisten-Vorlage verwaltet. Die Vorlage wird in der Datenbank gespeichert.
+	Zum Bearbeiten laden Sie die Vorlage herunter, öffnen und ändern sie lokal in Word und laden
+	die geänderte Datei anschließend wieder hoch.
+</p>
+
+<div class="card" style="max-width: 720px;">
+	<div class="card-body">
+		<div class="mb-3">
+			<strong>Status:</strong>
+			@if (_vorlageVorhanden)
+			{
+				<span>Vorlage in der Datenbank vorhanden (@_dateiname).</span>
+			}
+			else
+			{
+				<span>Keine Vorlage in der Datenbank. Bitte eine .docx-Datei hochladen.</span>
+			}
+		</div>
+
+		<div class="mb-3 d-flex gap-2">
+			<button class="btn btn-primary" disabled="@(!_vorlageVorhanden)" @onclick="Herunterladen">
+				Vorlage herunterladen
+			</button>
+			<button class="btn btn-secondary" @onclick="UploadOeffnen">
+				@(_vorlageVorhanden ? "Vorlage ersetzen" : "Vorlage hochladen")
+			</button>
+		</div>
+
+		@if (!string.IsNullOrEmpty(_meldung))
+		{
+			<div class="alert-success mt-3">@_meldung</div>
+		}
+		@if (!string.IsNullOrEmpty(_fehler))
+		{
+			<div class="alert-danger mt-3">@_fehler</div>
+		}
+	</div>
+</div>
+
+@if (_uploadOffen)
+{
+	<div class="modal-backdrop-custom" @onclick="UploadSchliessen">
+		<div class="modal-dialog-custom" @onclick:stopPropagation="true">
+			<div class="modal-header-custom">
+				<h5 class="m-0">@(_vorlageVorhanden ? "Vorlage ersetzen" : "Vorlage hochladen")</h5>
+				<button type="button" class="btn-close-custom" @onclick="UploadSchliessen">&times;</button>
+			</div>
+			<div class="modal-body-custom">
+				<label class="form-label">Word-Datei (.docx) auswählen</label>
+				<InputFile class="form-control" OnChange="DateiHochladen" accept=".docx" />
+				@if (!string.IsNullOrEmpty(_modalFehler))
+				{
+					<div class="alert-danger mt-3">@_modalFehler</div>
+				}
+			</div>
+			<div class="modal-footer-custom">
+				<button type="button" class="btn btn-secondary" @onclick="UploadSchliessen">Abbrechen</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private bool _vorlageVorhanden;
+	private string _dateiname = string.Empty;
+
+	private bool _uploadOffen;
+
+	private string? _meldung;
+	private string? _fehler;
+	private string? _modalFehler;
+
+	private const long MaxGroesse = 25 * 1024 * 1024; // 25 MB
+
+	protected override void OnInitialized()
+	{
+		StatusLaden();
+		// Bei leerer Datenbank direkt den Upload-Dialog anbieten.
+		if (!_vorlageVorhanden)
+		{
+			_uploadOffen = true;
+		}
+	}
+
+	private void StatusLaden()
+	{
+		var vorlage = VorlageRepo.Get();
+		_vorlageVorhanden = vorlage != null && vorlage.Inhalt.Length > 0;
+		_dateiname = vorlage?.Dateiname ?? string.Empty;
+	}
+
+	private void UploadOeffnen()
+	{
+		_meldung = null;
+		_fehler = null;
+		_modalFehler = null;
+		_uploadOffen = true;
+	}
+
+	private void UploadSchliessen()
+	{
+		_uploadOffen = false;
+		_modalFehler = null;
+	}
+
+	private async Task Herunterladen()
+	{
+		_meldung = null;
+		_fehler = null;
+		try
+		{
+			var vorlage = VorlageRepo.Get();
+			if (vorlage == null || vorlage.Inhalt.Length == 0)
+			{
+				_fehler = "Es ist keine Vorlage zum Herunterladen vorhanden.";
+				return;
+			}
+
+			var dateiname = string.IsNullOrWhiteSpace(vorlage.Dateiname) ? "Wordvorlage.docx" : vorlage.Dateiname;
+			await JS.InvokeVoidAsync("downloadFileFromBytes", dateiname,
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+				vorlage.Inhalt);
+			_meldung = "Download gestartet.";
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Download fehlgeschlagen: " + ex.Message;
+		}
+	}
+
+	private async Task DateiHochladen(InputFileChangeEventArgs e)
+	{
+		_meldung = null;
+		_fehler = null;
+		_modalFehler = null;
+		try
+		{
+			var datei = e.File;
+			if (!datei.Name.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+			{
+				_modalFehler = "Bitte eine .docx-Datei auswählen.";
+				return;
+			}
+
+			using var stream = datei.OpenReadStream(MaxGroesse);
+			using var ms = new MemoryStream();
+			await stream.CopyToAsync(ms);
+			var inhalt = ms.ToArray();
+
+			VorlageRepo.Save(datei.Name, inhalt);
+			StatusLaden();
+			_uploadOffen = false;
+			_meldung = "Vorlage wurde in der Datenbank gespeichert.";
+		}
+		catch (Exception ex)
+		{
+			_modalFehler = "Datei konnte nicht gespeichert werden: " + ex.Message;
+		}
+	}
+}
