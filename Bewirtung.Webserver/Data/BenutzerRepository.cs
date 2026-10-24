@@ -1,4 +1,5 @@
 using Npgsql;
+using System.Data;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -20,7 +21,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName
+                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
                 FROM Benutzer b
                 LEFT JOIN Verein v ON v.Id = b.VereinId
                 ORDER BY b.Name;";
@@ -37,7 +38,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName
+                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
                 FROM Benutzer b
                 LEFT JOIN Verein v ON v.Id = b.VereinId
                 WHERE b.UserId = @userId;";
@@ -106,7 +107,8 @@ namespace Bewirtung.Webserver.Data
             Administrator = !reader.IsDBNull(4) && reader.GetBoolean(4),
             Telefon = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
             VereinId = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-            VereinName = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
+            VereinName = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+            Erstellt = reader.IsDBNull(8) ? System.DateTime.MinValue : reader.GetDateTime(8)
         };
     }
 }

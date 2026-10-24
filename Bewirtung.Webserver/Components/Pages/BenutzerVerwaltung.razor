@@ -23,6 +23,7 @@ else
 				<th>Telefon</th>
 				<th>Verein</th>
 				<th>Admin</th>
+				<th>Erstellt</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -35,6 +36,7 @@ else
 					<td>@b.Telefon</td>
 					<td>@b.VereinName</td>
 					<td>@(b.Administrator ? "Ja" : "Nein")</td>
+					<td>@b.Erstellt</td>
 					<td>
 						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(b)">Bearbeiten</button>
 						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(b)">Löschen</button>

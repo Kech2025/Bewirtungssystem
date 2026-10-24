@@ -607,12 +607,12 @@ else
 			{
 				continue;
 			}
-			if (zeile.DruckClient == 1)
+			if (zeile.DruckClient == true)
 			{
 				zeilen.Add(zeile);
 				lastDruckParent = -1;
 			}
-			else if (zeile.DruckParent == 1)
+			else if (zeile.DruckParent == true)
 			{
 				zeilen.Add(zeile);
 				lastDruckParent = zeile.PreislisteId;
@@ -633,7 +633,7 @@ else
 		var dateiname = $"Preisliste_{druckTitel}_{datumText}.docx";
 
 		// Fertige Preisliste als neuen Datensatz (komplett = 1) in der DB ablegen.
-		VorlageRepo.KompletteSpeichern(dateiname, dokument);
+		VorlageRepo.KompletteSpeichern(dateiname, dokument, DateTime.ParseExact(_aktuellerTermin.BewirtungsDatum.ToString(), "yyyyMMdd", null));
 
 		await JS.InvokeVoidAsync("downloadFileFromBytes", dateiname,
 			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -785,18 +785,18 @@ else
 			return;
 		}
 
-		var gueltigAb = Termin.ToYyyyMmDd(_globalePositionGueltigAb.Date);
+		var gueltigAb = _globalePositionGueltigAb.Date;
 		var gueltigBis = _globalePositionGueltigBis.HasValue
-			? Termin.ToYyyyMmDd(_globalePositionGueltigBis.Value.Date)
-			: 0;
-		if (gueltigBis != 0 && gueltigBis < gueltigAb)
+			? _globalePositionGueltigBis.Value.Date
+			: DateTime.MinValue;
+		if (gueltigBis != DateTime.MinValue && gueltigBis < gueltigAb)
 		{
 			_globalePositionFehler = "Das Gültig-Bis-Datum darf nicht vor dem Gültig-Ab-Datum liegen.";
 			return;
 		}
 
 		var id = PreislisteRepo.Insert(_globalePosition);
-		PreislisteRepo.SpeichereGueltigkeit(id, 0, 0, gueltigAb, gueltigBis, _globalePositionPreis);
+		PreislisteRepo.SpeichereGueltigkeit(id, 0, DateTime.MinValue, gueltigAb, gueltigBis, _globalePositionPreis);
 
 		_globalePosition = null;
 

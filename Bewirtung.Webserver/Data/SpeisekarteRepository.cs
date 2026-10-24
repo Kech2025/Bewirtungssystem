@@ -32,11 +32,12 @@ namespace Bewirtung.Webserver.Data
                     SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung,
                            COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0) AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient
                     FROM GlobalePreisliste p
-                    LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id
+                    LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id AND z.Status = true
                     LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = p.Id AND gp.ZusatzId = 0 AND gp.Preis > 0
-                        AND gp.GueltigAb <= @datum AND (gp.GueltigBis IS NULL OR gp.GueltigBis >= @datum)
+                        AND gp.GueltigAb <= @datum AND (gp.GueltigBis IS NULL OR NOT isfinite(gp.GueltigBis) OR gp.GueltigBis >= @datum)
                     LEFT JOIN GlobalerPreis gp2 ON gp2.GlobalePreislisteId = p.Id AND gp2.ZusatzId = z.Id
-                        AND gp2.GueltigAb <= @datum AND (gp2.GueltigBis IS NULL OR gp2.GueltigBis >= @datum)
+                        AND gp2.GueltigAb <= @datum AND (gp2.GueltigBis IS NULL OR NOT isfinite(gp2.GueltigBis) OR gp2.GueltigBis >= @datum)
+                    WHERE p.Status = true
                     ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
                 command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
                 using var reader = command.ExecuteReader();
@@ -51,8 +52,8 @@ namespace Bewirtung.Webserver.Data
                         ZusatzId = reader.IsDBNull(3) ? 0 : reader.GetInt32(3),
                         ZusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
                         GlobalPreis = reader.IsDBNull(5) ? null : reader.GetDecimal(5),
-                        DruckParent = (!reader.IsDBNull(6) && reader.GetBoolean(6)) ? 1 : 0,
-                        DruckClient = (!reader.IsDBNull(7) && reader.GetBoolean(7)) ? 1 : 0
+                        DruckParent = (!reader.IsDBNull(6) && reader.GetBoolean(6)),
+                        DruckClient = (!reader.IsDBNull(7) && reader.GetBoolean(7))
                     });
                 }
             }

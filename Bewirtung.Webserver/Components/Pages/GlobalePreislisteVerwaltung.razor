@@ -46,6 +46,7 @@ else
 						<th>Start-Datum</th>
 						<th>Gültig-Bis</th>
 						<th class="text-end">Preis</th>
+						<th>Status</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -58,6 +59,7 @@ else
 							<td>@(e.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
 							<td>@(e.GueltigBisWert?.ToString("dd.MM.yyyy"))</td>
 							<td class="text-end">@(e.Preis?.ToString("N2"))</td>
+							<td>@(e.Status ? "Ja" : "Nein")</td>
 						</tr>
 					}
 				</tbody>
@@ -80,6 +82,7 @@ else
 						<th>Druck</th>
 						<th>Start-Datum</th>
 						<th class="text-end">Preis</th>
+						<th>Status</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -90,6 +93,7 @@ else
 							<td>@(z.Druck ? "Ja" : "Nein")</td>
 							<td>@(z.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
 							<td class="text-end">@(z.Preis?.ToString("N2"))</td>
+							<td>@(z.Status ? "Ja" : "Nein")</td>
 						</tr>
 					}
 				</tbody>
@@ -127,6 +131,10 @@ else
 					<div class="form-check mb-2">
 						<input type="checkbox" class="form-check-input" id="posDruck" @bind="_positionDialog.Druck" />
 						<label class="form-check-label" for="posDruck">Druck</label>
+					</div>
+					<div class="form-check mb-2">
+						<input type="checkbox" class="form-check-input" id="posStatus" @bind="_positionDialog.Status" />
+						<label class="form-check-label" for="posStatus">Status (aktiv)</label>
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Preis</label>
@@ -172,6 +180,10 @@ else
 					<div class="form-check mb-2">
 						<input type="checkbox" class="form-check-input" id="zusatzDruck" @bind="_zusatzDialog.Druck" />
 						<label class="form-check-label" for="zusatzDruck">Druck</label>
+					</div>
+					<div class="form-check mb-2">
+						<input type="checkbox" class="form-check-input" id="zusatzStatus" @bind="_zusatzDialog.Status" />
+						<label class="form-check-label" for="zusatzStatus">Status (aktiv)</label>
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Preis</label>
@@ -230,7 +242,7 @@ else
 	// Positions-Dialog
 	private GlobalePreisliste? _positionDialog;
 	private bool _positionIstNeu;
-	private int _positionAltGueltigAb;
+	private DateTime _positionAltGueltigAb;
 	private decimal _dialogPreis;
 	private DateTime _dialogGueltigAb = DateTime.Today;
 	private DateTime? _dialogGueltigBis;
@@ -239,7 +251,7 @@ else
 	// Zusatz-Dialog
 	private GlobalePreislisteZusatz? _zusatzDialog;
 	private bool _zusatzIstNeu;
-	private int _zusatzAltGueltigAb;
+	private DateTime _zusatzAltGueltigAb;
 	private decimal _zusatzPreis;
 	private DateTime _zusatzGueltigAb = DateTime.Today;
 	private DateTime? _zusatzGueltigBis;
@@ -308,7 +320,7 @@ else
 	private void PositionNeu()
 	{
 		_positionIstNeu = true;
-		_positionAltGueltigAb = 0;
+		_positionAltGueltigAb = DateTime.MinValue;
 		_positionDialog = new GlobalePreisliste();
 		_dialogPreis = 0m;
 		_dialogGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
@@ -323,7 +335,7 @@ else
 			return;
 		}
 		_positionIstNeu = false;
-		_positionAltGueltigAb = _selected.StartDatum;
+		_positionAltGueltigAb = _selected.StartDatumWert ?? DateTime.MinValue;
 		_positionDialog = new GlobalePreisliste
 		{
 			Id = _selected.Id,
@@ -331,7 +343,8 @@ else
 			Preiskategorie = _selected.Preiskategorie,
 			BildPfad = _selected.BildPfad,
 			Druck = _selected.Druck,
-			Zusatztext = _selected.Zusatztext
+			Zusatztext = _selected.Zusatztext,
+			Status = _selected.Status
 		};
 		_dialogPreis = _selected.Preis ?? 0m;
 		_dialogGueltigAb = _selected.StartDatumWert ?? DateTime.Today;
@@ -353,9 +366,9 @@ else
 			return;
 		}
 
-		var gueltigAb = Termin.ToYyyyMmDd(_dialogGueltigAb.Date);
-		var gueltigBis = _dialogGueltigBis.HasValue ? Termin.ToYyyyMmDd(_dialogGueltigBis.Value.Date) : 0;
-		if (gueltigBis != 0 && gueltigBis < gueltigAb)
+		var gueltigAb = _dialogGueltigAb.Date;
+		var gueltigBis = _dialogGueltigBis.HasValue ? _dialogGueltigBis.Value.Date : DateTime.MinValue;
+		if (gueltigBis != DateTime.MinValue && gueltigBis < gueltigAb)
 		{
 			_dialogFehler = "Das Gültig-Bis-Datum darf nicht vor dem Gültig-Ab-Datum liegen.";
 			return;
@@ -399,7 +412,7 @@ else
 			return;
 		}
 		_zusatzIstNeu = true;
-		_zusatzAltGueltigAb = 0;
+		_zusatzAltGueltigAb = DateTime.MinValue;
 		_zusatzDialog = new GlobalePreislisteZusatz { SpeisekarteId = _selected.Id };
 		_zusatzPreis = 0m;
 		_zusatzGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
@@ -414,14 +427,15 @@ else
 			return;
 		}
 		_zusatzIstNeu = false;
-		_zusatzAltGueltigAb = _selectedZusatz.StartDatum;
+		_zusatzAltGueltigAb = _selectedZusatz.StartDatumWert ?? DateTime.MinValue;
 		_zusatzDialog = new GlobalePreislisteZusatz
 		{
 			Id = _selectedZusatz.Id,
 			SpeisekarteId = _selectedZusatz.SpeisekarteId,
 			Bezeichnung = _selectedZusatz.Bezeichnung,
 			BildPfad = _selectedZusatz.BildPfad,
-			Druck = _selectedZusatz.Druck
+			Druck = _selectedZusatz.Druck,
+			Status = _selectedZusatz.Status
 		};
 		_zusatzPreis = _selectedZusatz.Preis ?? 0m;
 		_zusatzGueltigAb = _selectedZusatz.StartDatumWert ?? DateTime.Today;
@@ -443,9 +457,9 @@ else
 			return;
 		}
 
-		var gueltigAb = Termin.ToYyyyMmDd(_zusatzGueltigAb.Date);
-		var gueltigBis = _zusatzGueltigBis.HasValue ? Termin.ToYyyyMmDd(_zusatzGueltigBis.Value.Date) : 0;
-		if (gueltigBis != 0 && gueltigBis < gueltigAb)
+		var gueltigAb = _zusatzGueltigAb.Date;
+		var gueltigBis = _zusatzGueltigBis.HasValue ? _zusatzGueltigBis.Value.Date : DateTime.MinValue;
+		if (gueltigBis != DateTime.MinValue && gueltigBis < gueltigAb)
 		{
 			_zusatzFehler = "Das Gültig-Bis-Datum darf nicht vor dem Gültig-Ab-Datum liegen.";
 			return;
@@ -462,7 +476,7 @@ else
 			id = _zusatzDialog.Id;
 		}
 
-		PreislisteRepo.SpeichereGueltigkeit(_selected.Id, id, _zusatzAltGueltigAb, gueltigAb, gueltigBis, _zusatzPreis);
+		PreislisteRepo.SpeichereGueltigkeit(_selected.Id, id, _zusatzAltGueltigAb, gueltigAb,	gueltigBis, _zusatzPreis);
 
 		_zusatzDialog = null;
 		LadeZusatz();

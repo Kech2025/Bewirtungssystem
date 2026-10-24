@@ -13,6 +13,7 @@ namespace Bewirtung.Webserver.Data
         public string Telefon { get; set; } = string.Empty;
         public long? VereinId { get; set; }
         public string VereinName { get; set; } = string.Empty;
+        public DateTime Erstellt { get;set;}
     }
 
     /// <summary>
@@ -125,8 +126,8 @@ namespace Bewirtung.Webserver.Data
         public decimal? GlobalPreis { get; set; }
         public bool Ausgewaehlt { get; set; }
         public decimal TerminPreis { get; set; }
-        public int DruckParent { get; set; }
-        public int DruckClient { get; set; }
+        public bool DruckParent { get; set; }
+        public bool DruckClient { get; set; }
         public string Produkt =>
             string.IsNullOrEmpty(ZusatzText) ? Name : $"{Name} – {ZusatzText}";
     }
@@ -180,17 +181,18 @@ namespace Bewirtung.Webserver.Data
         public Preiskategorie Preiskategorie { get; set; }
         public string BildPfad { get; set; } = string.Empty;
         public bool Druck { get; set; }
+        public bool Status { get; set; } = true;
         public string Zusatztext { get; set; } = string.Empty;
 
         public decimal? Preis { get; set; }
-        public int StartDatum { get; set; }
-        public int GueltigBis { get; set; }
+        public DateTime StartDatum { get; set; }
+        public DateTime GueltigBis { get; set; }
 
         public DateTime? StartDatumWert =>
-            StartDatum > 0 ? Termin.FromYyyyMmDd(StartDatum).Date : null;
+            StartDatum > DateTime.MinValue ? StartDatum.Date : null;
 
         public DateTime? GueltigBisWert =>
-            GueltigBis > 0 ? Termin.FromYyyyMmDd(GueltigBis).Date : null;
+            GueltigBis > DateTime.MinValue ? GueltigBis.Date : null;
 
         public string KategorieText =>
             Preiskategorie == Preiskategorie.Getraenke ? "Getränke" : "Speisen";
@@ -207,6 +209,7 @@ namespace Bewirtung.Webserver.Data
         public string Bezeichnung { get; set; } = string.Empty;
         public string BildPfad { get; set; } = string.Empty;
         public bool Druck { get; set; }
+        public bool Status { get; set; } = true;
 
         public decimal? Preis { get; set; }
         public int StartDatum { get; set; }
@@ -225,8 +228,8 @@ namespace Bewirtung.Webserver.Data
     {
         public long GlobalePreislisteId { get; set; }
         public long ZusatzId { get; set; }
-        public int GueltigAb { get; set; }
-        public int GueltigBis { get; set; }
+        public DateTime GueltigAb { get; set; }
+        public DateTime GueltigBis { get; set; }
         public decimal Preis { get; set; }
     }
 
@@ -291,5 +294,7 @@ namespace Bewirtung.Webserver.Data
         public long Id { get; set; }
         public string Dateiname { get; set; } = string.Empty;
         public byte[] Inhalt { get; set; } = Array.Empty<byte>();
+        public bool Komplett { get;set;} = true;
+        public DateTime Bewirtungsdatum { get;set;}
     }
 }

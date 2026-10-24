@@ -43,8 +43,8 @@ namespace Bewirtung.Webserver.Data
                 FROM BewirtungsPosition bp
                 INNER JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
                 LEFT JOIN Benutzer u ON u.UserId = a.UserId
-                LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
-                LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+                LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId AND p.Status = true
+                LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId AND z.Status = true
                 LEFT JOIN Mwst m ON m.Preiskategorie = p.Preiskategorie
                 LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
                 LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
@@ -136,8 +136,8 @@ namespace Bewirtung.Webserver.Data
                 FROM BewirtungsPosition bp
                 INNER JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
                 LEFT JOIN Benutzer u ON u.UserId = a.UserId
-                LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
-                LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+                LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId AND p.Status = true
+                LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId AND z.Status = true
                 LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
                 LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
                 WHERE a.Bewirtungstermin = @datum AND (COALESCE(bp.mengegeliefert,0) = 0 OR COALESCE(bp.mengebezahlt,0) = 0 OR COALESCE(bp.Mengegeliefert,0) <> COALESCE(bp.Mengebezahlt,0))

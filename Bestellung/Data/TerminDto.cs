@@ -6,7 +6,7 @@ namespace Bestellung.Data;
 /// </summary>
 public class TerminDto
 {
-    public int BewirtungsDatum { get; set; }
+    public DateTime BewirtungsDatum { get; set; }
     public long VereinId { get; set; }
     public string VereinName { get; set; } = string.Empty;
 
@@ -15,21 +15,21 @@ public class TerminDto
     {
         get
         {
-            var jahr = BewirtungsDatum / 10000;
-            var monat = BewirtungsDatum / 100 % 100;
-            var tag = BewirtungsDatum % 100;
-            if (jahr < 1 || monat < 1 || monat > 12 || tag < 1 || tag > 31)
-            {
-                return BewirtungsDatum.ToString();
-            }
-            try
-            {
+            //var jahr = BewirtungsDatum / 10000;
+            //var monat = BewirtungsDatum / 100 % 100;
+            //var tag = BewirtungsDatum % 100;
+            //if (jahr < 1 || monat < 1 || monat > 12 || tag < 1 || tag > 31)
+            //{
+            //    return BewirtungsDatum.ToString();
+            //}
+            //try
+            //{
                 return new DateTime(jahr, monat, tag).ToString("dd.MM.yyyy");
-            }
-            catch
-            {
-                return BewirtungsDatum.ToString();
-            }
+            //}
+            //catch
+            //{
+            //    return BewirtungsDatum.ToString();
+            //}
         }
     }
 

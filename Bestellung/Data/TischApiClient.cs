@@ -33,7 +33,7 @@ public class TischApiClient
     /// <summary>
     /// Liefert alle vorhandenen Tische (Nummer + Bereich) vom Server (GET /api/tische).
     /// </summary>
-    public async Task<List<TischDto>> GetTischeAsync(int bewirtungsDatum, CancellationToken cancellationToken = default)
+    public async Task<List<TischDto>> GetTischeAsync(string bewirtungsDatum, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/tische?datum={bewirtungsDatum}";
         var result = await _httpClient.GetFromJsonAsync<List<TischDto>>(url, cancellationToken);

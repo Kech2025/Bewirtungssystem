@@ -1,4 +1,4 @@
---
+			--
 -- Anpassungen an der bestehenden PostgreSQL-Datenbank vor der Code-Migration.
 -- Diese Skripte setzen die Entscheidungen um:
 --   1. bit(1) -> boolean für alle Status-/Flag-Spalten
@@ -34,11 +34,11 @@ ALTER TABLE public.verein
 ALTER TABLE public.wordvorlage
 	ALTER COLUMN komplett TYPE boolean USING (komplett = B'1');
 
--- 2. wordvorlage.vorlage: bytea[] -> bytea
--- Falls bereits Daten vorhanden sind, muss das erste Element übernommen werden.
--- Bei leerer Tabelle genügt der einfache Typwechsel.
+-- 2. wordvorlage.inhalt: bytea[] -> bytea
+-- Der Dateiinhalt liegt in der Spalte "inhalt" (Array). Es wird das erste
+-- Element übernommen; bei leerer Tabelle genügt der einfache Typwechsel.
 ALTER TABLE public.wordvorlage
-	ALTER COLUMN vorlage TYPE bytea USING (vorlage[1]);
+	ALTER COLUMN inhalt TYPE bytea USING (CASE WHEN inhalt IS NULL THEN NULL ELSE inhalt[1] END);
 
 -- 3. Mixed-Case-Spalten -> lowercase
 ALTER TABLE public.eventlog RENAME COLUMN "Source" TO source;

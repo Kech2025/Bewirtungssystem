@@ -23,7 +23,7 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT id, dateiname, vorlage FROM wordvorlage WHERE COALESCE(komplett, false) = false ORDER BY id LIMIT 1;";
+            command.CommandText = "SELECT id, dateiname, komplett, bewirtungsdatum, inhalt FROM wordvorlage WHERE COALESCE(komplett, false) = true ORDER BY id LIMIT 1;";
             using var reader = command.ExecuteReader();
             if (!reader.Read())
             {
@@ -31,15 +31,17 @@ namespace Bewirtung.Webserver.Data
             }
 
             byte[] inhalt = Array.Empty<byte>();
-            if (!reader.IsDBNull(2))
+            if (!reader.IsDBNull(4))
             {
-                inhalt = (byte[])reader.GetValue(2);
+                inhalt = (byte[])reader.GetValue(4);
             }
 
             return new WordVorlage
             {
                 Id = reader.GetInt32(0),
                 Dateiname = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                Komplett = !reader.IsDBNull(2) && reader.GetBoolean(2),
+                Bewirtungsdatum = reader.IsDBNull(3) ? DateTime.MinValue : reader.GetDateTime(3),
                 Inhalt = inhalt
             };
         }
@@ -67,18 +69,18 @@ namespace Bewirtung.Webserver.Data
             {
                 command.CommandText = @"
                     UPDATE wordvorlage
-                    SET vorlage = @vorlage, dateiname = @dateiname, komplett = false
+                    SET inhalt = @inhalt, dateiname = @dateiname, komplett = true, vorlage = true, bewirtungsdatum = NULL
                     WHERE id = @id;";
                 command.Parameters.AddWithValue("id", id.Value);
             }
             else
             {
                 command.CommandText = @"
-                    INSERT INTO wordvorlage (vorlage, dateiname, komplett)
-                    VALUES (@vorlage, @dateiname, false);";
+                    INSERT INTO wordvorlage (inhalt, dateiname, komplett, vorlage, bewirtungsdatum)
+                    VALUES (@inhalt, @dateiname, true, true, null);";
             }
 
-            command.Parameters.Add("vorlage", NpgsqlDbType.Bytea).Value = inhalt;
+            command.Parameters.Add("inhalt", NpgsqlDbType.Bytea).Value = inhalt;
             command.Parameters.AddWithValue("dateiname", (object?)dateiname ?? DBNull.Value);
             command.ExecuteNonQuery();
         }
@@ -86,16 +88,17 @@ namespace Bewirtung.Webserver.Data
         /// <summary>
         /// Speichert eine fertig generierte Preisliste als neuen Datensatz mit komplett = true.
         /// </summary>
-        public void KompletteSpeichern(string dateiname, byte[] inhalt)
+        public void KompletteSpeichern(string dateiname, byte[] inhalt, DateTime bewirtungsdatum)
         {
             using var connection = _database.CreateConnection();
 
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO wordvorlage (vorlage, dateiname, komplett)
-                VALUES (@vorlage, @dateiname, true);";
-            command.Parameters.Add("vorlage", NpgsqlDbType.Bytea).Value = inhalt;
+                INSERT INTO wordvorlage (inhalt, dateiname, komplett, vorlage, bewirtungsdatum)
+                VALUES (@inhalt, @dateiname, true, false, @bewirtungsdatum);";
+            command.Parameters.Add("inhalt", NpgsqlDbType.Bytea).Value = inhalt;
             command.Parameters.AddWithValue("dateiname", (object?)dateiname ?? DBNull.Value);
+            command.Parameters.AddWithValue("bewirtungsdatum", (object?)bewirtungsdatum ?? DBNull.Value);
             command.ExecuteNonQuery();
         }
     }

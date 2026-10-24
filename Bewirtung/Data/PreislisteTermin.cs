@@ -21,8 +21,8 @@ namespace Bewirtung.Data
 
         /// <summary>Überschreibbarer Preis für den Termin (Vorbelegung = GlobalPreis).</summary>
         public decimal TerminPreis { get; set; }
-        public int DruckParent { get; set; }
-        public int DruckClient { get; set; }
+        public bool DruckParent { get; set; }
+        public bool DruckClient { get; set; }
         public string Produkt =>
             string.IsNullOrEmpty(ZusatzText) ? Name : $"{Name} – {ZusatzText}";
     }
