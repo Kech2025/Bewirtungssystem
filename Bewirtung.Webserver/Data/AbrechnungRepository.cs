@@ -49,7 +49,7 @@ namespace Bewirtung.Webserver.Data
                 LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
                 LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
                 WHERE a.Bewirtungstermin = @datum
-                GROUP BY a.UserId, a.TischNummer, bp.PreislisteId,
+                GROUP BY a.UserId, a.TischNummer, bp.PreislisteId,u.Name,p.Name,z.Bezeichnung,p.Preiskategorie,m.mwst,t.BereichId,bt.Bezeichnung,
                          COALESCE(bp.PreislisteZusatzId, 0), COALESCE(bp.Besonderheit, '')
                 ORDER BY a.TischNummer, Benutzer, ArtikelName;";
             command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsDatum));
@@ -141,7 +141,7 @@ namespace Bewirtung.Webserver.Data
                 LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
                 LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
                 WHERE a.Bewirtungstermin = @datum AND (COALESCE(bp.mengegeliefert,0) = 0 OR COALESCE(bp.mengebezahlt,0) = 0 OR COALESCE(bp.Mengegeliefert,0) <> COALESCE(bp.Mengebezahlt,0))
-                GROUP BY u.Name, bp.Buchungszeitpunkt, bp.Menge, bp.MengeGeliefert, bp.MengeBezahlt,
+                GROUP BY u.Name, bp.Buchungszeitpunkt, bp.Menge, bp.MengeGeliefert, bp.MengeBezahlt,bp.Besonderheit,p.Name,z.Bezeichnung,bp.BewirtungsauftragId, bp.Bewirtungsposition,
                          COALESCE(a.TischNummer, 0), COALESCE(bt.Bezeichnung, '')
                 ORDER BY u.Name, bp.Buchungszeitpunkt;";
             command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsDatum));
@@ -246,8 +246,9 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 UPDATE BewirtungsPosition
-                SET MengeGeliefert = $mengeGeliefert,
-                    MengeBezahlt = @mengeBezahlt
+                SET MengeGeliefert = @mengeGeliefert,
+                    MengeBezahlt = @mengeBezahlt,
+                    Status = (Menge > 0 AND Menge = @mengeGeliefert AND Menge = @mengeBezahlt)
                 WHERE BewirtungsauftragId = @auftragId and Bewirtungsposition = @position";
             command.Parameters.AddWithValue("auftragId", zeile.BewirtungsauftragId);
             command.Parameters.AddWithValue("position", zeile.Bewirtungsposition);
@@ -258,7 +259,8 @@ namespace Bewirtung.Webserver.Data
             using var command2 = connection.CreateCommand();
             command2.CommandText = @"
                 UPDATE Bewirtungsauftrag
-                SET Status = true, StatusLieferung = true
+                SET Status = true, StatusLieferung = true,
+                    EndDateTime = now()
                 WHERE AuftragId = @auftragId";
             command2.Parameters.AddWithValue("auftragId", zeile.BewirtungsauftragId);
             command2.ExecuteNonQuery();

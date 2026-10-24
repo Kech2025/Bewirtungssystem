@@ -222,7 +222,7 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
 /// <summary>Anforderung zum Speichern einer Bestellung.</summary>
 public class BestellungRequest
 {
-    public DateTime Bewirtungstermin { get; set; }
+    public int Bewirtungstermin { get; set; }
     public long UserId { get; set; }
     public decimal Gesamtpreis { get; set; }
     public int TischNummer { get; set; }

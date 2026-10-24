@@ -1,10 +1,8 @@
 <Solution>
   <Project Path="../Bestellung/Bestellung.csproj" Id="447c94d0-7c4b-46ff-b4d7-fa3b9d41b362">
     <BuildDependency Project="../Bewirtung.Api/Bewirtung.Api.csproj" />
-    <BuildDependency Project="Bewirtung.csproj" />
     <Deploy Solution="Debug|*" />
   </Project>
   <Project Path="../Bewirtung.Api/Bewirtung.Api.csproj" />
   <Project Path="../Bewirtung.Webserver/Bewirtung.Webserver.csproj" />
-  <Project Path="Bewirtung.csproj" />
 </Solution>

@@ -42,7 +42,7 @@ public partial class BestellungSeite : ContentPage
     {
         try
         {
-            var tische = await _tischApiClient.GetTischeAsync(_termin.DatumText);
+            var tische = await _tischApiClient.GetTischeAsync(_termin.BewirtungsDatum);
             TischPicker.ItemsSource = tische;
         }
         catch (Exception ex)
@@ -158,8 +158,7 @@ public partial class BestellungSeite : ContentPage
     {
         try
         {
-            var positionen = await _speisekarteApiClient.GetSpeisekarteAsync(
-                _termin.DatumText, _termin.VereinId);
+            var positionen = await _speisekarteApiClient.GetSpeisekarteAsync(_termin.BewirtungsDatum, _termin.VereinId);
 
             _positionen = positionen;
             _anzeigeZeilen = BaueAnzeigeZeilen(positionen);

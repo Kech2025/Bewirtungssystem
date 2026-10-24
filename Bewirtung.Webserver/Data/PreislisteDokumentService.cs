@@ -89,7 +89,15 @@ namespace Bewirtung.Webserver.Data
             foreach (var pos in positionen)
             {
                 var neueZeile = (TableRow)musterZeile.CloneNode(true);
-                ErsetzeInElement(neueZeile, artikelPlatzhalter, pos.Produkt);
+                if(pos.DruckParent)
+                {
+                    ErsetzeInElement(neueZeile, artikelPlatzhalter, pos.Produkt);
+                }
+                else
+                {
+                    ErsetzeInElement(neueZeile, artikelPlatzhalter, pos.ZusatzText);
+                }
+                
                 ErsetzeInElement(neueZeile, preisPlatzhalter, pos.TerminPreis.ToString("N2"));
                 tabelle.InsertBefore(neueZeile, musterZeile);
             }

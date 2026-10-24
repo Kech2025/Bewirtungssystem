@@ -1,70 +1,65 @@
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var app = builder.Build();
 
-// Pfad zur SQLite-Datenbank (kann in appsettings.json oder per Umgebungsvariable
-// "Database__Path" gesetzt werden, z. B. ein UNC-Pfad \\SERVER\share\data\Bewirtung.sqlite3).
-string ResolveDatabasePath()
+// Connection-String zur gemeinsamen PostgreSQL-Datenbank
+// (ConnectionStrings:Postgres oder Database:ConnectionString; Passwort via User Secrets).
+const string DefaultConnectionString =
+    "Host=localhost;Port=5432;Database=bewirtung;Username=postgres;Password=postgres";
+
+string ConnectionString()
 {
-    var configured = app.Configuration["Database:Path"];
-    if (string.IsNullOrWhiteSpace(configured))
-    {
-        configured = @"data\Bewirtung.sqlite3";
-    }
-
-    if (Path.IsPathRooted(configured))
-    {
-        return configured;
-    }
-
-    // Relativen Pfad ausgehend vom Ausführungsverzeichnis nach oben suchen,
-    // da der \data-Ordner neben dem Projektordner liegt (nicht im bin-Ordner).
-    var directory = new DirectoryInfo(AppContext.BaseDirectory);
-    while (directory != null)
-    {
-        var candidate = Path.GetFullPath(Path.Combine(directory.FullName, configured));
-        if (File.Exists(candidate))
-        {
-            return candidate;
-        }
-        directory = directory.Parent;
-    }
-
-    return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, configured));
+    var configured = app.Configuration.GetConnectionString("Postgres")
+        ?? app.Configuration["Database:ConnectionString"];
+    return string.IsNullOrWhiteSpace(configured) ? DefaultConnectionString : configured;
 }
 
-var dbPath = ResolveDatabasePath();
+// Öffnet eine neue PostgreSQL-Verbindung.
+NpgsqlConnection OpenConnection()
+{
+    var connection = new NpgsqlConnection(ConnectionString());
+    connection.Open();
+    return connection;
+}
 
-string ConnectionString() =>
-    new SqliteConnectionStringBuilder
+// Datums-Grenze: API nutzt int yyyyMMdd, PostgreSQL nutzt date.
+static DateTime FromYyyyMmDd(int value)
+{
+    var year = value / 10000;
+    var month = value / 100 % 100;
+    var day = value % 100;
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31)
     {
-        DataSource = dbPath,
-        Mode = SqliteOpenMode.ReadWrite,
-        DefaultTimeout = 10
-    }.ToString();
+        return DateTime.Today;
+    }
+    try
+    {
+        return new DateTime(year, month, day);
+    }
+    catch
+    {
+        return DateTime.Today;
+    }
+}
+
+static int ToYyyyMmDd(DateTime date) =>
+    date.Year * 10000 + date.Month * 100 + date.Day;
 
 // GET /api/tische  -> [{ Tischnummer, Bereich }, ...]
 app.MapGet("/api/tische", (int datum) =>
 {
     var tische = new List<object>();
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
-        SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, 0)
+        SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, false)
         FROM Tisch t
-        INNER JOIN TischTermin tt ON tt.Tischnummer = t.Tischnummer AND tt.Bewirtungsdatum = $datum
+        INNER JOIN TischTermin tt ON tt.Tischnummer = t.Tischnummer AND tt.Bewirtungsdatum = @datum
         LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
         ORDER BY t.Tischnummer ASC;";
-    command.Parameters.AddWithValue("$datum", datum);
+    command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum));
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
@@ -72,9 +67,9 @@ app.MapGet("/api/tische", (int datum) =>
         {
             tische.Add(new
             {
-                Tischnummer = (int)reader.GetInt64(0),
+                Tischnummer = reader.GetInt32(0),
                 Bereich = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                SofortLieferung = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2)
+                SofortLieferung = reader.IsDBNull(2) ? 0 : (reader.GetBoolean(2) ? 1 : 0)
             });
         }
     }
@@ -85,14 +80,7 @@ app.MapGet("/api/tische", (int datum) =>
 app.MapGet("/api/benutzer", () =>
 {
     var benutzer = new List<object>();
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = "SELECT UserId, Name FROM Benutzer ORDER BY Name;";
     using var reader = command.ExecuteReader();
@@ -100,7 +88,7 @@ app.MapGet("/api/benutzer", () =>
     {
         benutzer.Add(new
         {
-            UserId = reader.GetInt64(0),
+            UserId = (long)reader.GetInt32(0),
             Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
         });
     }
@@ -111,29 +99,22 @@ app.MapGet("/api/benutzer", () =>
 app.MapGet("/api/benutzer/termin", (int datum, long vereinId) =>
 {
     var benutzer = new List<object>();
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT b.UserId, b.Name
         FROM HelferTermin h
         JOIN Benutzer b ON b.UserId = h.UserId
-        WHERE h.Bewirtungsdatum = $datum AND h.VereinId = $vereinId
+        WHERE h.Bewirtungsdatum = @datum AND h.VereinId = @vereinId
         ORDER BY b.Name;";
-    command.Parameters.AddWithValue("$datum", datum);
-    command.Parameters.AddWithValue("$vereinId", vereinId);
+    command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum));
+    command.Parameters.AddWithValue("@vereinId", (int)vereinId);
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
         benutzer.Add(new
         {
-            UserId = reader.GetInt64(0),
+            UserId = (long)reader.GetInt32(0),
             Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
         });
     }
@@ -143,29 +124,22 @@ app.MapGet("/api/termine", () =>
 {
     var termine = new List<object>();
     int nowDate = DateTime.Now.Year * 10000 + DateTime.Now.Month * 100 + DateTime.Now.Day;
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT t.BewirtungsDatum, t.VereinId, v.Name
         FROM Termin t
         LEFT JOIN Verein v ON v.Id = t.VereinId
-        WHERE t.BewirtungsDatum >= $datum
+        WHERE t.BewirtungsDatum >= @datum
         ORDER BY t.BewirtungsDatum DESC, v.Name;";
-    command.Parameters.AddWithValue("$datum", nowDate);
+    command.Parameters.AddWithValue("@datum", FromYyyyMmDd(nowDate));
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
         termine.Add(new
         {
-            BewirtungsDatum = (int)reader.GetInt64(0),
-            VereinId = reader.GetInt64(1),
+            BewirtungsDatum = ToYyyyMmDd(reader.GetDateTime(0)),
+            VereinId = (long)reader.GetInt32(1),
             VereinName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2)
         });
     }
@@ -177,14 +151,7 @@ app.MapGet("/api/termine", () =>
 app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
 {
     var positionen = new List<object>();
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT p.Id AS PreislisteId,
@@ -201,26 +168,26 @@ app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
             AND hp.VereinId = pt.VereinId
             AND hp.Bewirtungsdatum = pt.Bewirtungsdatum
             AND pt.PreislisteZusatzId <> 0
-        WHERE pt.Bewirtungsdatum = $datum AND pt.VereinId = $vereinId
+        WHERE pt.Bewirtungsdatum = @datum AND pt.VereinId = @vereinId
         ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
-    command.Parameters.AddWithValue("$datum", datum);
-    command.Parameters.AddWithValue("$vereinId", vereinId);
+    command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum));
+    command.Parameters.AddWithValue("@vereinId", (int)vereinId);
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
-        var kategorie = reader.IsDBNull(4) ? 0L : reader.GetInt64(4);
+        var kategorie = reader.IsDBNull(4) ? 0L : (long)reader.GetInt32(4);
         var name = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
         var zusatzText = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
         positionen.Add(new
         {
-            PreislisteId = reader.GetInt64(0),
-            ZusatzId = reader.IsDBNull(1) ? 0L : reader.GetInt64(1),
+            PreislisteId = (long)reader.GetInt32(0),
+            ZusatzId = reader.IsDBNull(1) ? 0L : (long)reader.GetInt32(1),
             Name = name,
             ZusatzText = zusatzText,
             Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
             KategorieText = kategorie == 1 ? "Getränke" : "Speisen",
             Preiskategorie = kategorie,
-            Preis = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5)
+            Preis = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5)
         });
     }
     return Results.Ok(positionen);
@@ -235,36 +202,28 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
     }
 
     long auftragId;
-    using var connection = new SqliteConnection(ConnectionString());
+    using var connection = OpenConnection();
     {
-        connection.Open();
-        // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-        using (var walCmd = connection.CreateCommand())
-        {
-            walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-            walCmd.ExecuteNonQuery();
-        }
-        //using var transaction = connection.BeginTransaction();
         using (var transaction = connection.BeginTransaction())
         {
             try
             {
                 var positionsNummer = 1;
 
-                // Vorhandenen offenen Auftrag (Status = 0) für Termin + Tisch suchen und wiederverwenden.
+                // Vorhandenen offenen Auftrag (Status = false) für Termin + Tisch suchen und wiederverwenden.
                 using (var sucheCmd = connection.CreateCommand())
                 {
                     sucheCmd.Transaction = transaction;
                     sucheCmd.CommandText = @"
                     SELECT AuftragId
                     FROM Bewirtungsauftrag
-                    WHERE Bewirtungstermin = $termin AND TischNummer = $tisch AND Status = 0
+                    WHERE Bewirtungstermin = @termin AND TischNummer = @tisch AND Status = false
                     ORDER BY AuftragId
                     LIMIT 1;";
-                    sucheCmd.Parameters.AddWithValue("$termin", bestellung.Bewirtungstermin);
-                    sucheCmd.Parameters.AddWithValue("$tisch", bestellung.TischNummer);
+                    sucheCmd.Parameters.AddWithValue("@termin", FromYyyyMmDd(bestellung.Bewirtungstermin));
+                    sucheCmd.Parameters.AddWithValue("@tisch", bestellung.TischNummer);
                     var vorhanden = sucheCmd.ExecuteScalar();
-                    auftragId = vorhanden is long ? Convert.ToInt32(vorhanden) : 0L;
+                    auftragId = vorhanden is int i ? i : 0L;
                 }
 
                 if (auftragId > 0)
@@ -275,11 +234,11 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
                         updateCmd.Transaction = transaction;
                         updateCmd.CommandText = @"
                         UPDATE Bewirtungsauftrag
-                        SET Gesamtpreis = Gesamtpreis + $gesamt,
-                            StatusLieferung = 0
-                        WHERE AuftragId = $auftragId;";
-                        updateCmd.Parameters.AddWithValue("$gesamt", (double)bestellung.Gesamtpreis);
-                        updateCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                        SET Gesamtpreis = Gesamtpreis + @gesamt,
+                            StatusLieferung = false
+                        WHERE AuftragId = @auftragId;";
+                        updateCmd.Parameters.AddWithValue("@gesamt", bestellung.Gesamtpreis);
+                        updateCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                         updateCmd.ExecuteNonQuery();
                     }
 
@@ -289,8 +248,8 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
                         maxCmd.CommandText = @"
                         SELECT COALESCE(MAX(Bewirtungsposition), 0)
                         FROM BewirtungsPosition
-                        WHERE BewirtungsauftragId = $auftragId;";
-                        maxCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                        WHERE BewirtungsauftragId = @auftragId;";
+                        maxCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                         positionsNummer = Convert.ToInt32(maxCmd.ExecuteScalar()) + 1;
                     }
                 }
@@ -301,16 +260,16 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
                     auftragCmd.Transaction = transaction;
                     auftragCmd.CommandText = @"
                     INSERT INTO Bewirtungsauftrag
-                        (Bewirtungstermin, UserId, Gesamtpreis, Bezahlt, Status, Start, TischNummer)
+                        (Bewirtungstermin, UserId, Gesamtpreis, Bezahlt, Status, StartDateTime, TischNummer)
                     VALUES
-                        ($termin, $userId, $gesamt, 0, 0, $start, $tisch);
-                    SELECT last_insert_rowid();";
-                    auftragCmd.Parameters.AddWithValue("$termin", bestellung.Bewirtungstermin);
-                    auftragCmd.Parameters.AddWithValue("$userId", bestellung.UserId);
-                    auftragCmd.Parameters.AddWithValue("$gesamt", (double)bestellung.Gesamtpreis);
-                    auftragCmd.Parameters.AddWithValue("$start", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                    auftragCmd.Parameters.AddWithValue("$tisch", bestellung.TischNummer);
-                    auftragId = (long)auftragCmd.ExecuteScalar()!;
+                        (@termin, @userId, @gesamt, 0, false, @start, @tisch)
+                    RETURNING AuftragId;";
+                    auftragCmd.Parameters.AddWithValue("@termin", FromYyyyMmDd(bestellung.Bewirtungstermin));
+                    auftragCmd.Parameters.AddWithValue("@userId", (int)bestellung.UserId);
+                    auftragCmd.Parameters.AddWithValue("@gesamt", bestellung.Gesamtpreis);
+                    auftragCmd.Parameters.AddWithValue("@start", DateTime.Now);
+                    auftragCmd.Parameters.AddWithValue("@tisch", bestellung.TischNummer);
+                    auftragId = Convert.ToInt64(auftragCmd.ExecuteScalar()!);
                 }
 
                 foreach (var pos in bestellung.Positionen)
@@ -321,15 +280,15 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
                         INSERT INTO BewirtungsPosition
                             (BewirtungsauftragId, Bewirtungsposition, PreislisteId, PreislisteZusatzId, Preis, Status, Menge, Besonderheit, Buchungszeitpunkt)
                         VALUES
-                            ($auftragId, $posNr, $preislisteId, $zusatzId, $preis, 0, $menge, $besonderheit, $buchungszeitpunkt);";
-                    posCmd.Parameters.AddWithValue("$auftragId", auftragId);
-                    posCmd.Parameters.AddWithValue("$posNr", positionsNummer++);
-                    posCmd.Parameters.AddWithValue("$preislisteId", pos.PreislisteId);
-                    posCmd.Parameters.AddWithValue("$zusatzId", pos.ZusatzId);
-                    posCmd.Parameters.AddWithValue("$preis", (double)pos.Preis);
-                    posCmd.Parameters.AddWithValue("$menge", (double)pos.Menge);
-                    posCmd.Parameters.AddWithValue("$besonderheit", (object?)pos.Besonderheit ?? string.Empty);
-                    posCmd.Parameters.AddWithValue("$buchungszeitpunkt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                            (@auftragId, @posNr, @preislisteId, @zusatzId, @preis, false, @menge, @besonderheit, @buchungszeitpunkt);";
+                    posCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
+                    posCmd.Parameters.AddWithValue("@posNr", positionsNummer++);
+                    posCmd.Parameters.AddWithValue("@preislisteId", (int)pos.PreislisteId);
+                    posCmd.Parameters.AddWithValue("@zusatzId", (int)pos.ZusatzId);
+                    posCmd.Parameters.AddWithValue("@preis", pos.Preis);
+                    posCmd.Parameters.AddWithValue("@menge", (int)pos.Menge);
+                    posCmd.Parameters.AddWithValue("@besonderheit", (object?)pos.Besonderheit ?? string.Empty);
+                    posCmd.Parameters.AddWithValue("@buchungszeitpunkt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                     posCmd.ExecuteNonQuery();
                 }
                 transaction.Commit();
@@ -348,30 +307,23 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
 //   -> Alle offenen Aufträge (Status = 0) für Tisch/Termin samt Positionen (flach, mit Produktnamen).
 app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
 {
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     var auftragIds = new List<long>();
-    double gesamt = 0d;
+    decimal gesamt = 0m;
     using (var auftragCmd = connection.CreateCommand())
     {
         auftragCmd.CommandText = @"
             SELECT AuftragId, Gesamtpreis
             FROM Bewirtungsauftrag
-            WHERE Bewirtungstermin = $termin AND TischNummer = $tisch AND Status = 0
+            WHERE Bewirtungstermin = @termin AND TischNummer = @tisch AND Status = false
             ORDER BY AuftragId;";
-        auftragCmd.Parameters.AddWithValue("$termin", termin);
-        auftragCmd.Parameters.AddWithValue("$tisch", tisch);
+        auftragCmd.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
+        auftragCmd.Parameters.AddWithValue("@tisch", tisch);
         using var reader = auftragCmd.ExecuteReader();
         while (reader.Read())
         {
-            auftragIds.Add(reader.GetInt64(0));
-            gesamt += reader.IsDBNull(1) ? 0d : reader.GetDouble(1);
+            auftragIds.Add(reader.GetInt32(0));
+            gesamt += reader.IsDBNull(1) ? 0m : reader.GetDecimal(1);
         }
     }
 
@@ -380,7 +332,7 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
         return Results.Ok(null as object);
     }
 
-    var inClause = string.Join(",", auftragIds.Select((_, i) => $"$id{i}"));
+    var inClause = string.Join(",", auftragIds.Select((_, i) => $"@id{i}"));
     var positionen = new List<object>();
     using (var posCmd = connection.CreateCommand())
     {
@@ -401,7 +353,7 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
             ORDER BY bp.BewirtungsauftragId, bp.Bewirtungsposition;";
         for (var i = 0; i < auftragIds.Count; i++)
         {
-            posCmd.Parameters.AddWithValue($"$id{i}", auftragIds[i]);
+            posCmd.Parameters.AddWithValue($"@id{i}", (int)auftragIds[i]);
         }
         using var reader = posCmd.ExecuteReader();
         while (reader.Read())
@@ -410,14 +362,14 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
             var zusatzText = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
             positionen.Add(new
             {
-                PreislisteId = reader.GetInt64(0),
-                ZusatzId = reader.IsDBNull(1) ? 0L : reader.GetInt64(1),
+                PreislisteId = (long)reader.GetInt32(0),
+                ZusatzId = reader.IsDBNull(1) ? 0L : (long)reader.GetInt32(1),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
-                Preis = reader.IsDBNull(4) ? 0m : (decimal)reader.GetDouble(4),
-                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
-                MengeBezahlt = reader.IsDBNull(6) ? 0m : (decimal)reader.GetDouble(6),
-                AuftragId = reader.GetInt64(7),
-                PosNr = reader.GetInt64(8)
+                Preis = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4),
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+                MengeBezahlt = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+                AuftragId = (long)reader.GetInt32(7),
+                PosNr = (long)reader.GetInt32(8)
             });
         }
     }
@@ -426,7 +378,7 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
     {
         AuftragId = auftragIds[0],
         AuftragIds = auftragIds,
-        Gesamtpreis = (decimal)gesamt,
+        Gesamtpreis = gesamt,
         Positionen = positionen
     });
 });
@@ -444,16 +396,8 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
         return Results.BadRequest("Ungültiger Auftrag.");
     }
     var totalRows = 0;
-    using var connection = new SqliteConnection(ConnectionString());
+    using var connection = OpenConnection();
     {
-        connection.Open();
-        // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-        using (var walCmd = connection.CreateCommand())
-        {
-            walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-            walCmd.ExecuteNonQuery();
-        }
-        //using var transaction = connection.BeginTransaction();
         using (var transaction = connection.BeginTransaction())
         {
             try
@@ -465,10 +409,10 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
                     command.Transaction = transaction;
                     command.CommandText = @"
                         UPDATE Bewirtungsauftrag
-                        SET Status = 1, Bezahlt = $betrag
-                        WHERE AuftragId = $auftragId AND Status = 0;";
-                    command.Parameters.AddWithValue("$betrag", i == 0 ? (double)req!.Betrag : 0d);
-                    command.Parameters.AddWithValue("$auftragId", auftragIds[i]);
+                        SET Status = true, Bezahlt = @betrag, enddatetime = now()
+                        WHERE AuftragId = @auftragId AND Status = false;";
+                    command.Parameters.AddWithValue("@betrag", i == 0 ? req!.Betrag : 0m);
+                    command.Parameters.AddWithValue("@auftragId", (int)auftragIds[i]);
                     totalRows += command.ExecuteNonQuery();
 
                     // Vollzahlung: alle Positionen des Auftrags als vollständig bezahlt markieren.
@@ -476,9 +420,9 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
                     posCommand.Transaction = transaction;
                     posCommand.CommandText = @"
                         UPDATE BewirtungsPosition
-                        SET MengeBezahlt = Menge
-                        WHERE BewirtungsauftragId = $auftragId;";
-                    posCommand.Parameters.AddWithValue("$auftragId", auftragIds[i]);
+                        SET MengeBezahlt = Menge, Status = true
+                        WHERE BewirtungsauftragId = @auftragId;";
+                    posCommand.Parameters.AddWithValue("@auftragId", (int)auftragIds[i]);
                     posCommand.ExecuteNonQuery();
                 }
                 transaction.Commit();
@@ -507,21 +451,12 @@ app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
         return Results.BadRequest("Keine Positionen übergeben.");
     }
     var aktualisiert = 0;
-    using var connection = new SqliteConnection(ConnectionString());
+    using var connection = OpenConnection();
     {
-        connection.Open();
-        // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-        using (var walCmd = connection.CreateCommand())
-        {
-            walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-            walCmd.ExecuteNonQuery();
-        }
-        //using var transaction = connection.BeginTransaction();
         using (var transaction = connection.BeginTransaction())
         {
             try
             {
-                //using var transaction = connection.BeginTransaction();
                 var betroffeneAuftraege = new HashSet<long>();
                 foreach (var pos in req.Positionen)
                 {
@@ -530,14 +465,14 @@ app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
                     command.CommandText = @"
                         UPDATE BewirtungsPosition
                         SET MengeGeliefert = Menge
-                        WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr;";
-                    command.Parameters.AddWithValue("$auftragId", pos.AuftragId);
-                    command.Parameters.AddWithValue("$posNr", pos.PosNr);
+                        WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;";
+                    command.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+                    command.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
                     aktualisiert += command.ExecuteNonQuery();
                     betroffeneAuftraege.Add(pos.AuftragId);
                 }
 
-                // Aufträge, deren Positionen alle vollständig geliefert sind, auf StatusLieferung = 1 setzen.
+                // Aufträge, deren Positionen alle vollständig geliefert sind, auf StatusLieferung = true setzen.
                 foreach (var auftragId in betroffeneAuftraege)
                 {
                     using var pruefCmd = connection.CreateCommand();
@@ -545,9 +480,9 @@ app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
                     pruefCmd.CommandText = @"
                         SELECT COUNT(*)
                         FROM BewirtungsPosition
-                        WHERE BewirtungsauftragId = $auftragId
+                        WHERE BewirtungsauftragId = @auftragId
                           AND COALESCE(MengeGeliefert, 0) < Menge;";
-                    pruefCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                    pruefCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                     var offeneRest = Convert.ToInt32(pruefCmd.ExecuteScalar());
 
                     if (offeneRest == 0)
@@ -556,9 +491,9 @@ app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
                         statusCmd.Transaction = transaction;
                         statusCmd.CommandText = @"
                             UPDATE Bewirtungsauftrag
-                            SET StatusLieferung = 1
-                            WHERE AuftragId = $auftragId;";
-                        statusCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                            SET StatusLieferung = true
+                            WHERE AuftragId = @auftragId;";
+                        statusCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                         statusCmd.ExecuteNonQuery();
                     }
                 }
@@ -584,16 +519,8 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
     }
 
     var abgeschlossen = new List<long>();
-    using var connection = new SqliteConnection(ConnectionString());
+    using var connection = OpenConnection();
     {
-        connection.Open();
-        // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-        using (var walCmd = connection.CreateCommand())
-        {
-            walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-            walCmd.ExecuteNonQuery();
-        }
-        //using var transaction = connection.BeginTransaction();
         using (var transaction = connection.BeginTransaction())
         {
             try
@@ -606,11 +533,11 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                     updateCmd.Transaction = transaction;
                     updateCmd.CommandText = @"
                         UPDATE BewirtungsPosition
-                        SET MengeBezahlt = MIN(Menge, COALESCE(MengeBezahlt, 0) + $mengeZahlen)
-                        WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr;";
-                    updateCmd.Parameters.AddWithValue("$mengeZahlen", (double)pos.MengeZahlen);
-                    updateCmd.Parameters.AddWithValue("$auftragId", pos.AuftragId);
-                    updateCmd.Parameters.AddWithValue("$posNr", pos.PosNr);
+                        SET MengeBezahlt = LEAST(Menge, COALESCE(MengeBezahlt, 0) + @mengeZahlen)
+                        WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;";
+                    updateCmd.Parameters.AddWithValue("@mengeZahlen", (int)pos.MengeZahlen);
+                    updateCmd.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+                    updateCmd.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
                     updateCmd.ExecuteNonQuery();
 
                     // Bezahlten Betrag des Auftrags um (Teilmenge × Positionspreis) erhöhen.
@@ -619,16 +546,28 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                     betragCmd.CommandText = @"
                         UPDATE Bewirtungsauftrag
                         SET Bezahlt = COALESCE(Bezahlt, 0) + (
-                            $mengeZahlen * (
+                            @mengeZahlen * (
                                 SELECT Preis FROM BewirtungsPosition
-                                WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr
+                                WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr
                             )
                         )
-                        WHERE AuftragId = $auftragId;";
-                    betragCmd.Parameters.AddWithValue("$mengeZahlen", (double)pos.MengeZahlen);
-                    betragCmd.Parameters.AddWithValue("$auftragId", pos.AuftragId);
-                    betragCmd.Parameters.AddWithValue("$posNr", pos.PosNr);
+                        WHERE AuftragId = @auftragId;";
+                    betragCmd.Parameters.AddWithValue("@mengeZahlen", pos.MengeZahlen);
+                    betragCmd.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+                    betragCmd.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
                     betragCmd.ExecuteNonQuery();
+
+                    // Bezahlten Betrag des Auftrags um (Teilmenge × Positionspreis) erhöhen.
+                    using var statusCmd = connection.CreateCommand();
+                    statusCmd.Transaction = transaction;
+                    statusCmd.CommandText = @"
+                        UPDATE Bewirtungsposition
+                        SET Status = true
+                        WHERE BewirtungsAuftragId = @auftragId
+                        AND Bewirtungsposition = @posNr AND Menge = MengeGeliefert AND Menge = MengeBezahlt;";
+                    statusCmd.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+                    statusCmd.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
+                    statusCmd.ExecuteNonQuery();
 
                     betroffeneAuftraege.Add(pos.AuftragId);
                 }
@@ -640,9 +579,9 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                     pruefCmd.CommandText = @"
                         SELECT COUNT(*)
                         FROM BewirtungsPosition
-                        WHERE BewirtungsauftragId = $auftragId
+                        WHERE BewirtungsauftragId = @auftragId
                           AND COALESCE(MengeBezahlt, 0) < Menge;";
-                    pruefCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                    pruefCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                     var offeneRest = Convert.ToInt32(pruefCmd.ExecuteScalar());
 
                     if (offeneRest == 0)
@@ -651,9 +590,9 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                         abschlussCmd.Transaction = transaction;
                         abschlussCmd.CommandText = @"
                             UPDATE Bewirtungsauftrag
-                            SET Status = 1
-                            WHERE AuftragId = $auftragId AND Status = 0;";
-                        abschlussCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                            SET Status = true, enddatetime = now()
+                            WHERE AuftragId = @auftragId AND Status = false;";
+                        abschlussCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                         if (abschlussCmd.ExecuteNonQuery() > 0)
                         {
                             abgeschlossen.Add(auftragId);
@@ -676,14 +615,7 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
 //   -> Offene Getränke-Positionen (Preiskategorie=1, MengeGeliefert < Menge) je Tisch gruppiert.
 app.MapGet("/api/auslieferung/getraenke", (int termin) =>
 {
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT a.TischNummer,
@@ -697,27 +629,27 @@ app.MapGet("/api/auslieferung/getraenke", (int termin) =>
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
         LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
-        WHERE a.Bewirtungstermin = $termin
+        WHERE a.Bewirtungstermin = @termin
           AND p.Preiskategorie = 1
           AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
         ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
-    command.Parameters.AddWithValue("$termin", termin);
+    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
 
     var tische = new Dictionary<int, List<object>>();
     using (var reader = command.ExecuteReader())
     {
         while (reader.Read())
         {
-            var tischNummer = (int)reader.GetInt64(0);
+            var tischNummer = reader.GetInt32(0);
             var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
             var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
             var position = new
             {
-                AuftragId = reader.GetInt64(1),
-                PosNr = reader.GetInt64(2),
+                AuftragId = (long)reader.GetInt32(1),
+                PosNr = (long)reader.GetInt32(2),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
-                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetDouble(6)
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
             };
             if (!tische.TryGetValue(tischNummer, out var liste))
             {
@@ -739,14 +671,7 @@ app.MapGet("/api/auslieferung/getraenke", (int termin) =>
 //   -> Offene Speisen-Positionen (Preiskategorie=0, MengeGeliefert < Menge) je Tisch gruppiert.
 app.MapGet("/api/auslieferung/speisen", (int termin) =>
 {
-    using var connection = new SqliteConnection(ConnectionString());
-    connection.Open();
-    // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-    using (var walCmd = connection.CreateCommand())
-    {
-        walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        walCmd.ExecuteNonQuery();
-    }
+    using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT a.TischNummer,
@@ -760,27 +685,27 @@ app.MapGet("/api/auslieferung/speisen", (int termin) =>
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
         LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
-        WHERE a.Bewirtungstermin = $termin
+        WHERE a.Bewirtungstermin = @termin
           AND p.Preiskategorie = 0
           AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
         ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
-    command.Parameters.AddWithValue("$termin", termin);
+    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
 
     var tische = new Dictionary<int, List<object>>();
     using (var reader = command.ExecuteReader())
     {
         while (reader.Read())
         {
-            var tischNummer = (int)reader.GetInt64(0);
+            var tischNummer = reader.GetInt32(0);
             var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
             var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
             var position = new
             {
-                AuftragId = reader.GetInt64(1),
-                PosNr = reader.GetInt64(2),
+                AuftragId = (long)reader.GetInt32(1),
+                PosNr = (long)reader.GetInt32(2),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
-                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetDouble(6)
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
             };
             if (!tische.TryGetValue(tischNummer, out var liste))
             {
@@ -810,15 +735,8 @@ app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
     }
     var aktualisiert = 0;
     var betroffeneAuftraege = new HashSet<long>();
-    using var connection = new SqliteConnection(ConnectionString());
+    using var connection = OpenConnection();
     {
-        connection.Open();
-        // Einmalig WAL-Modus aktivieren (erlaubt paralleles Lesen während des Schreibens)
-        using (var walCmd = connection.CreateCommand())
-        {
-            walCmd.CommandText = "PRAGMA journal_mode=WAL;";
-            walCmd.ExecuteNonQuery();
-        }
         //using var transaction = connection.BeginTransaction();
         using (var transaction = connection.BeginTransaction())
         {
@@ -832,14 +750,11 @@ app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
                     // erfasste Menge erhöht (nie über die bestellte Menge hinaus).
                     command.CommandText = @"
                         UPDATE BewirtungsPosition
-                        SET MengeGeliefert = CASE 
-                            WHEN MengeGeliefert IS NULL OR MengeGeliefert = '' THEN 0 
-                            ELSE MengeGeliefert 
-                        END + $delta
-                        WHERE BewirtungsauftragId = $auftragId AND Bewirtungsposition = $posNr;";
-                    command.Parameters.AddWithValue("$delta", (double)pos.SeitenMenge);
-                    command.Parameters.AddWithValue("$auftragId", pos.AuftragId);
-                    command.Parameters.AddWithValue("$posNr", pos.PosNr);
+                        SET MengeGeliefert = COALESCE(MengeGeliefert, 0) + @delta
+                        WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;";
+                    command.Parameters.AddWithValue("@delta", (int)pos.SeitenMenge);
+                    command.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+                    command.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
                     aktualisiert += command.ExecuteNonQuery();
                     betroffeneAuftraege.Add(pos.AuftragId);
                 }
@@ -852,9 +767,9 @@ app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
                     pruefCmd.CommandText = @"
                         SELECT COUNT(*)
                         FROM BewirtungsPosition
-                        WHERE BewirtungsauftragId = $auftragId
+                        WHERE BewirtungsauftragId = @auftragId
                           AND COALESCE(MengeGeliefert, 0) < Menge;";
-                    pruefCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                    pruefCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                     var offeneRest = Convert.ToInt32(pruefCmd.ExecuteScalar());
 
                     if (offeneRest == 0)
@@ -863,9 +778,9 @@ app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
                         statusCmd.Transaction = transaction;
                         statusCmd.CommandText = @"
                             UPDATE Bewirtungsauftrag
-                            SET StatusLieferung = 1
-                            WHERE AuftragId = $auftragId;";
-                        statusCmd.Parameters.AddWithValue("$auftragId", auftragId);
+                            SET StatusLieferung = true
+                            WHERE AuftragId = @auftragId;";
+                        statusCmd.Parameters.AddWithValue("@auftragId", (int)auftragId);
                         statusCmd.ExecuteNonQuery();
                     }
                 }

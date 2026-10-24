@@ -17,7 +17,7 @@ public class SpeisekarteApiClient
     /// (GET /api/speisekarte?datum=...&amp;vereinId=...).
     /// </summary>
     public async Task<List<SpeisekartePositionDto>> GetSpeisekarteAsync(
-        string bewirtungsDatum, long vereinId, CancellationToken cancellationToken = default)
+        int bewirtungsDatum, int vereinId, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/speisekarte?datum={bewirtungsDatum}&vereinId={vereinId}";
         var result = await _httpClient.GetFromJsonAsync<List<SpeisekartePositionDto>>(url, cancellationToken);
