@@ -261,7 +261,7 @@ namespace Bewirtung.Webserver.Data
                 UPDATE Bewirtungsauftrag
                 SET Status = true, StatusLieferung = true,
                     EndDateTime = now()
-                WHERE AuftragId = @auftragId";
+                WHERE AuftragId = @auftragId AND NOT EXISTS(SELECT * FROM BewirtungsPosition WHERE Bewirtungsauftragid = @AuftragId AND (Menge <> COALESCE(Mengegeliefert,0) OR Menge <> COALESCE(Mengebezahlt,0)))";
             command2.Parameters.AddWithValue("auftragId", zeile.BewirtungsauftragId);
             command2.ExecuteNonQuery();
 

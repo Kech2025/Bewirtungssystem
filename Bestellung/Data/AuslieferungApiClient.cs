@@ -67,6 +67,16 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
 
     private int _seitenMenge;
 
+    /// <summary>Maximal noch offene (lieferbare) Menge als Obergrenze für die Seitenmenge.</summary>
+    public int MaxSeitenMenge
+    {
+        get
+        {
+            var offen = Menge - MengeGeliefert;
+            return offen > 0m ? (int)offen : 0;
+        }
+    }
+
     /// <summary>Auf der Seite erfasste zusätzliche Menge (Delta, Startwert 0).</summary>
     public int SeitenMenge
     {
@@ -74,6 +84,10 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
         set
         {
             var begrenzt = value < 0 ? 0 : value;
+            if (begrenzt > MaxSeitenMenge)
+            {
+                begrenzt = MaxSeitenMenge;
+            }
             if (_seitenMenge != begrenzt)
             {
                 _seitenMenge = begrenzt;
