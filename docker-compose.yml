@@ -1,28 +1,17 @@
 services:
-  db:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-bewirtung}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      # schema.sql wird nur beim ERSTEN Start (leeres Volume) automatisch ausgeführt:
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
   api:
     build:
       context: .
       dockerfile: Bewirtung.Api/Dockerfile
     environment:
-      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB:-bewirtung};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      # Verbindung zur BESTEHENDEN Datenbank (Container "postgres_db").
+      # Standard: über das Host-Gateway auf den vom DB-Container veröffentlichten Port 5432.
+      # Bei Bedarf komplett über BEWIRTUNG_DB_CONNECTION in der .env überschreiben.
+      ConnectionStrings__Postgres: "${BEWIRTUNG_DB_CONNECTION:-Host=host.docker.internal;Port=5432;Database=bewirtung;Username=postgres;Password=postgres}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "5080:5080"
-    depends_on:
-      - db
     restart: unless-stopped
 
   web:
@@ -30,12 +19,9 @@ services:
       context: .
       dockerfile: Bewirtung.Webserver/Dockerfile
     environment:
-      ConnectionStrings__Postgres: "Host=db;Port=5432;Database=${POSTGRES_DB:-bewirtung};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}"
+      ConnectionStrings__Postgres: "${BEWIRTUNG_DB_CONNECTION:-Host=host.docker.internal;Port=5432;Database=bewirtung;Username=postgres;Password=postgres}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
-    depends_on:
-      - db
     restart: unless-stopped
-
-volumes:
-  pgdata:
