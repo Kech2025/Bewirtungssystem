@@ -11,6 +11,7 @@
 @inject GlobalePreislisteRepository PreislisteRepo
 @inject PreislisteDokumentService PreislisteDokument
 @inject WordVorlageRepository VorlageRepo
+@inject StirlingPdfService StirlingPdf
 @inject IJSRuntime JS
 
 <PageTitle>Termine verwalten</PageTitle>
@@ -596,6 +597,12 @@ else
 
 	private async Task SpeisekarteDrucken()
 	{
+		if (_aktuellerTermin == null)
+		{
+			_speisekarteFehler = "Bitte zuerst einen Termin auswählen.";
+			return;
+		}
+
 		var vereinName = _vereine?.FirstOrDefault(v => v.Id == _aktuellerTermin?.VereinId)?.Name ?? string.Empty;
 		var druckTitel = string.IsNullOrEmpty(vereinName) ? "Preisliste" : vereinName;
 
@@ -627,17 +634,33 @@ else
 		}
 
 		_speisekarteFehler = null;
-		var datumText = _aktuellerTermin != null
-			? Termin.FromYyyyMmDd(_aktuellerTermin.BewirtungsDatum).ToString("yyyy-MM-dd")
-			: DateTime.Today.ToString("yyyy-MM-dd");
-		var dateiname = $"Preisliste_{druckTitel}_{datumText}.docx";
+		var datumText = Termin.FromYyyyMmDd(_aktuellerTermin.BewirtungsDatum).ToString("yyyy-MM-dd");
+		var basisName = $"Preisliste_{druckTitel}_{datumText}";
+		var docxName = $"{basisName}.docx";
+		var pdfName = $"{basisName}.pdf";
 
-		// Fertige Preisliste als neuen Datensatz (komplett = 1) in der DB ablegen.
-		VorlageRepo.KompletteSpeichern(dateiname, dokument, DateTime.ParseExact(_aktuellerTermin.BewirtungsDatum.ToString(), "yyyyMMdd", null));
+		var bewirtungsdatum = DateTime.ParseExact(_aktuellerTermin.BewirtungsDatum.ToString(), "yyyyMMdd", null);
 
-		await JS.InvokeVoidAsync("downloadFileFromBytes", dateiname,
-			"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-			dokument);
+		// Fertige Preisliste als .docx-Datensatz (komplett = 1) in der DB ablegen.
+		VorlageRepo.KompletteSpeichern(docxName, dokument, bewirtungsdatum);
+
+		// .docx über Stirling-PDF in PDF umwandeln.
+		byte[] pdf;
+		try
+		{
+			pdf = await StirlingPdf.KonvertiereDocxZuPdfAsync(dokument, docxName);
+		}
+		catch (Exception ex)
+		{
+			_speisekarteFehler = $"Die Umwandlung in PDF ist fehlgeschlagen (Stirling-PDF nicht erreichbar?): {ex.Message}";
+			return;
+		}
+
+		// Auch das PDF als Datensatz in der DB ablegen.
+		VorlageRepo.KompletteSpeichern(pdfName, pdf, bewirtungsdatum);
+
+		// PDF in einem neuen Browserfenster öffnen.
+		await JS.InvokeVoidAsync("openPdfInNewWindow", pdf);
 	}
 
 	// ----- Tische -----

@@ -20,6 +20,8 @@ services:
       dockerfile: Bewirtung.Webserver/Dockerfile
     environment:
       ConnectionStrings__Postgres: "${BEWIRTUNG_DB_CONNECTION:-Host=host.docker.internal;Port=5432;Database=bewirtung;Username=postgres;Password=postgres}"
+      # URL des Stirling-PDF-Dienstes (DOCX -> PDF). Standard: Host-Gateway auf Port 8080.
+      StirlingPdf__BaseUrl: "${STIRLING_PDF_BASEURL:-http://host.docker.internal:8080}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

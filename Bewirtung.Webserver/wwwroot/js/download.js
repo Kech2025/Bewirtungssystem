@@ -10,6 +10,16 @@ window.downloadFileFromBytes = function (dateiname, mimeType, bytes) {
     URL.revokeObjectURL(url);
 };
 
+window.openPdfInNewWindow = function (bytes) {
+    const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    // Blob-URL nach kurzer Zeit freigeben (neues Fenster hat es dann geladen).
+    setTimeout(function () {
+        URL.revokeObjectURL(url);
+    }, 60000);
+};
+
 window.printHtml = function (html) {
     const frame = document.createElement("iframe");
     frame.style.position = "fixed";

@@ -22,6 +22,14 @@ builder.Services.AddScoped<AbrechnungRepository>();
 builder.Services.AddScoped<WordVorlageRepository>();
 builder.Services.AddScoped<PreislisteDokumentService>();
 
+// Stirling-PDF: Umwandlung von .docx in .pdf über den Docker-Service.
+var stirlingBaseUrl = builder.Configuration["StirlingPdf:BaseUrl"] ?? "http://host.docker.internal:8080";
+builder.Services.AddHttpClient<StirlingPdfService>(client =>
+{
+    client.BaseAddress = new Uri(stirlingBaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromMinutes(2);
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
