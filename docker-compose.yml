@@ -23,5 +23,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "8080:8080"
+      # Host-Port der Weboberfläche konfigurierbar (Standard 8080), um Konflikte
+      # mit anderen Diensten auf 8080 zu vermeiden. Container-intern bleibt 8080.
+      - "${WEB_HOST_PORT:-8080}:8080"
     restart: unless-stopped
