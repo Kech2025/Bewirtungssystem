@@ -8,14 +8,19 @@ public static class ApiConfig
     // Port der Web-API (siehe appsettings.json im Bewirtung.Api-Projekt).
     private const int Port = 5080;
 
-    // Für ein echtes Gerät im LAN hier die IP des Server-PCs eintragen
-    // (z. B. "192.168.1.10"); dann wird diese immer verwendet.
-    public static string? ServerIpOverride { get; set; } = null;
+    // IP des Raspberry Pi (Server) im LAN. Wird für echte Geräte verwendet.
+    private const string PiIpAddress = "192.168.178.111";
 
-    // Basis-URL der Web-API. Wird automatisch je Plattform gewählt:
-    //  - Android-Emulator:  http://10.0.2.2:<Port>  (Alias für "localhost des Host-PCs")
-    //  - Windows/sonst:     http://localhost:<Port>
-    //  - ServerIpOverride:  http://<IP>:<Port>       (für echte Geräte im Netzwerk)
+    // Optionaler manueller Override. Wenn gesetzt, wird immer diese IP genutzt
+    // (unabhängig von Emulator/Gerät). Nützlich, wenn der Server (API) auf der
+    // Pi läuft und auch der Emulator die Pi ansprechen soll.
+    public static string? ServerIpOverride { get; set; } = PiIpAddress;
+
+    // Basis-URL der Web-API. Wird automatisch gewählt:
+    //  - ServerIpOverride gesetzt: http://<IP>:<Port>        (manueller Override)
+    //  - Android-Emulator:         http://10.0.2.2:<Port>    (Alias für "localhost des Host-PCs")
+    //  - Echtes Gerät:             http://192.168.178.111:<Port>  (Raspberry Pi im LAN)
+    //  - Windows/sonst (Emulator): http://localhost:<Port>
     public static string BaseUrl
     {
         get
@@ -25,6 +30,13 @@ public static class ApiConfig
                 return $"http://{ServerIpOverride}:{Port}";
             }
 
+            // Echtes (physisches) Gerät -> Raspberry Pi im LAN ansprechen.
+            if (DeviceInfo.DeviceType == DeviceType.Physical)
+            {
+                return $"http://{PiIpAddress}:{Port}";
+            }
+
+            // Emulator/Simulator -> lokalen Dev-PC ansprechen.
             var host = DeviceInfo.Platform == DevicePlatform.Android
                 ? "10.0.2.2"
                 : "localhost";
