@@ -1,3 +1,6 @@
+# Docker / Umgebungsvariablen (echte .env mit Secrets nicht einchecken)
+.env
+
 # .NET build output
 [Bb]in/
 [Oo]bj/

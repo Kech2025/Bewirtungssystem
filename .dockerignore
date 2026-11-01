@@ -1,0 +1,16 @@
+# Build-Ausgaben und lokale Artefakte nicht in den Docker-Build-Kontext kopieren
+**/bin/
+**/obj/
+**/.vs/
+**/.git/
+**/.gitignore
+**/*.user
+**/node_modules/
+
+# Lokale SQLite-Altbestände (werden nicht mehr benötigt)
+data/*.sqlite3
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+
+# Umgebungsdateien nicht einbacken
+.env
