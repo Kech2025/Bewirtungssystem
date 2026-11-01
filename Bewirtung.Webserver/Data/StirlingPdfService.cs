@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Microsoft.Extensions.Configuration;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -9,10 +10,12 @@ namespace Bewirtung.Webserver.Data
     public class StirlingPdfService
     {
         private readonly HttpClient _httpClient;
+        private readonly string? _apiKey;
 
-        public StirlingPdfService(HttpClient httpClient)
+        public StirlingPdfService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
+            _apiKey = configuration["StirlingPdf:ApiKey"];
         }
 
         /// <summary>
@@ -32,7 +35,18 @@ namespace Bewirtung.Webserver.Data
             content.Add(fileContent, "fileInput", uploadName);
 
             // Stirling-PDF Endpunkt zum Umwandeln beliebiger Dateien in PDF.
-            using var response = await _httpClient.PostAsync("api/v1/convert/file/pdf", content);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/convert/file/pdf")
+            {
+                Content = content
+            };
+
+            // Falls Stirling-PDF mit API-Key-Schutz läuft, den Schlüssel mitschicken.
+            if (!string.IsNullOrWhiteSpace(_apiKey))
+            {
+                request.Headers.Add("X-API-KEY", _apiKey);
+            }
+
+            using var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsByteArrayAsync();
