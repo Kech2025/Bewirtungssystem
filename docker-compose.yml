@@ -21,29 +21,16 @@ services:
     environment:
       ConnectionStrings__Postgres: "${BEWIRTUNG_DB_CONNECTION:-Host=host.docker.internal;Port=5432;Database=bewirtung;Username=postgres;Password=postgres}"
       # URL des Stirling-PDF-Dienstes (DOCX -> PDF).
-      # Standard: interner Container "stirling-pdf" auf Port 8080 (Docker-Netzwerk).
-      StirlingPdf__BaseUrl: "${STIRLING_PDF_BASEURL:-http://stirling-pdf:8080}"
+      # Verweist auf die vorhandene Stirling-PDF-Instanz (z. B. auf dem Host).
+      # In der .env ueber STIRLING_PDF_BASEURL setzen, z. B. http://192.168.178.111:8080.
+      StirlingPdf__BaseUrl: "${STIRLING_PDF_BASEURL:-http://host.docker.internal:8080}"
       # API-Key, falls Stirling-PDF mit Authentifizierung läuft (sonst leer lassen).
       StirlingPdf__ApiKey: "${STIRLING_PDF_APIKEY:-}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      stirling-pdf:
-        condition: service_healthy
     ports:
       # Host-Port der Weboberfläche konfigurierbar (Standard 8080), um Konflikte
       # mit anderen Diensten auf 8080 zu vermeiden. Container-intern bleibt 8080.
       - "${WEB_HOST_PORT:-8080}:8080"
     restart: unless-stopped
-
-  stirling-pdf:
-    image: stirlingtools/stirling-pdf:latest
-    environment:
-      # Keine Authentifizierung im Standardbetrieb. Bei Bedarf API-Key aktivieren.
-      DISABLE_ADDITIONAL_FEATURES: "true"
-    # Kein Host-Port noetig: Der web-Dienst erreicht Stirling-PDF intern ueber
-    # den Dienstnamen "stirling-pdf:8080" im Docker-Netzwerk. "expose" vermeidet
-    # Port-Konflikte auf dem Host (z. B. mit WEB_HOST_PORT).
-    expose:
-      - "8080"
     restart: unless-stopped
