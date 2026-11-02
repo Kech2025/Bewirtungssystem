@@ -15,7 +15,7 @@ namespace Bewirtung.Webserver.Data
         public StirlingPdfService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["StirlingPdf:ApiKey"];
+            _apiKey = configuration["StirlingPdf:ApiKey"];            
         }
 
         /// <summary>
