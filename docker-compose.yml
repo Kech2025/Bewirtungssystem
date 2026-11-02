@@ -33,4 +33,3 @@ services:
       # mit anderen Diensten auf 8080 zu vermeiden. Container-intern bleibt 8080.
       - "${WEB_HOST_PORT:-8080}:8080"
     restart: unless-stopped
-    restart: unless-stopped
