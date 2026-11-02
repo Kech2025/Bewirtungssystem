@@ -23,7 +23,7 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT id, dateiname, komplett, bewirtungsdatum, inhalt FROM wordvorlage WHERE COALESCE(komplett, false) = true ORDER BY id LIMIT 1;";
+            command.CommandText = "SELECT id, dateiname, komplett, bewirtungsdatum, inhalt FROM wordvorlage WHERE COALESCE(komplett, false) = true AND COALESCE(vorlage, false) = true ORDER BY id LIMIT 1;";
             using var reader = command.ExecuteReader();
             if (!reader.Read())
             {
@@ -56,7 +56,7 @@ namespace Bewirtung.Webserver.Data
             long? id = null;
             using (var select = connection.CreateCommand())
             {
-                select.CommandText = "SELECT id FROM wordvorlage WHERE COALESCE(komplett, false) = false ORDER BY id LIMIT 1;";
+                select.CommandText = "SELECT id FROM wordvorlage WHERE COALESCE(komplett, false) = false AND COALESCE(vorlage, false) = true ORDER BY id LIMIT 1;";
                 var result = select.ExecuteScalar();
                 if (result != null && result != DBNull.Value)
                 {
