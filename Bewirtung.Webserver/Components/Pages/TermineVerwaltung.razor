@@ -146,13 +146,27 @@ else
 							<div class="d-flex justify-content-between align-items-center mb-2">
 								<h6 class="mb-0">Aktuelle Preisliste</h6>
 								<div class="d-flex gap-2">
-									<button class="btn btn-success btn-sm" @onclick="SpeisekarteSpeichern">Aktuelle Speisekarte speichern</button>
-									<button class="btn btn-outline-secondary btn-sm" @onclick="SpeisekarteDrucken">Drucken</button>
+									<button class="btn btn-success btn-sm" @onclick="SpeisekarteSpeichern" disabled="@_druckLaeuft">Aktuelle Speisekarte speichern</button>
+									<button class="btn btn-outline-secondary btn-sm" @onclick="SpeisekarteDrucken" disabled="@_druckLaeuft">
+										@if (_druckLaeuft)
+										{
+											<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+											<span>PDF wird erstellt…</span>
+										}
+										else
+										{
+											<span>Drucken</span>
+										}
+									</button>
 								</div>
 							</div>
 							@if (!string.IsNullOrEmpty(_speisekarteFehler))
 							{
 								<div class="alert-danger mb-2">@_speisekarteFehler</div>
+							}
+							@if (!string.IsNullOrEmpty(_speisekarteHinweis))
+							{
+								<div class="alert alert-warning py-1 px-2 mb-2">@_speisekarteHinweis</div>
 							}
 							<table class="table table-sm table-striped speisekarte-table">
 								<thead>
@@ -186,30 +200,20 @@ else
 
 				@if (ActiveTab == Tab.Tische)
 				{
-					<div class="helfer-zeile mb-2">
-						<select class="form-select tisch-select" @bind="_neuerTisch">
-							<option value="0">– Tisch wählen –</option>
-							@foreach (var t in VerfuegbareTische())
-							{
-								<option value="@t.Tischnummer">@t.Tischnummer (@t.BereichName)</option>
-							}
-						</select>
-						<button class="btn btn-outline-primary" @onclick="NeuerTisch">Neuer Tisch zur Auswahlliste hinzufügen</button>
-					</div>
 					<div class="mb-2">
-						<button class="btn btn-primary helfer-hinzufuegen" @onclick="TischHinzufuegen">Hinzufügen</button>
+						<button class="btn btn-outline-primary" @onclick="NeuerTisch">Neuer Tisch zur Auswahlliste hinzufügen</button>
 					</div>
 					<table class="table table-sm table-striped">
 						<thead>
-							<tr><th>Tischnummer</th><th>Bereich</th><th></th></tr>
+							<tr><th></th><th>Tischnummer</th><th>Bereich</th></tr>
 						</thead>
 						<tbody>
-							@foreach (var tt in _tischEintraege)
+							@foreach (var t in _alleTische)
 							{
 								<tr>
-									<td>@tt.Tischnummer</td>
-									<td>@tt.BereichName</td>
-									<td><button class="btn btn-sm btn-danger" @onclick="() => TischEntfernen(tt)">Entfernen</button></td>
+									<td><input type="checkbox" class="form-check-input" checked="@IstTischGebucht(t.Tischnummer)" @onchange="e => TischGebuchtGeaendert(t, e)" /></td>
+									<td>@t.Tischnummer</td>
+									<td>@t.BereichName</td>
 								</tr>
 							}
 						</tbody>
@@ -218,30 +222,20 @@ else
 
 				@if (ActiveTab == Tab.Helfer)
 				{
-					<div class="helfer-zeile mb-2">
-						<select class="form-select tisch-select" @bind="_neuerHelfer">
-							<option value="0">– Helfer wählen –</option>
-							@foreach (var b in VerfuegbareHelfer())
-							{
-								<option value="@b.UserId">@b.Name</option>
-							}
-						</select>
-						<button class="btn btn-outline-primary" @onclick="NeuerBenutzer">Neuer Benutzer zur Auswahlliste hinzufügen</button>
-					</div>
 					<div class="mb-2">
-						<button class="btn btn-primary helfer-hinzufuegen" @onclick="HelferHinzufuegen">Hinzufügen</button>
+						<button class="btn btn-outline-primary" @onclick="NeuerBenutzer">Neuer Benutzer zur Auswahlliste hinzufügen</button>
 					</div>
 					<table class="table table-sm table-striped">
 						<thead>
-							<tr><th>Name</th><th>Verein</th><th></th></tr>
+							<tr><th></th><th>Name</th><th>Verein</th></tr>
 						</thead>
 						<tbody>
-							@foreach (var h in _helfer)
+							@foreach (var b in _alleBenutzer)
 							{
 								<tr>
-									<td>@h.Name</td>
-									<td>@h.VereinName</td>
-									<td><button class="btn btn-sm btn-danger" @onclick="() => HelferEntfernen(h)">Entfernen</button></td>
+									<td><input type="checkbox" class="form-check-input" checked="@IstHelferGebucht(b.UserId)" @onchange="e => HelferGebuchtGeaendert(b, e)" /></td>
+									<td>@b.Name</td>
+									<td>@b.VereinName</td>
 								</tr>
 							}
 						</tbody>
@@ -417,6 +411,8 @@ else
 
 	private List<SpeisekartenZeile> _zeilen = new();
 	private string? _speisekarteFehler;
+	private string? _speisekarteHinweis;
+	private bool _druckLaeuft;
 
 	private List<TischTermin> _tischEintraege = new();
 	private List<Tisch> _alleTische = new();
@@ -603,7 +599,15 @@ else
 			return;
 		}
 
-		var vereinName = _vereine?.FirstOrDefault(v => v.Id == _aktuellerTermin?.VereinId)?.Name ?? string.Empty;
+		_speisekarteFehler = null;
+		_speisekarteHinweis = null;
+		_druckLaeuft = true;
+		StateHasChanged();
+		await Task.Yield();
+
+		try
+		{
+			var vereinName = _vereine?.FirstOrDefault(v => v.Id == _aktuellerTermin?.VereinId)?.Name ?? string.Empty;
 		var druckTitel = string.IsNullOrEmpty(vereinName) ? "Preisliste" : vereinName;
 
 		List<SpeisekartenZeile> zeilen = new List<SpeisekartenZeile>();
@@ -660,44 +664,48 @@ else
 		VorlageRepo.KompletteSpeichern(pdfName, pdf, bewirtungsdatum);
 
 		// PDF in einem neuen Browserfenster öffnen.
-		await JS.InvokeVoidAsync("openPdfInNewWindow", pdf);
+		var imFensterGeoeffnet = await JS.InvokeAsync<bool>("openPdfInNewWindow", pdf, pdfName);
+		if (!imFensterGeoeffnet)
+		{
+			_speisekarteHinweis = "Das PDF-Fenster wurde vom Browser blockiert. Das PDF wurde stattdessen heruntergeladen. Tipp: Popups für diese Seite erlauben.";
+		}
+		}
+		finally
+		{
+			_druckLaeuft = false;
+		}
 	}
 
 	// ----- Tische -----
 
-	private IEnumerable<Tisch> VerfuegbareTische()
-	{
-		var belegt = _tischEintraege.Select(x => x.Tischnummer).ToHashSet();
-		return _alleTische.Where(t => !belegt.Contains(t.Tischnummer));
-	}
+	private bool IstTischGebucht(int tischnummer) =>
+		_tischEintraege.Any(x => x.Tischnummer == tischnummer);
 
-	private void TischHinzufuegen()
-	{
-		if (_aktuellerTermin == null || _neuerTisch == 0)
-		{
-			return;
-		}
-		if (_tischEintraege.Any(x => x.Tischnummer == _neuerTisch))
-		{
-			return;
-		}
-		TischTerminRepo.Insert(new TischTermin
-		{
-			Bewirtungsdatum = _aktuellerTermin.BewirtungsDatum,
-			VereinId = _aktuellerTermin.VereinId,
-			Tischnummer = _neuerTisch
-		});
-		_neuerTisch = 0;
-		LadeTabs(_aktuellerTermin);
-	}
-
-	private void TischEntfernen(TischTermin tt)
+	private void TischGebuchtGeaendert(Tisch tisch, ChangeEventArgs e)
 	{
 		if (_aktuellerTermin == null)
 		{
 			return;
 		}
-		TischTerminRepo.Delete(tt.Bewirtungsdatum, tt.VereinId, tt.Tischnummer);
+
+		var gebucht = e.Value is bool b && b;
+		if (gebucht)
+		{
+			if (!_tischEintraege.Any(x => x.Tischnummer == tisch.Tischnummer))
+			{
+				TischTerminRepo.Insert(new TischTermin
+				{
+					Bewirtungsdatum = _aktuellerTermin.BewirtungsDatum,
+					VereinId = _aktuellerTermin.VereinId,
+					Tischnummer = tisch.Tischnummer
+				});
+			}
+		}
+		else
+		{
+			TischTerminRepo.Delete(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, tisch.Tischnummer);
+		}
+
 		LadeTabs(_aktuellerTermin);
 	}
 
@@ -737,20 +745,26 @@ else
 
 	// ----- Helfer -----
 
-	private IEnumerable<Benutzer> VerfuegbareHelfer()
-	{
-		var belegt = _helfer.Select(h => h.UserId).ToHashSet();
-		return _alleBenutzer.Where(b => !belegt.Contains(b.UserId));
-	}
+	private bool IstHelferGebucht(long userId) =>
+		_helfer.Any(h => h.UserId == userId);
 
-	private void HelferHinzufuegen()
+	private void HelferGebuchtGeaendert(Benutzer benutzer, ChangeEventArgs e)
 	{
-		if (_aktuellerTermin == null || _neuerHelfer == 0)
+		if (_aktuellerTermin == null)
 		{
 			return;
 		}
-		TerminRepo.AddHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, _neuerHelfer);
-		_neuerHelfer = 0;
+
+		var gebucht = e.Value is bool b && b;
+		if (gebucht)
+		{
+			TerminRepo.AddHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, benutzer.UserId);
+		}
+		else
+		{
+			TerminRepo.RemoveHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, benutzer.UserId);
+		}
+
 		LadeTabs(_aktuellerTermin);
 	}
 
@@ -771,16 +785,6 @@ else
 		_alleBenutzer = BenutzerRepo.GetAll();
 		_neuerHelfer = neueId;
 		_neuerBenutzer = null;
-	}
-
-	private void HelferEntfernen(Benutzer h)
-	{
-		if (_aktuellerTermin == null)
-		{
-			return;
-		}
-		TerminRepo.RemoveHelfer(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, h.UserId);
-		LadeTabs(_aktuellerTermin);
 	}
 
 	// ----- Globale Preisliste: neue Position -----

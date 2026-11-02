@@ -73,12 +73,30 @@ main {
     cursor: pointer;
     font-size: 0.9rem;
     margin-right: 0.25rem;
+    background: #1b6ec2;
+    color: #fff;
+}
+
+.btn:hover {
+    background: #175ba3;
+    color: #fff;
 }
 
 .btn-primary { background: #1b6ec2; color: #fff; }
-.btn-secondary { background: #6c757d; color: #fff; }
+.btn-secondary { background: #1b6ec2; color: #fff; }
 .btn-danger { background: #c23b3b; color: #fff; }
+.btn-danger:hover { background: #a83232; color: #fff; }
 .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+
+/* Deaktivierte Buttons immer ausgegraut (überschreibt alle Farben) */
+.btn:disabled,
+.btn[disabled],
+.btn.disabled {
+    background: #adb5bd;
+    color: #fff;
+    cursor: not-allowed;
+    opacity: 0.65;
+}
 
 .card {
     border: 1px solid #ddd;

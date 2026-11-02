@@ -10,14 +10,32 @@ window.downloadFileFromBytes = function (dateiname, mimeType, bytes) {
     URL.revokeObjectURL(url);
 };
 
-window.openPdfInNewWindow = function (bytes) {
+window.openPdfInNewWindow = function (bytes, dateiname) {
     const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+
+    // Versuch, das PDF in einem neuen Tab zu öffnen.
+    const neuesFenster = window.open(url, "_blank");
+
+    if (!neuesFenster || neuesFenster.closed || typeof neuesFenster.closed === "undefined") {
+        // Popup wurde blockiert -> stattdessen als Datei herunterladen.
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = dateiname || "Preisliste.pdf";
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        setTimeout(function () {
+            URL.revokeObjectURL(url);
+        }, 60000);
+        return false;
+    }
+
     // Blob-URL nach kurzer Zeit freigeben (neues Fenster hat es dann geladen).
     setTimeout(function () {
         URL.revokeObjectURL(url);
     }, 60000);
+    return true;
 };
 
 window.printHtml = function (html) {
