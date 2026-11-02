@@ -25,6 +25,27 @@ namespace Bewirtung.Webserver.Data
         /// <param name="dateiname">Dateiname der Word-Datei (für den Upload).</param>
         public async Task<byte[]> KonvertiereDocxZuPdfAsync(byte[] docxBytes, string dateiname)
         {
+            // Nach einem Neustart (z. B. des Raspberry Pi) braucht Stirling-PDF
+            // einen Moment, bis es erreichbar/bereit ist. Deshalb einige Versuche
+            // mit kurzer Wartezeit, bevor endgültig abgebrochen wird.
+            const int maxVersuche = 5;
+            var wartezeit = TimeSpan.FromSeconds(2);
+
+            for (var versuch = 1; ; versuch++)
+            {
+                try
+                {
+                    return await SendeKonvertierungAsync(docxBytes, dateiname);
+                }
+                catch (Exception ex) when (versuch < maxVersuche && IstVoruebergehend(ex))
+                {
+                    await Task.Delay(wartezeit);
+                }
+            }
+        }
+
+        private async Task<byte[]> SendeKonvertierungAsync(byte[] docxBytes, string dateiname)
+        {
             using var content = new MultipartFormDataContent();
 
             var fileContent = new ByteArrayContent(docxBytes);
@@ -50,6 +71,18 @@ namespace Bewirtung.Webserver.Data
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsByteArrayAsync();
+        }
+
+        // Fehler, die typischerweise nur während des Hochfahrens von Stirling-PDF
+        // auftreten und sich mit einem weiteren Versuch von selbst erledigen.
+        private static bool IstVoruebergehend(Exception ex)
+        {
+            return ex switch
+            {
+                HttpRequestException => true,
+                TaskCanceledException => true,
+                _ => false
+            };
         }
     }
 }
