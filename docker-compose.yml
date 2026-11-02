@@ -40,8 +40,9 @@ services:
     environment:
       # Keine Authentifizierung im Standardbetrieb. Bei Bedarf API-Key aktivieren.
       DISABLE_ADDITIONAL_FEATURES: "true"
-    ports:
-      # Host-Port 8081, um Konflikt mit der Weboberflaeche (8080) zu vermeiden.
-      # Container-intern bleibt 8080, darueber erreicht der web-Service den Dienst.
-      - "${STIRLING_PDF_HOST_PORT:-8081}:8080"
+    # Kein Host-Port noetig: Der web-Dienst erreicht Stirling-PDF intern ueber
+    # den Dienstnamen "stirling-pdf:8080" im Docker-Netzwerk. "expose" vermeidet
+    # Port-Konflikte auf dem Host (z. B. mit WEB_HOST_PORT).
+    expose:
+      - "8080"
     restart: unless-stopped
