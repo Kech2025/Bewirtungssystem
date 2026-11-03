@@ -112,16 +112,16 @@ namespace Bewirtung.Webserver.Data
                 tabelle.AppendChild(TabellenZeile(false,
                     z.Artikel,
                     z.Menge.ToString("0.##"),
-                    preis.ToString("N2"),
-                    mwst.ToString("N2")));
+                    preis.ToString("N2") + " €",
+                    mwst.ToString("N2") + " €"));
             }
 
             // Summenzeile
             tabelle.AppendChild(TabellenZeile(true,
                 "Summen",
                 summeMenge.ToString("0.##"),
-                summePreis.ToString("N2"),
-                summeMwst.ToString("N2")));
+                summePreis.ToString("N2") + " €",
+                summeMwst.ToString("N2") + " €"));
 
             body.AppendChild(tabelle);
         }
