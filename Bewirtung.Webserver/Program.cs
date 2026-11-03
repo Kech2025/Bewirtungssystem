@@ -1,7 +1,14 @@
 using Bewirtung.Webserver.Components;
 using Bewirtung.Webserver.Data;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Deutsche Kultur erzwingen, damit Währungs-/Zahlenformatierung (z. B. "€")
+// unabhängig von der Server-/Container-Kultur korrekt ist.
+var deCulture = new CultureInfo("de-DE");
+CultureInfo.DefaultThreadCurrentCulture = deCulture;
+CultureInfo.DefaultThreadCurrentUICulture = deCulture;
 
 // Blazor Server (interaktiv)
 builder.Services.AddRazorComponents()
@@ -32,6 +39,15 @@ builder.Services.AddHttpClient<StirlingPdfService>(client =>
 });
 
 var app = builder.Build();
+
+// Deutsche Kultur für alle Requests setzen (Währung "€", Dezimalkomma usw.).
+var deCultures = new[] { deCulture };
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(deCulture),
+    SupportedCultures = deCultures,
+    SupportedUICultures = deCultures
+});
 
 if (!app.Environment.IsDevelopment())
 {
