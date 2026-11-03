@@ -21,6 +21,7 @@ builder.Services.AddScoped<MwstRepository>();
 builder.Services.AddScoped<AbrechnungRepository>();
 builder.Services.AddScoped<WordVorlageRepository>();
 builder.Services.AddScoped<PreislisteDokumentService>();
+builder.Services.AddScoped<AbrechnungPdfService>();
 
 // Stirling-PDF: Umwandlung von .docx in .pdf über den Docker-Service.
 var stirlingBaseUrl = builder.Configuration["StirlingPdf:BaseUrl"] ?? "http://host.docker.internal:8080";

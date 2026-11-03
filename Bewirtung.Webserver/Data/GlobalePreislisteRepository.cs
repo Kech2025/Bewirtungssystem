@@ -52,12 +52,16 @@ namespace Bewirtung.Webserver.Data
                 if (preise.TryGetValue(eintrag.Id, out var info))
                 {
                     eintrag.Preis = info.Preis;
+                    eintrag.Verrechnungspreis = info.Verrechnungspreis;
+                    eintrag.Einkaufspreis = info.Einkaufspreis;
                     eintrag.StartDatum = info.GueltigAb;
                     eintrag.GueltigBis = info.GueltigBis;
                 }
                 else
                 {
                     eintrag.Preis = null;
+                    eintrag.Verrechnungspreis = null;
+                    eintrag.Einkaufspreis = null;
                     eintrag.StartDatum = DateTime.MinValue;
                     eintrag.GueltigBis = DateTime.MinValue;
                 }
@@ -147,11 +151,15 @@ namespace Bewirtung.Webserver.Data
                 if (preise.TryGetValue(zusatz.Id, out var info))
                 {
                     zusatz.Preis = info.Preis;
+                    zusatz.Verrechnungspreis = info.Verrechnungspreis;
+                    zusatz.Einkaufspreis = info.Einkaufspreis;
                     zusatz.StartDatum = Termin.ToYyyyMmDd(info.GueltigAb);
                 }
                 else
                 {
                     zusatz.Preis = null;
+                    zusatz.Verrechnungspreis = null;
+                    zusatz.Einkaufspreis = null;
                     zusatz.StartDatum = 0;
                 }
             }
@@ -225,13 +233,13 @@ namespace Bewirtung.Webserver.Data
             return result;
         }
 
-        public Dictionary<long, (decimal Preis, DateTime GueltigAb, DateTime GueltigBis)> GetHauptPreiseMitStart(DateTime datumAb)
+        public Dictionary<long, (decimal Preis, decimal Verrechnungspreis, decimal Einkaufspreis, DateTime GueltigAb, DateTime GueltigBis)> GetHauptPreiseMitStart(DateTime datumAb)
         {
-            var result = new Dictionary<long, (decimal, DateTime, DateTime)>();
+            var result = new Dictionary<long, (decimal, decimal, decimal, DateTime, DateTime)>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT GlobalePreislisteId, GueltigAb, GueltigBis, Preis
+                SELECT GlobalePreislisteId, GueltigAb, GueltigBis, Preis, Verrechnungspreis, Einkaufspreis
                 FROM GlobalerPreis
                 WHERE ZusatzId = 0
                   AND GueltigAb <= @datumAb
@@ -244,18 +252,20 @@ namespace Bewirtung.Webserver.Data
                 DateTime gueltigAb = reader.GetDateTime(1);
                 DateTime gueltigBis = reader.IsDBNull(2) ? DateTime.MinValue : reader.GetDateTime(2);
                 var preis = reader.IsDBNull(3) ? 0m : reader.GetDecimal(3);
-                result[id] = (preis, gueltigAb, gueltigBis);
+                var verrechnungspreis = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4);
+                var einkaufspreis = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5);
+                result[id] = (preis, verrechnungspreis, einkaufspreis, gueltigAb, gueltigBis);
             }
             return result;
         }
 
-        public Dictionary<long, (decimal Preis, DateTime GueltigAb)> GetZusatzPreiseMitStart(long preislisteId, DateTime datumAb)
+        public Dictionary<long, (decimal Preis, decimal Verrechnungspreis, decimal Einkaufspreis, DateTime GueltigAb)> GetZusatzPreiseMitStart(long preislisteId, DateTime datumAb)
         {
-            var result = new Dictionary<long, (decimal, DateTime)>();
+            var result = new Dictionary<long, (decimal, decimal, decimal, DateTime)>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT ZusatzId, GueltigAb, Preis
+                SELECT ZusatzId, GueltigAb, Preis, Verrechnungspreis, Einkaufspreis
                 FROM GlobalerPreis
                 WHERE GlobalePreislisteId = @preislisteId
                   AND ZusatzId <> 0
@@ -269,7 +279,9 @@ namespace Bewirtung.Webserver.Data
                 var zusatzId = (long)reader.GetInt32(0);
                 DateTime gueltigAb = reader.GetDateTime(1);
                 var preis = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
-                result[zusatzId] = (preis, gueltigAb);
+                var verrechnungspreis = reader.IsDBNull(3) ? 0m : reader.GetDecimal(3);
+                var einkaufspreis = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4);
+                result[zusatzId] = (preis, verrechnungspreis, einkaufspreis, gueltigAb);
             }
             return result;
         }
@@ -279,7 +291,8 @@ namespace Bewirtung.Webserver.Data
         /// Bei einem neuen Datensatz (altGueltigAb = 0) wird in GlobalerPreis angelegt.
         /// </summary>
         public void SpeichereGueltigkeit(long preislisteId, long zusatzId,
-            DateTime altGueltigAb, DateTime neuGueltigAb, DateTime gueltigBis, decimal preis)
+            DateTime altGueltigAb, DateTime neuGueltigAb, DateTime gueltigBis, decimal preis,
+            decimal verrechnungspreis, decimal einkaufspreis)
         {
             using var connection = _database.CreateConnection();
 
@@ -321,12 +334,16 @@ namespace Bewirtung.Webserver.Data
                 updateCmd.CommandText = @"
                     UPDATE GlobalerPreis
                     SET GueltigBis = @gueltigBis,
-                        Preis = @preis
+                        Preis = @preis,
+                        Verrechnungspreis = @verrechnungspreis,
+                        Einkaufspreis = @einkaufspreis
                     WHERE GlobalePreislisteId = @preislisteId
                       AND ZusatzId = @zusatzId
                       AND GueltigAb = @altGueltigAb;";
                 updateCmd.Parameters.AddWithValue("gueltigBis", gueltigBis);
                 updateCmd.Parameters.AddWithValue("preis", preis);
+                updateCmd.Parameters.AddWithValue("verrechnungspreis", verrechnungspreis);
+                updateCmd.Parameters.AddWithValue("einkaufspreis", einkaufspreis);
                 updateCmd.Parameters.AddWithValue("preislisteId", preislisteId);
                 updateCmd.Parameters.AddWithValue("zusatzId", zusatzId);
                 updateCmd.Parameters.AddWithValue("altGueltigAb", altGueltigAb);
@@ -337,13 +354,15 @@ namespace Bewirtung.Webserver.Data
                 using var insertCmd = connection.CreateCommand();
                 insertCmd.CommandText = @"
                     INSERT INTO GlobalerPreis
-                        (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis)
-                    VALUES (@preislisteId, @zusatzId, @neuGueltigAb, @gueltigBis, @preis);";
+                        (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis, Verrechnungspreis, Einkaufspreis)
+                    VALUES (@preislisteId, @zusatzId, @neuGueltigAb, @gueltigBis, @preis, @verrechnungspreis, @einkaufspreis);";
                 insertCmd.Parameters.AddWithValue("preislisteId", preislisteId);
                 insertCmd.Parameters.AddWithValue("zusatzId", zusatzId);
                 insertCmd.Parameters.AddWithValue("neuGueltigAb",neuGueltigAb);
                 insertCmd.Parameters.AddWithValue("gueltigBis", gueltigBis);
                 insertCmd.Parameters.AddWithValue("preis", preis);
+                insertCmd.Parameters.AddWithValue("verrechnungspreis", verrechnungspreis);
+                insertCmd.Parameters.AddWithValue("einkaufspreis", einkaufspreis);
                 insertCmd.ExecuteNonQuery();
             }
         }
@@ -410,10 +429,12 @@ namespace Bewirtung.Webserver.Data
                 }
 
                 decimal? vorperiodenPreis = null;
+                decimal vorperiodenVerrechnungspreis = 0m;
+                decimal vorperiodenEinkaufspreis = 0m;
                 using (var prevCmd = connection.CreateCommand())
                 {
                     prevCmd.CommandText = @"
-                        SELECT Preis
+                        SELECT Preis, Verrechnungspreis, Einkaufspreis
                         FROM GlobalerPreis
                         WHERE GlobalePreislisteId = @preislisteId
                           AND ZusatzId = @zusatzId
@@ -423,10 +444,15 @@ namespace Bewirtung.Webserver.Data
                     prevCmd.Parameters.AddWithValue("preislisteId", preislisteId);
                     prevCmd.Parameters.AddWithValue("zusatzId", zusatzId);
                     prevCmd.Parameters.AddWithValue("datumAb", datumAb);
-                    var result = prevCmd.ExecuteScalar();
-                    if (result != null && result != DBNull.Value)
+                    using var prevReader = prevCmd.ExecuteReader();
+                    if (prevReader.Read())
                     {
-                        vorperiodenPreis = Convert.ToDecimal(result);
+                        if (!prevReader.IsDBNull(0))
+                        {
+                            vorperiodenPreis = prevReader.GetDecimal(0);
+                        }
+                        vorperiodenVerrechnungspreis = prevReader.IsDBNull(1) ? 0m : prevReader.GetDecimal(1);
+                        vorperiodenEinkaufspreis = prevReader.IsDBNull(2) ? 0m : prevReader.GetDecimal(2);
                     }
                 }
 
@@ -439,14 +465,16 @@ namespace Bewirtung.Webserver.Data
                 {
                     insertCmd.CommandText = @"
                         INSERT INTO GlobalerPreis
-                            (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis)
-                        VALUES (@preislisteId, @zusatzId, @datumAb, NULL, @preis)
+                            (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis, Verrechnungspreis, Einkaufspreis)
+                        VALUES (@preislisteId, @zusatzId, @datumAb, NULL, @preis, @verrechnungspreis, @einkaufspreis)
                         ON CONFLICT (GlobalePreislisteId, ZusatzId, GueltigAb)
-                        DO UPDATE SET GueltigBis = NULL, Preis = EXCLUDED.Preis;";
+                        DO UPDATE SET GueltigBis = NULL, Preis = EXCLUDED.Preis, Verrechnungspreis = EXCLUDED.Verrechnungspreis, Einkaufspreis = EXCLUDED.Einkaufspreis;";
                     insertCmd.Parameters.AddWithValue("preislisteId", preislisteId);
                     insertCmd.Parameters.AddWithValue("zusatzId", zusatzId);
                     insertCmd.Parameters.AddWithValue("datumAb", datumAb);
                     insertCmd.Parameters.AddWithValue("preis", vorperiodenPreis.Value);
+                    insertCmd.Parameters.AddWithValue("verrechnungspreis", vorperiodenVerrechnungspreis);
+                    insertCmd.Parameters.AddWithValue("einkaufspreis", vorperiodenEinkaufspreis);
                     insertCmd.ExecuteNonQuery();
                     angelegt++;
                 }
@@ -471,7 +499,7 @@ namespace Bewirtung.Webserver.Data
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = @"
-                    SELECT GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis
+                    SELECT GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis, Verrechnungspreis, Einkaufspreis
                     FROM GlobalerPreis
                     WHERE GueltigAb <= @datum AND (GueltigBis IS NULL OR NOT isfinite(GueltigBis) OR GueltigBis >= @datum);";
                 command.Parameters.AddWithValue("datum", quelleDatum);
@@ -484,7 +512,9 @@ namespace Bewirtung.Webserver.Data
                         ZusatzId = reader.GetInt32(1),
                         GueltigAb = reader.GetDateTime(2),
                         GueltigBis = reader.IsDBNull(3) ? DateTime.MinValue : reader.GetDateTime(3),
-                        Preis = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4)
+                        Preis = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4),
+                        Verrechnungspreis = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5),
+                        Einkaufspreis = reader.IsDBNull(6) ? 0m : reader.GetDecimal(6)
                     });
                 }
             }
@@ -512,14 +542,16 @@ namespace Bewirtung.Webserver.Data
                 {
                     insertCmd.CommandText = @"
                         INSERT INTO GlobalerPreis
-                            (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis)
-                        VALUES (@preislisteId, @zusatzId, @neuDatum, NULL, @preis)
+                            (GlobalePreislisteId, ZusatzId, GueltigAb, GueltigBis, Preis, Verrechnungspreis, Einkaufspreis)
+                        VALUES (@preislisteId, @zusatzId, @neuDatum, NULL, @preis, @verrechnungspreis, @einkaufspreis)
                         ON CONFLICT (GlobalePreislisteId, ZusatzId, GueltigAb)
-                        DO UPDATE SET GueltigBis = NULL, Preis = EXCLUDED.Preis;";
+                        DO UPDATE SET GueltigBis = NULL, Preis = EXCLUDED.Preis, Verrechnungspreis = EXCLUDED.Verrechnungspreis, Einkaufspreis = EXCLUDED.Einkaufspreis;";
                     insertCmd.Parameters.AddWithValue("preislisteId", zeile.GlobalePreislisteId);
                     insertCmd.Parameters.AddWithValue("zusatzId", zeile.ZusatzId);
                     insertCmd.Parameters.AddWithValue("neuDatum", neuDatum);
                     insertCmd.Parameters.AddWithValue("preis", zeile.Preis);
+                    insertCmd.Parameters.AddWithValue("verrechnungspreis", zeile.Verrechnungspreis);
+                    insertCmd.Parameters.AddWithValue("einkaufspreis", zeile.Einkaufspreis);
                     insertCmd.ExecuteNonQuery();
                 }
             }

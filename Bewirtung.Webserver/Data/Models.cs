@@ -185,6 +185,8 @@ namespace Bewirtung.Webserver.Data
         public string Zusatztext { get; set; } = string.Empty;
 
         public decimal? Preis { get; set; }
+        public decimal? Verrechnungspreis { get; set; }
+        public decimal? Einkaufspreis { get; set; }
         public DateTime StartDatum { get; set; }
         public DateTime GueltigBis { get; set; }
 
@@ -212,6 +214,8 @@ namespace Bewirtung.Webserver.Data
         public bool Status { get; set; } = true;
 
         public decimal? Preis { get; set; }
+        public decimal? Verrechnungspreis { get; set; }
+        public decimal? Einkaufspreis { get; set; }
         public int StartDatum { get; set; }
         public int GueltigBis { get; set; }
 
@@ -231,6 +235,8 @@ namespace Bewirtung.Webserver.Data
         public DateTime GueltigAb { get; set; }
         public DateTime GueltigBis { get; set; }
         public decimal Preis { get; set; }
+        public decimal Verrechnungspreis { get; set; }
+        public decimal Einkaufspreis { get; set; }
     }
 
     /// <summary>
@@ -248,6 +254,8 @@ namespace Bewirtung.Webserver.Data
         public decimal Menge { get; set; }
         public string Besonderheit { get; set; } = string.Empty;
         public decimal Gesamtpreis { get; set; }
+        public decimal Verrechnungspreis { get; set; }
+        public decimal Einkaufspreis { get; set; }
         public int Tischnummer { get; set; }
 
         public long BereichId { get; set; }
@@ -255,6 +263,9 @@ namespace Bewirtung.Webserver.Data
 
         /// <summary>Mehrwertsteuerbetrag der Zeile.</summary>
         public decimal Mwst { get; set; }
+
+        /// <summary>Mehrwertsteuersatz der Zeile in Prozent.</summary>
+        public decimal MwstSatz { get; set; }
 
         /// <summary>Preiskategorie der Position: 0 = Speisen, 1 = Getränke.</summary>
         public int Preiskategorie { get; set; }

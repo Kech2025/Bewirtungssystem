@@ -168,6 +168,17 @@ else
 							{
 								<div class="alert alert-warning py-1 px-2 mb-2">@_speisekarteHinweis</div>
 							}
+							@if (_druckLaeuft)
+							{
+								<div class="pdf-overlay">
+									<div class="pdf-overlay-box">
+										<div class="spinner-border text-primary" role="status">
+											<span class="visually-hidden">Lädt…</span>
+										</div>
+										<div class="pdf-overlay-text">Die Preisliste wird erstellt, bitte warten…</div>
+									</div>
+								</div>
+							}
 							<table class="table table-sm table-striped speisekarte-table">
 								<thead>
 									<tr>
@@ -823,7 +834,7 @@ else
 		}
 
 		var id = PreislisteRepo.Insert(_globalePosition);
-		PreislisteRepo.SpeichereGueltigkeit(id, 0, DateTime.MinValue, gueltigAb, gueltigBis, _globalePositionPreis);
+		PreislisteRepo.SpeichereGueltigkeit(id, 0, DateTime.MinValue, gueltigAb, gueltigBis, _globalePositionPreis, 0m, 0m);
 
 		_globalePosition = null;
 

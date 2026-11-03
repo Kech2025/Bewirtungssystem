@@ -46,6 +46,8 @@ else
 						<th>Start-Datum</th>
 						<th>Gültig-Bis</th>
 						<th class="text-end">Preis</th>
+						<th class="text-end">Verrechnungspreis</th>
+						<th class="text-end">Einkaufspreis</th>
 						<th>Status</th>
 					</tr>
 				</thead>
@@ -59,6 +61,8 @@ else
 							<td>@(e.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
 							<td>@(e.GueltigBisWert?.ToString("dd.MM.yyyy"))</td>
 							<td class="text-end">@(e.Preis?.ToString("N2"))</td>
+							<td class="text-end">@(e.Verrechnungspreis?.ToString("N2"))</td>
+							<td class="text-end">@(e.Einkaufspreis?.ToString("N2"))</td>
 							<td>@(e.Status ? "Ja" : "Nein")</td>
 						</tr>
 					}
@@ -82,6 +86,8 @@ else
 						<th>Druck</th>
 						<th>Start-Datum</th>
 						<th class="text-end">Preis</th>
+						<th class="text-end">Verrechnungspreis</th>
+						<th class="text-end">Einkaufspreis</th>
 						<th>Status</th>
 					</tr>
 				</thead>
@@ -93,6 +99,8 @@ else
 							<td>@(z.Druck ? "Ja" : "Nein")</td>
 							<td>@(z.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
 							<td class="text-end">@(z.Preis?.ToString("N2"))</td>
+							<td class="text-end">@(z.Verrechnungspreis?.ToString("N2"))</td>
+							<td class="text-end">@(z.Einkaufspreis?.ToString("N2"))</td>
 							<td>@(z.Status ? "Ja" : "Nein")</td>
 						</tr>
 					}
@@ -139,6 +147,14 @@ else
 					<div class="mb-2">
 						<label class="form-label">Preis</label>
 						<input type="number" step="0.01" class="form-control" @bind="_dialogPreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Verrechnungspreis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_dialogVerrechnungspreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Einkaufspreis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_dialogEinkaufspreis" />
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Gültig ab</label>
@@ -188,6 +204,14 @@ else
 					<div class="mb-2">
 						<label class="form-label">Preis</label>
 						<input type="number" step="0.01" class="form-control" @bind="_zusatzPreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Verrechnungspreis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_zusatzVerrechnungspreis" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Einkaufspreis</label>
+						<input type="number" step="0.01" class="form-control" @bind="_zusatzEinkaufspreis" />
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Gültig ab</label>
@@ -244,6 +268,8 @@ else
 	private bool _positionIstNeu;
 	private DateTime _positionAltGueltigAb;
 	private decimal _dialogPreis;
+	private decimal _dialogVerrechnungspreis;
+	private decimal _dialogEinkaufspreis;
 	private DateTime _dialogGueltigAb = DateTime.Today;
 	private DateTime? _dialogGueltigBis;
 	private string? _dialogFehler;
@@ -253,6 +279,8 @@ else
 	private bool _zusatzIstNeu;
 	private DateTime _zusatzAltGueltigAb;
 	private decimal _zusatzPreis;
+	private decimal _zusatzVerrechnungspreis;
+	private decimal _zusatzEinkaufspreis;
 	private DateTime _zusatzGueltigAb = DateTime.Today;
 	private DateTime? _zusatzGueltigBis;
 	private string? _zusatzFehler;
@@ -323,6 +351,8 @@ else
 		_positionAltGueltigAb = DateTime.MinValue;
 		_positionDialog = new GlobalePreisliste();
 		_dialogPreis = 0m;
+		_dialogVerrechnungspreis = 0m;
+		_dialogEinkaufspreis = 0m;
 		_dialogGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
 		_dialogGueltigBis = null;
 		_dialogFehler = null;
@@ -347,6 +377,8 @@ else
 			Status = _selected.Status
 		};
 		_dialogPreis = _selected.Preis ?? 0m;
+		_dialogVerrechnungspreis = _selected.Verrechnungspreis ?? 0m;
+		_dialogEinkaufspreis = _selected.Einkaufspreis ?? 0m;
 		_dialogGueltigAb = _selected.StartDatumWert ?? DateTime.Today;
 		_dialogGueltigBis = _selected.GueltigBisWert;
 		_dialogFehler = null;
@@ -385,7 +417,7 @@ else
 			id = _positionDialog.Id;
 		}
 
-		PreislisteRepo.SpeichereGueltigkeit(id, 0, _positionAltGueltigAb, gueltigAb, gueltigBis, _dialogPreis);
+		PreislisteRepo.SpeichereGueltigkeit(id, 0, _positionAltGueltigAb, gueltigAb, gueltigBis, _dialogPreis, _dialogVerrechnungspreis, _dialogEinkaufspreis);
 
 		_positionDialog = null;
 		LadeDaten();
@@ -415,6 +447,8 @@ else
 		_zusatzAltGueltigAb = DateTime.MinValue;
 		_zusatzDialog = new GlobalePreislisteZusatz { SpeisekarteId = _selected.Id };
 		_zusatzPreis = 0m;
+		_zusatzVerrechnungspreis = 0m;
+		_zusatzEinkaufspreis = 0m;
 		_zusatzGueltigAb = new DateTime(DateTime.Today.Year, 1, 1);
 		_zusatzGueltigBis = null;
 		_zusatzFehler = null;
@@ -438,6 +472,8 @@ else
 			Status = _selectedZusatz.Status
 		};
 		_zusatzPreis = _selectedZusatz.Preis ?? 0m;
+		_zusatzVerrechnungspreis = _selectedZusatz.Verrechnungspreis ?? 0m;
+		_zusatzEinkaufspreis = _selectedZusatz.Einkaufspreis ?? 0m;
 		_zusatzGueltigAb = _selectedZusatz.StartDatumWert ?? DateTime.Today;
 		_zusatzGueltigBis = null;
 		_zusatzFehler = null;
@@ -476,7 +512,7 @@ else
 			id = _zusatzDialog.Id;
 		}
 
-		PreislisteRepo.SpeichereGueltigkeit(_selected.Id, id, _zusatzAltGueltigAb, gueltigAb,	gueltigBis, _zusatzPreis);
+		PreislisteRepo.SpeichereGueltigkeit(_selected.Id, id, _zusatzAltGueltigAb, gueltigAb,	gueltigBis, _zusatzPreis, _zusatzVerrechnungspreis, _zusatzEinkaufspreis);
 
 		_zusatzDialog = null;
 		LadeZusatz();

@@ -39,7 +39,9 @@ namespace Bewirtung.Webserver.Data
                        COALESCE(p.Preiskategorie, 0) AS Preiskategorie,
                        COALESCE(m.Mwst, 0) AS MwstSatz,
                        COALESCE(t.BereichId, 0) AS BereichId,
-                       COALESCE(bt.Bezeichnung, '') AS BereichName
+                       COALESCE(bt.Bezeichnung, '') AS BereichName,
+                       SUM(COALESCE(gp.Verrechnungspreis, 0) * bp.Menge) AS VerrechnungspreisSumme,
+                       SUM(COALESCE(gp.Einkaufspreis, 0) * bp.Menge) AS EinkaufspreisSumme
                 FROM BewirtungsPosition bp
                 INNER JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
                 LEFT JOIN Benutzer u ON u.UserId = a.UserId
@@ -48,6 +50,10 @@ namespace Bewirtung.Webserver.Data
                 LEFT JOIN Mwst m ON m.Preiskategorie = p.Preiskategorie
                 LEFT JOIN Tisch t ON t.Tischnummer = a.TischNummer
                 LEFT JOIN BereichTische bt ON bt.BereichId = t.BereichId
+                LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = bp.PreislisteId
+                         AND gp.ZusatzId = COALESCE(bp.PreislisteZusatzId, 0)
+                         AND gp.GueltigAb <= @datum
+                         AND (gp.GueltigBis IS NULL OR NOT isfinite(gp.GueltigBis) OR gp.GueltigBis >= @datum)
                 WHERE a.Bewirtungstermin = @datum
                 GROUP BY a.UserId, a.TischNummer, bp.PreislisteId,u.Name,p.Name,z.Bezeichnung,p.Preiskategorie,m.mwst,t.BereichId,bt.Bezeichnung,
                          COALESCE(bp.PreislisteZusatzId, 0), COALESCE(bp.Besonderheit, '')
@@ -61,6 +67,8 @@ namespace Bewirtung.Webserver.Data
                 var zusatzText = reader.IsDBNull(5) ? string.Empty : reader.GetString(5);
                 var gesamtpreis = reader.IsDBNull(8) ? 0m : Convert.ToDecimal(reader.GetValue(8));
                 var mwstSatz = reader.IsDBNull(11) ? 0m : Convert.ToDecimal(reader.GetValue(11));
+                var verrechnungspreis = reader.IsDBNull(14) ? 0m : Convert.ToDecimal(reader.GetValue(14));
+                var einkaufspreis = reader.IsDBNull(15) ? 0m : Convert.ToDecimal(reader.GetValue(15));
                 result.Add(new AbrechnungZeile
                 {
                     UserId = reader.GetInt32(0),
@@ -74,8 +82,11 @@ namespace Bewirtung.Webserver.Data
                     Tischnummer = reader.GetInt32(9),
                     Preiskategorie = reader.GetInt32(10),
                     Mwst = mwstSatz > 0m ? gesamtpreis - (gesamtpreis * 100m / (100m + mwstSatz)) : gesamtpreis,
+                    MwstSatz = mwstSatz,
                     BereichId = reader.GetInt32(12),
-                    BereichName = reader.IsDBNull(13) ? string.Empty : reader.GetString(13)
+                    BereichName = reader.IsDBNull(13) ? string.Empty : reader.GetString(13),
+                    Verrechnungspreis = verrechnungspreis,
+                    Einkaufspreis = einkaufspreis
                 });
             }
 

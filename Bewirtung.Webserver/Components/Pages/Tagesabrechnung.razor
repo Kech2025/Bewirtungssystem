@@ -2,6 +2,9 @@
 @rendermode RenderMode.InteractiveServer
 @inject TerminRepository TerminRepo
 @inject AbrechnungRepository AbrechnungRepo
+@inject AbrechnungPdfService AbrechnungPdf
+@inject StirlingPdfService StirlingPdf
+@inject IJSRuntime JS
 @inject NavigationManager Nav
 <PageTitle>Tagesabrechnung</PageTitle>
 
@@ -60,7 +63,34 @@
 			<option value="1" selected="@(_art == 1)">Getränke</option>
 		</select>
 	</div>
+
+	<div class="abr-filter-item abr-filter-buttons">
+		<button class="btn btn-primary" @onclick="TagesumsaetzeDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Tagesumsätze</button>
+		<button class="btn btn-primary" @onclick="RechnungAnVereinDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Rechnung an Verein</button>
+		<button class="btn btn-primary" @onclick="EinkaufsrechnungDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Einkaufsrechnung</button>
+	</div>
 </div>
+
+@if (!string.IsNullOrEmpty(_druckFehler))
+{
+	<div class="alert alert-danger">@_druckFehler</div>
+}
+@if (!string.IsNullOrEmpty(_druckHinweis))
+{
+	<div class="alert alert-info">@_druckHinweis</div>
+}
+
+@if (_druckLaeuft)
+{
+	<div class="pdf-overlay">
+		<div class="pdf-overlay-box">
+			<div class="spinner-border text-primary" role="status">
+				<span class="visually-hidden">Lädt…</span>
+			</div>
+			<div class="pdf-overlay-text">Das PDF wird erstellt, bitte warten…</div>
+		</div>
+	</div>
+}
 
 <table class="table table-striped">
 	<thead>
@@ -69,13 +99,15 @@
 			<th class="text-end">Menge</th>
 			<th>Besonderheit</th>
 			<th class="text-end">Gesamtpreis</th>
+			<th class="text-end">Verrechnungspreis</th>
+			<th class="text-end">Einkaufspreis</th>
 			<th class="text-end">Mwst</th>
 		</tr>
 	</thead>
 	<tbody>
 		@if (_anzeige.Count == 0)
 		{
-			<tr><td colspan="5"><em>Keine Positionen.</em></td></tr>
+			<tr><td colspan="7"><em>Keine Positionen.</em></td></tr>
 		}
 		else
 		{
@@ -86,6 +118,8 @@
 					<td class="text-end">@z.Menge</td>
 					<td>@z.Besonderheit</td>
 					<td class="text-end">@z.Gesamtpreis.ToString("C")</td>
+					<td class="text-end">@z.Verrechnungspreis.ToString("C")</td>
+					<td class="text-end">@z.Einkaufspreis.ToString("C")</td>
 					<td class="text-end">@z.Mwst.ToString("C")</td>
 				</tr>
 			}
@@ -95,6 +129,8 @@
 
 <div class="abr-summen">
 	<div><strong>Umsatz aus Verkauf:</strong> @_umsatzVerkauf.ToString("C")</div>
+	<div><strong>Verrechnungspreis:</strong> @_verrechnungspreisSumme.ToString("C")</div>
+	<div><strong>Einkaufspreis:</strong> @_einkaufspreisSumme.ToString("C")</div>
 	<div><strong>Mehrwertsteuer:</strong> @_mwstSumme.ToString("C")</div>
 	<div><strong>Trinkgeld:</strong> @_trinkgeld.ToString("C")</div>
 	<div><strong>Bareinnahmen:</strong> @((_umsatzVerkauf + _trinkgeld).ToString("C"))</div>
@@ -124,8 +160,13 @@
 
 	private decimal _umsatzVerkauf;
 	private decimal _mwstSumme;
+	private decimal _verrechnungspreisSumme;
+	private decimal _einkaufspreisSumme;
 	private decimal _trinkgeld;
 	private bool _hatFehler;
+	private bool _druckLaeuft;
+	private string? _druckFehler;
+	private string? _druckHinweis;
 
 	protected override void OnInitialized()
 	{
@@ -234,12 +275,17 @@
 				Menge = g.Sum(z => z.Menge),
 				Besonderheit = g.Key.Besonderheit,
 				Gesamtpreis = g.Sum(z => z.Gesamtpreis),
-				Mwst = g.Sum(z => z.Mwst)
+				Verrechnungspreis = g.Sum(z => z.Verrechnungspreis),
+				Einkaufspreis = g.Sum(z => z.Einkaufspreis),
+				Mwst = g.Sum(z => z.Mwst),
+				MwstSatz = g.First().MwstSatz
 			})
 			.ToList();
 
 		_umsatzVerkauf = _anzeige.Sum(z => z.Gesamtpreis);
 		_mwstSumme = _anzeige.Sum(z => z.Mwst);
+		_verrechnungspreisSumme = _anzeige.Sum(z => z.Verrechnungspreis);
+		_einkaufspreisSumme = _anzeige.Sum(z => z.Einkaufspreis);
 		_trinkgeld = _terminDatum.HasValue
 			? AbrechnungRepo.GetTrinkgeldSumme(_terminDatum.Value, _userId, _tischnummer)
 			: 0m;
@@ -250,6 +296,63 @@
 		if (_terminDatum.HasValue)
 		{
 			Nav.NavigateTo($"/fehler?termin={_terminDatum.Value}");
+		}
+	}
+
+	private Task TagesumsaetzeDrucken()
+		=> PdfErzeugen(AbrechnungPdfService.ReportArt.Tagesumsaetze, "Tagesumsätze");
+
+	private Task RechnungAnVereinDrucken()
+		=> PdfErzeugen(AbrechnungPdfService.ReportArt.RechnungAnVerein, "Rechnung an Verein");
+
+	private Task EinkaufsrechnungDrucken()
+		=> PdfErzeugen(AbrechnungPdfService.ReportArt.Einkaufsrechnung, "Einkaufsrechnung");
+
+	private async Task PdfErzeugen(AbrechnungPdfService.ReportArt art, string titel)
+	{
+		_druckFehler = null;
+		_druckHinweis = null;
+
+		if (!_terminDatum.HasValue)
+		{
+			_druckFehler = "Bitte zuerst einen Termin auswählen.";
+			return;
+		}
+
+		var termin = _termine.FirstOrDefault(t => t.BewirtungsDatum == _terminDatum.Value);
+		var terminText = termin != null ? termin.DatumText : Termin.FromYyyyMmDd(_terminDatum.Value).ToString("dd.MM.yyyy");
+		var vereinText = termin?.VereinName ?? string.Empty;
+
+		_druckLaeuft = true;
+		StateHasChanged();
+		await Task.Yield();
+		await Task.Delay(50);
+		try
+		{
+			var docx = AbrechnungPdf.Erstellen(art, titel, terminText, vereinText, _anzeige);
+			var basisName = $"{titel.Replace(' ', '_')}_{Termin.FromYyyyMmDd(_terminDatum.Value):yyyy-MM-dd}";
+
+			byte[] pdf;
+			try
+			{
+				pdf = await StirlingPdf.KonvertiereDocxZuPdfAsync(docx, $"{basisName}.docx");
+			}
+			catch (Exception ex)
+			{
+				_druckFehler = $"Die Umwandlung in PDF ist fehlgeschlagen (Stirling-PDF nicht erreichbar?): {ex.Message}";
+				return;
+			}
+
+			var pdfName = $"{basisName}.pdf";
+			var imFensterGeoeffnet = await JS.InvokeAsync<bool>("openPdfInNewWindow", pdf, pdfName);
+			if (!imFensterGeoeffnet)
+			{
+				_druckHinweis = "Das PDF-Fenster wurde vom Browser blockiert. Das PDF wurde stattdessen heruntergeladen. Tipp: Popups für diese Seite erlauben.";
+			}
+		}
+		finally
+		{
+			_druckLaeuft = false;
 		}
 	}
 }
