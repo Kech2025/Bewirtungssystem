@@ -278,7 +278,8 @@
 				Verrechnungspreis = g.Sum(z => z.Verrechnungspreis),
 				Einkaufspreis = g.Sum(z => z.Einkaufspreis),
 				Mwst = g.Sum(z => z.Mwst),
-				MwstSatz = g.First().MwstSatz
+				MwstSatz = g.First().MwstSatz,
+				Preiskategorie = g.First().Preiskategorie
 			})
 			.ToList();
 
