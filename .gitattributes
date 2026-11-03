@@ -1,0 +1,6 @@
+# Linux-Shellskripte und systemd-Dienste müssen LF-Zeilenenden behalten,
+# sonst schlägt die Ausführung auf dem Raspberry Pi fehl.
+*.sh text eol=lf
+*.service text eol=lf
+scripts/raspberry-autostart.sh text eol=lf
+scripts/bewirtung.service text eol=lf

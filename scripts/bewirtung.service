@@ -1,0 +1,33 @@
+# systemd-Dienst zum automatischen Starten des Bewirtungssystems beim Hochfahren.
+#
+# Einrichtung siehe RASPBERRY-SETUP.md. Kurz:
+#   sudo cp scripts/bewirtung.service /etc/systemd/system/bewirtung.service
+#   (Pfad/User im File ggf. anpassen)
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable bewirtung.service
+#
+# Danach startet das System bei jedem Einschalten des Raspberry Pi automatisch.
+
+[Unit]
+Description=Bewirtungssystem (Docker Compose) automatisch starten
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Benutzer anpassen (der User, der das Repo geklont hat), z. B. "pi".
+User=pi
+# Pfad zum geklonten Repository anpassen.
+WorkingDirectory=/home/pi/Bewirtungssystem
+Environment=BEWIRTUNG_DIR=/home/pi/Bewirtungssystem
+
+ExecStart=/usr/bin/env bash /home/pi/Bewirtungssystem/scripts/raspberry-autostart.sh
+
+# Beim Herunterfahren die Container sauber stoppen.
+ExecStop=/usr/bin/docker compose -f /home/pi/Bewirtungssystem/docker-compose.yml down
+
+[Install]
+WantedBy=multi-user.target
