@@ -43,10 +43,12 @@ html, body {
 
 main {
     flex: 1;
+    min-width: 0;
 }
 
 .content {
     padding: 1.5rem;
+    overflow-x: hidden;
 }
 
 .table {
@@ -383,16 +385,27 @@ main {
     width: 180px;
 }
 
+.gpl-page {
+    font-size: 0.875rem;
+    overflow-x: hidden;
+}
+
 .gpl-grids {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
 }
 
 .gpl-grid {
-    flex: 1 1 0;
-    min-width: 320px;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.gpl-grid table {
+    width: auto;
 }
 
 .gpl-grid-header {
