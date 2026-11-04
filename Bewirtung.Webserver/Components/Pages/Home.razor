@@ -1,11 +1,169 @@
 @page "/"
+@rendermode RenderMode.InteractiveServer
+@inject BenutzerRepository BenutzerRepo
+@inject PasswordHasher Hasher
+@inject SessionState Session
 
-<PageTitle>Stammdatenpflege</PageTitle>
+<PageTitle>Anmeldung</PageTitle>
 
-<h1>Stammdatenpflege</h1>
+<div class="login-wrapper">
+	<div class="card login-card">
+		<div class="card-header">Anmeldung</div>
+		<div class="card-body">
+			@if (Session.IstAngemeldet)
+			{
+				<p>Angemeldet als <strong>@Session.AngemeldeterBenutzer!.Name</strong>.</p>
+				<button class="btn btn-secondary" @onclick="Abmelden">Abmelden</button>
+			}
+			else if (_passwortVergeben)
+			{
+				<p>Für dieses Konto ist noch kein Passwort hinterlegt. Bitte vergeben Sie ein Passwort.</p>
+				<EditForm Model="this" OnValidSubmit="PasswortSpeichern">
+					<div class="mb-2">
+						<label class="form-label">Neues Passwort</label>
+						<input type="password" class="form-control" @bind="_neuesPasswort" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Passwort wiederholen</label>
+						<input type="password" class="form-control" @bind="_neuesPasswortWdh" />
+					</div>
+					<p class="text-muted small">
+						Mindestens 8 Zeichen mit Groß-, Kleinbuchstabe, Zahl und Sonderzeichen.
+					</p>
+					@if (!string.IsNullOrEmpty(_fehler))
+					{
+						<div class="alert alert-danger py-1">@_fehler</div>
+					}
+					<button type="submit" class="btn btn-primary">Passwort speichern</button>
+					<button type="button" class="btn btn-secondary" @onclick="Zuruecksetzen">Abbrechen</button>
+				</EditForm>
+			}
+			else
+			{
+				<EditForm Model="this" OnValidSubmit="Anmelden">
+					<div class="mb-2">
+						<label class="form-label">E-Mail</label>
+						<input type="email" class="form-control" @bind="_email" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Passwort</label>
+						<input type="password" class="form-control" @bind="_passwort" />
+					</div>
+					@if (!string.IsNullOrEmpty(_fehler))
+					{
+						<div class="alert alert-danger py-1">@_fehler</div>
+					}
+					<button type="submit" class="btn btn-primary">Anmelden</button>
+				</EditForm>
+			}
+		</div>
+	</div>
+</div>
 
-<p>Willkommen zur browserbasierten Stammdatenpflege des Bewirtungssystems.</p>
+@code {
+	private string _email = string.Empty;
+	private string _passwort = string.Empty;
+	private string? _fehler;
 
-<ul>
-	<li><a href="benutzer">Benutzer verwalten</a></li>
-</ul>
+	private bool _passwortVergeben;
+	private Benutzer? _vergabeBenutzer;
+	private string _neuesPasswort = string.Empty;
+	private string _neuesPasswortWdh = string.Empty;
+
+	private void Anmelden()
+	{
+		_fehler = null;
+
+		if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_passwort))
+		{
+			_fehler = "Bitte E-Mail und Passwort eingeben.";
+			return;
+		}
+
+		var benutzer = BenutzerRepo.GetByEmail(_email.Trim());
+		if (benutzer is null)
+		{
+			_fehler = "E-Mail oder Passwort ist falsch.";
+			return;
+		}
+
+		// Benutzer vorhanden, aber noch kein Passwort gesetzt => Passwortvergabe.
+		if (string.IsNullOrEmpty(benutzer.Password))
+		{
+			_vergabeBenutzer = benutzer;
+			_passwortVergeben = true;
+			_neuesPasswort = string.Empty;
+			_neuesPasswortWdh = string.Empty;
+			return;
+		}
+
+		if (!Hasher.Verify(_passwort, benutzer.Password))
+		{
+			_fehler = "E-Mail oder Passwort ist falsch.";
+			return;
+		}
+
+		Session.Anmelden(benutzer);
+	}
+
+	private void PasswortSpeichern()
+	{
+		_fehler = null;
+
+		if (_vergabeBenutzer is null)
+		{
+			Zuruecksetzen();
+			return;
+		}
+
+		if (_neuesPasswort != _neuesPasswortWdh)
+		{
+			_fehler = "Die Passwörter stimmen nicht überein.";
+			return;
+		}
+
+		if (!IstPasswortStark(_neuesPasswort))
+		{
+			_fehler = "Das Passwort muss mindestens 8 Zeichen lang sein und Groß-, Kleinbuchstabe, Zahl und Sonderzeichen enthalten.";
+			return;
+		}
+
+		var hash = Hasher.Hash(_neuesPasswort);
+		BenutzerRepo.SetPassword(_vergabeBenutzer.UserId, hash);
+		_vergabeBenutzer.Password = hash;
+
+		Session.Anmelden(_vergabeBenutzer);
+		_passwortVergeben = false;
+	}
+
+	private void Abmelden()
+	{
+		Session.Abmelden();
+		Zuruecksetzen();
+	}
+
+	private void Zuruecksetzen()
+	{
+		_passwortVergeben = false;
+		_vergabeBenutzer = null;
+		_passwort = string.Empty;
+		_neuesPasswort = string.Empty;
+		_neuesPasswortWdh = string.Empty;
+		_fehler = null;
+	}
+
+	private static bool IstPasswortStark(string passwort)
+	{
+		if (string.IsNullOrEmpty(passwort) || passwort.Length < 8)
+		{
+			return false;
+		}
+
+		bool hatGross = passwort.Any(char.IsUpper);
+		bool hatKlein = passwort.Any(char.IsLower);
+		bool hatZahl = passwort.Any(char.IsDigit);
+		bool hatSonder = passwort.Any(c => !char.IsLetterOrDigit(c));
+
+		return hatGross && hatKlein && hatZahl && hatSonder;
+	}
+}

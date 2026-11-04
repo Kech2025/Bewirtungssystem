@@ -47,6 +47,31 @@ namespace Bewirtung.Webserver.Data
             return reader.Read() ? Map(reader) : null;
         }
 
+        public Benutzer? GetByEmail(string email)
+        {
+            using var connection = _database.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
+                FROM Benutzer b
+                LEFT JOIN Verein v ON v.Id = b.VereinId
+                WHERE LOWER(b.Email) = LOWER(@email)
+                LIMIT 1;";
+            command.Parameters.AddWithValue("email", (object?)email ?? DBNull.Value);
+            using var reader = command.ExecuteReader();
+            return reader.Read() ? Map(reader) : null;
+        }
+
+        public void SetPassword(long userId, string passwordHash)
+        {
+            using var connection = _database.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE Benutzer SET Password = @password WHERE UserId = @userId;";
+            command.Parameters.AddWithValue("password", (object?)passwordHash ?? DBNull.Value);
+            command.Parameters.AddWithValue("userId", userId);
+            command.ExecuteNonQuery();
+        }
+
         public long Insert(Benutzer benutzer)
         {
             using var connection = _database.CreateConnection();

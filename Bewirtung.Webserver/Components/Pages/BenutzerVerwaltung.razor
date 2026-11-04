@@ -2,8 +2,11 @@
 @rendermode RenderMode.InteractiveServer
 @inject BenutzerRepository BenutzerRepo
 @inject VereinRepository VereinRepo
+@inject PasswordHasher Hasher
 
 <PageTitle>Benutzer verwalten</PageTitle>
+
+<AdminGuard />
 
 <h1>Benutzer verwalten</h1>
 
@@ -130,6 +133,12 @@ else
 		if (_bearbeiten is null)
 		{
 			return;
+		}
+
+		// Klartext-Passwort beim Speichern verschlüsseln (nur wenn noch nicht gehasht).
+		if (!string.IsNullOrEmpty(_bearbeiten.Password) && !PasswordHasher.IstGehasht(_bearbeiten.Password))
+		{
+			_bearbeiten.Password = Hasher.Hash(_bearbeiten.Password);
 		}
 
 		if (_bearbeiten.UserId == 0)

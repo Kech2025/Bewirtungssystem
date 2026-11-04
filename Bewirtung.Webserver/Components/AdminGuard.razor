@@ -1,0 +1,17 @@
+@inject Bewirtung.Webserver.Data.SessionState Session
+@inject NavigationManager Nav
+
+@if (!Session.IstAdmin)
+{
+	<p><em>Keine Berechtigung. Sie werden weitergeleitet…</em></p>
+}
+
+@code {
+	protected override void OnInitialized()
+	{
+		if (!Session.IstAdmin)
+		{
+			Nav.NavigateTo("/", replace: true);
+		}
+	}
+}

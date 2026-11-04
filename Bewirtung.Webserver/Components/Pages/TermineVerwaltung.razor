@@ -12,6 +12,7 @@
 @inject PreislisteDokumentService PreislisteDokument
 @inject WordVorlageRepository VorlageRepo
 @inject StirlingPdfService StirlingPdf
+@inject SessionState Session
 @inject IJSRuntime JS
 
 <PageTitle>Termine verwalten</PageTitle>
@@ -271,18 +272,21 @@ else
 							<label class="form-label">Name</label>
 							<InputText class="form-control" @bind-Value="_neuerBenutzer.Name" />
 						</div>
-						<div class="mb-2">
-							<label class="form-label">E-Mail</label>
-							<InputText class="form-control" @bind-Value="_neuerBenutzer.Email" />
-						</div>
-						<div class="mb-2">
-							<label class="form-label">Passwort</label>
-							<InputText class="form-control" @bind-Value="_neuerBenutzer.Password" />
-						</div>
-						<div class="mb-2">
-							<label class="form-label">Telefon</label>
-							<InputText class="form-control" @bind-Value="_neuerBenutzer.Telefon" />
-						</div>
+						@if (Session.IstAdmin)
+						{
+							<div class="mb-2">
+								<label class="form-label">E-Mail</label>
+								<InputText class="form-control" @bind-Value="_neuerBenutzer.Email" />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Passwort</label>
+								<InputText class="form-control" @bind-Value="_neuerBenutzer.Password" />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Telefon</label>
+								<InputText class="form-control" @bind-Value="_neuerBenutzer.Telefon" />
+							</div>
+						}
 						<div class="mb-2">
 							<label class="form-label">Verein</label>
 							<InputSelect class="form-select" @bind-Value="_neuerBenutzer.VereinId">
@@ -293,10 +297,13 @@ else
 								}
 							</InputSelect>
 						</div>
-						<div class="form-check mb-3">
-							<InputCheckbox class="form-check-input" @bind-Value="_neuerBenutzer.Administrator" id="termAdminCheck" />
-							<label class="form-check-label" for="termAdminCheck">Administrator</label>
-						</div>
+						@if (Session.IstAdmin)
+						{
+							<div class="form-check mb-3">
+								<InputCheckbox class="form-check-input" @bind-Value="_neuerBenutzer.Administrator" id="termAdminCheck" />
+								<label class="form-check-label" for="termAdminCheck">Administrator</label>
+							</div>
+						}
 
 						<button type="submit" class="btn btn-primary">Speichern</button>
 						<button type="button" class="btn btn-secondary" @onclick="BenutzerAbbrechen">Abbrechen</button>

@@ -156,6 +156,17 @@ main {
     padding: 0.5rem 0.75rem;
 }
 
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 3rem 1rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;

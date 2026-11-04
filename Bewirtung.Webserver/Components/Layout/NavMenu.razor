@@ -1,4 +1,6 @@
 @using Microsoft.AspNetCore.Components.Routing
+@inject Bewirtung.Webserver.Data.SessionState Session
+@implements IDisposable
 
 <div class="top-row navbar">
 	<span class="navbar-brand">Bewirtung – Stammdaten</span>
@@ -9,35 +11,55 @@
 		<li class="nav-item">
 			<NavLink class="nav-link" href="" Match="NavLinkMatch.All">Start</NavLink>
 		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="benutzer">Benutzer</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="tische">Tische</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="bereiche">Bereiche</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="vereine">Vereine</NavLink>
-		</li>
+		@if (Session.IstAdmin)
+		{
+			<li class="nav-item">
+				<NavLink class="nav-link" href="benutzer">Benutzer</NavLink>
+			</li>
+			<li class="nav-item">
+				<NavLink class="nav-link" href="tische">Tische</NavLink>
+			</li>
+			<li class="nav-item">
+				<NavLink class="nav-link" href="bereiche">Bereiche</NavLink>
+			</li>
+			<li class="nav-item">
+				<NavLink class="nav-link" href="vereine">Vereine</NavLink>
+			</li>
+		}
 		<li class="nav-item">
 			<NavLink class="nav-link" href="termine">Termine</NavLink>
 		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="globalepreisliste">Globale Preisliste</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="mwst">Mehrwertsteuer</NavLink>
-		</li>
+		@if (Session.IstAdmin)
+		{
+			<li class="nav-item">
+				<NavLink class="nav-link" href="globalepreisliste">Globale Preisliste</NavLink>
+			</li>
+			<li class="nav-item">
+				<NavLink class="nav-link" href="mwst">Mehrwertsteuer</NavLink>
+			</li>
+		}
 		<li class="nav-item">
 			<NavLink class="nav-link" href="tagesabrechnung">Tagesabrechnung</NavLink>
 		</li>
 		<li class="nav-item">
 			<NavLink class="nav-link" href="fehler">Fehlerhafte Abrechnungen</NavLink>
 		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="wordvorlage">Wordvorlage erstellen</NavLink>
-		</li>
+		@if (Session.IstAdmin)
+		{
+			<li class="nav-item">
+				<NavLink class="nav-link" href="wordvorlage">Wordvorlage erstellen</NavLink>
+			</li>
+		}
 	</ul>
 </nav>
+
+@code {
+	protected override void OnInitialized()
+	{
+		Session.OnChange += StateChanged;
+	}
+
+	private void StateChanged() => InvokeAsync(StateHasChanged);
+
+	public void Dispose() => Session.OnChange -= StateChanged;
+}
