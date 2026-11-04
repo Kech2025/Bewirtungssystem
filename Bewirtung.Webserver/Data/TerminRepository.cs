@@ -20,7 +20,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT t.BewirtungsDatum, t.VereinId, v.Name
+                SELECT t.BewirtungsDatum, t.VereinId, v.Name, COALESCE(v.""förderverein"", false) AS Foerderverein
                 FROM Termin t
                 LEFT JOIN Verein v ON v.Id = t.VereinId
                 ORDER BY t.BewirtungsDatum DESC, v.Name;";
@@ -31,7 +31,8 @@ namespace Bewirtung.Webserver.Data
                 {
                     BewirtungsDatum = Termin.ToYyyyMmDd(reader.GetDateTime(0)),
                     VereinId = reader.GetInt32(1),
-                    VereinName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2)
+                    VereinName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                    Foerderverein = !reader.IsDBNull(3) && reader.GetBoolean(3)
                 });
             }
             return result;

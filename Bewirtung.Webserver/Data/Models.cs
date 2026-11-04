@@ -46,6 +46,15 @@ namespace Bewirtung.Webserver.Data
         public string Strasse { get; set; } = string.Empty;
         public string Plz { get; set; } = string.Empty;
         public string Ort { get; set; } = string.Empty;
+
+        /// <summary>Aktiv-Status: nur aktive Vereine erscheinen in Auswahllisten.</summary>
+        public bool Status { get; set; } = true;
+
+        /// <summary>Kennzeichnet den Verein als Förderverein.</summary>
+        public bool Foerderverein { get; set; }
+
+        /// <summary>Überschrift der Speisekarte für diesen Verein.</summary>
+        public string UeberschriftSpeisekarte { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -79,6 +88,9 @@ namespace Bewirtung.Webserver.Data
         public int BewirtungsDatum { get; set; }
         public long VereinId { get; set; }
         public string VereinName { get; set; } = string.Empty;
+
+        /// <summary>Gibt an, ob der zugeordnete Verein ein Förderverein ist.</summary>
+        public bool Foerderverein { get; set; }
 
         public DateTime Datum
         {

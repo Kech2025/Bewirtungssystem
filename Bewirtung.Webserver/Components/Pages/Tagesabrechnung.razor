@@ -67,7 +67,10 @@
 	<div class="abr-filter-item abr-filter-buttons">
 		<button class="btn btn-primary" @onclick="TagesumsaetzeDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Tagesumsätze</button>
 		<button class="btn btn-primary" @onclick="RechnungAnVereinDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Rechnung an Verein</button>
-		<button class="btn btn-primary" @onclick="EinkaufsrechnungDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Einkaufsrechnung</button>
+		@if (_foerderverein)
+		{
+			<button class="btn btn-primary" @onclick="EinkaufsrechnungDrucken" disabled="@(_druckLaeuft || !_terminDatum.HasValue)">Einkaufsrechnung</button>
+		}
 	</div>
 </div>
 
@@ -100,14 +103,17 @@
 			<th>Besonderheit</th>
 			<th class="text-end">Gesamtpreis</th>
 			<th class="text-end">Verrechnungspreis</th>
-			<th class="text-end">Einkaufspreis</th>
+			@if (_foerderverein)
+			{
+				<th class="text-end">Einkaufspreis</th>
+			}
 			<th class="text-end">Mwst</th>
 		</tr>
 	</thead>
 	<tbody>
 		@if (_anzeige.Count == 0)
 		{
-			<tr><td colspan="7"><em>Keine Positionen.</em></td></tr>
+			<tr><td colspan="@(_foerderverein ? 7 : 6)"><em>Keine Positionen.</em></td></tr>
 		}
 		else
 		{
@@ -119,7 +125,10 @@
 					<td>@z.Besonderheit</td>
 					<td class="text-end">@z.Gesamtpreis.ToString("C")</td>
 					<td class="text-end">@z.Verrechnungspreis.ToString("C")</td>
-					<td class="text-end">@z.Einkaufspreis.ToString("C")</td>
+					@if (_foerderverein)
+					{
+						<td class="text-end">@z.Einkaufspreis.ToString("C")</td>
+					}
 					<td class="text-end">@z.Mwst.ToString("C")</td>
 				</tr>
 			}
@@ -130,7 +139,10 @@
 <div class="abr-summen">
 	<div><strong>Umsatz aus Verkauf:</strong> @_umsatzVerkauf.ToString("C")</div>
 	<div><strong>Verrechnungspreis:</strong> @_verrechnungspreisSumme.ToString("C")</div>
-	<div><strong>Einkaufspreis:</strong> @_einkaufspreisSumme.ToString("C")</div>
+	@if (_foerderverein)
+	{
+		<div><strong>Einkaufspreis:</strong> @_einkaufspreisSumme.ToString("C")</div>
+	}
 	<div><strong>Mehrwertsteuer:</strong> @_mwstSumme.ToString("C")</div>
 	<div><strong>Trinkgeld:</strong> @_trinkgeld.ToString("C")</div>
 	<div><strong>Bareinnahmen:</strong> @((_umsatzVerkauf + _trinkgeld).ToString("C"))</div>
@@ -157,6 +169,7 @@
 	private long? _bereichId;
 	private int? _tischnummer;
 	private int _art = -1;
+	private bool _foerderverein;
 
 	private decimal _umsatzVerkauf;
 	private decimal _mwstSumme;
@@ -176,6 +189,8 @@
 	private void TerminGeaendert(ChangeEventArgs e)
 	{
 		_terminDatum = int.TryParse(e.Value?.ToString(), out var d) ? d : (int?)null;
+		_foerderverein = _terminDatum.HasValue
+			&& (_termine.FirstOrDefault(t => t.BewirtungsDatum == _terminDatum.Value)?.Foerderverein ?? false);
 		_userId = null;
 		_bereichId = null;
 		_tischnummer = null;
@@ -330,7 +345,7 @@
 		await Task.Delay(50);
 		try
 		{
-			var docx = AbrechnungPdf.Erstellen(art, titel, terminText, vereinText, _anzeige);
+			var docx = AbrechnungPdf.Erstellen(art, titel, terminText, vereinText, _anzeige, _trinkgeld);
 			var basisName = $"{titel.Replace(' ', '_')}_{Termin.FromYyyyMmDd(_terminDatum.Value):yyyy-MM-dd}";
 
 			byte[] pdf;

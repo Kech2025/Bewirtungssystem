@@ -23,6 +23,9 @@ else
 				<th>Ort</th>
 				<th>Straße</th>
 				<th>Ansprechpartner</th>
+				<th>Status</th>
+				<th>Förderverein</th>
+				<th>Überschrift Speisekarte</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -34,6 +37,9 @@ else
 					<td>@v.Ort</td>
 					<td>@v.Strasse</td>
 					<td>@v.AnsprechpartnerName</td>
+					<td>@(v.Status ? "Aktiv" : "Inaktiv")</td>
+					<td>@(v.Foerderverein ? "Ja" : "Nein")</td>
+					<td>@v.UeberschriftSpeisekarte</td>
 					<td>
 						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(v)">Bearbeiten</button>
 						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(v)">Löschen</button>
@@ -81,6 +87,19 @@ else
 							</InputSelect>
 						</div>
 
+						<div class="mb-2">
+							<label class="form-label">Überschrift Speisekarte</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.UeberschriftSpeisekarte" />
+						</div>
+						<div class="form-check mb-2">
+							<InputCheckbox class="form-check-input" id="chkStatus" @bind-Value="_bearbeiten.Status" />
+							<label class="form-check-label" for="chkStatus">Status (aktiv)</label>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" id="chkFoerderverein" @bind-Value="_bearbeiten.Foerderverein" />
+							<label class="form-check-label" for="chkFoerderverein">Förderverein</label>
+						</div>
+
 						<button type="submit" class="btn btn-primary">Speichern</button>
 						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
 					</EditForm>
@@ -112,7 +131,10 @@ else
 		AnsprechpartnerId = v.AnsprechpartnerId,
 		Strasse = v.Strasse,
 		Plz = v.Plz,
-		Ort = v.Ort
+		Ort = v.Ort,
+		Status = v.Status,
+		Foerderverein = v.Foerderverein,
+		UeberschriftSpeisekarte = v.UeberschriftSpeisekarte
 	};
 
 	private void Abbrechen() => _bearbeiten = null;

@@ -21,9 +21,9 @@ namespace Bewirtung.Webserver.Data
         /// <summary>
         /// Baut das DOCX-Dokument. Die Spalten und Werte richten sich nach <paramref name="art"/>.
         /// </summary>
-        public byte[] Erstellen(ReportArt art, string titel, string termin, string verein, IEnumerable<AbrechnungZeile> zeilen)
+        public byte[] Erstellen(ReportArt art, string titel, string termin, string verein, IEnumerable<AbrechnungZeile> zeilen, decimal trinkgeld = 0m)
         {
-            var liste = zeilen.ToList();
+            var liste = ZusammenfassenNachZusatz(zeilen);
 
             string preisHeader;
             string mwstHeader;
@@ -73,6 +73,15 @@ namespace Bewirtung.Webserver.Data
                 SeiteAufbauen(body, titel, termin, verein, "Getränke", getraenke,
                     preisHeader, mwstHeader, preisWahl, mwstWahl);
 
+                // Bei Tagesumsätzen folgt mit Abstand ein Zusammenfassungsblock.
+                if (art == ReportArt.Tagesumsaetze)
+                {
+                    var umsatzVerkauf = liste.Sum(z => z.Gesamtpreis);
+                    var mwstSumme = liste.Sum(z => z.Mwst);
+                    var bareinnahmen = umsatzVerkauf + trinkgeld;
+                    ZusammenfassungAnhaengen(body, bareinnahmen, umsatzVerkauf, mwstSumme, trinkgeld);
+                }
+
                 mainPart.Document.Save();
             }
 
@@ -92,6 +101,11 @@ namespace Bewirtung.Webserver.Data
 
             var tabelle = new Table();
             tabelle.AppendChild(TabellenEigenschaften());
+            tabelle.AppendChild(new TableGrid(
+                new GridColumn { Width = "3600" },
+                new GridColumn { Width = "1800" },
+                new GridColumn { Width = "1800" },
+                new GridColumn { Width = "1800" }));
 
             // Kopfzeile
             tabelle.AppendChild(TabellenZeile(true,
@@ -126,8 +140,65 @@ namespace Bewirtung.Webserver.Data
             body.AppendChild(tabelle);
         }
 
+        /// <summary>
+        /// Hängt mit etwas Abstand einen Zusammenfassungsblock mit
+        /// Bareinnahmen, Umsatz aus Verkauf, Mwst und Trinkgeld an.
+        /// </summary>
+        private static void ZusammenfassungAnhaengen(Body body, decimal bareinnahmen,
+            decimal umsatzVerkauf, decimal mwst, decimal trinkgeld)
+        {
+            // Abstand zur Tabelle
+            body.AppendChild(new Paragraph());
+            body.AppendChild(new Paragraph());
+
+            var tabelle = new Table();
+            tabelle.AppendChild(TabellenEigenschaften());
+            tabelle.AppendChild(new TableGrid(
+                new GridColumn { Width = "3600" },
+                new GridColumn { Width = "1800" },
+                new GridColumn { Width = "1800" },
+                new GridColumn { Width = "1800" }));
+
+            tabelle.AppendChild(TabellenZeile(true, "Bareinnahmen", string.Empty, bareinnahmen.ToString("N2") + " €", string.Empty));
+            tabelle.AppendChild(TabellenZeile(false, "Umsatz aus Verkauf", string.Empty, umsatzVerkauf.ToString("N2") + " €", string.Empty));
+            tabelle.AppendChild(TabellenZeile(false, "Mwst", string.Empty, mwst.ToString("N2") + " €", string.Empty));
+            tabelle.AppendChild(TabellenZeile(false, "Trinkgeld", string.Empty, trinkgeld.ToString("N2") + " €", string.Empty));
+
+            body.AppendChild(tabelle);
+        }
+
         private static decimal BerechneMwst(decimal betrag, decimal satz)
             => satz > 0m ? betrag - (betrag * 100m / (100m + satz)) : 0m;
+
+        /// <summary>
+        /// Fasst gleichartige Positionen auf Ebene GlobalePreislisteZusatz zusammen
+        /// (gleiche PreislisteId, PreislisteZusatzId und Preiskategorie), unabhängig
+        /// von Benutzer und Tisch. Mengen und Beträge werden summiert.
+        /// </summary>
+        private static List<AbrechnungZeile> ZusammenfassenNachZusatz(IEnumerable<AbrechnungZeile> zeilen)
+        {
+            return zeilen
+                .GroupBy(z => new { z.PreislisteId, z.PreislisteZusatzId, z.Preiskategorie })
+                .Select(g =>
+                {
+                    var erste = g.First();
+                    return new AbrechnungZeile
+                    {
+                        PreislisteId = erste.PreislisteId,
+                        PreislisteZusatzId = erste.PreislisteZusatzId,
+                        Artikel = erste.Artikel,
+                        Preiskategorie = erste.Preiskategorie,
+                        MwstSatz = erste.MwstSatz,
+                        Menge = g.Sum(x => x.Menge),
+                        Gesamtpreis = g.Sum(x => x.Gesamtpreis),
+                        Verrechnungspreis = g.Sum(x => x.Verrechnungspreis),
+                        Einkaufspreis = g.Sum(x => x.Einkaufspreis),
+                        Mwst = g.Sum(x => x.Mwst)
+                    };
+                })
+                .OrderBy(z => z.Artikel)
+                .ToList();
+        }
 
         private static Paragraph AbsatzUeberschrift(string text, int halbpunkt)
         {
@@ -147,7 +218,8 @@ namespace Bewirtung.Webserver.Data
                     new RightBorder { Val = BorderValues.Single, Size = 4 },
                     new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
                     new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
-                new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct });
+                new TableLayout { Type = TableLayoutValues.Fixed },
+                new TableWidth { Width = "9000", Type = TableWidthUnitValues.Dxa });
         }
 
         private static TableRow TabellenZeile(bool fett, params string[] werte)
@@ -171,7 +243,11 @@ namespace Bewirtung.Webserver.Data
                     absatzProps.AppendChild(new Justification { Val = JustificationValues.Right });
                 }
 
-                var zelle = new TableCell(new Paragraph(absatzProps, run));
+                // Spalte "Artikel" doppelt so breit (3600 Twips), die anderen drei je 1800 Twips.
+                var zelle = new TableCell(
+                    new TableCellProperties(
+                        new TableCellWidth { Width = i == 0 ? "3600" : "1800", Type = TableWidthUnitValues.Dxa }),
+                    new Paragraph(absatzProps, run));
                 zeile.AppendChild(zelle);
             }
             return zeile;

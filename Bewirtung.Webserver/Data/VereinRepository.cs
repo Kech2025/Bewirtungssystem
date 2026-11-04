@@ -19,7 +19,7 @@ namespace Bewirtung.Webserver.Data
             var result = new List<VereinOption>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT Id, Name FROM Verein ORDER BY Name;";
+            command.CommandText = "SELECT Id, Name FROM Verein WHERE Status = true ORDER BY Name;";
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -38,7 +38,9 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT v.Id, v.Name, v.AnsprechpartnerId, v.Strasse, v.PLZ, v.Ort, b.Name AS AnsprechpartnerName
+                SELECT v.Id, v.Name, v.AnsprechpartnerId, v.Strasse, v.PLZ, v.Ort, b.Name AS AnsprechpartnerName,
+                       COALESCE(v.Status, false) AS Status, COALESCE(v.""förderverein"", false) AS Foerderverein,
+                       COALESCE(v.UeberschriftSpeisekarte, '') AS UeberschriftSpeisekarte
                 FROM Verein v
                 LEFT JOIN Benutzer b ON b.UserId = v.AnsprechpartnerId
                 ORDER BY v.Name;";
@@ -73,8 +75,8 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Verein (Name, AnsprechpartnerId, Strasse, PLZ, Ort)
-                VALUES (@name, @ansprechpartnerId, @strasse, @plz, @ort)
+                INSERT INTO Verein (Name, AnsprechpartnerId, Strasse, PLZ, Ort, Status, ""förderverein"", UeberschriftSpeisekarte)
+                VALUES (@name, @ansprechpartnerId, @strasse, @plz, @ort, @status, @foerderverein, @ueberschriftSpeisekarte)
                 RETURNING Id;";
             AddParameters(command, verein);
             var id = Convert.ToInt64(command.ExecuteScalar()!);
@@ -92,7 +94,10 @@ namespace Bewirtung.Webserver.Data
                     AnsprechpartnerId = @ansprechpartnerId,
                     Strasse = @strasse,
                     PLZ = @plz,
-                    Ort = @ort
+                    Ort = @ort,
+                    Status = @status,
+                    ""förderverein"" = @foerderverein,
+                    UeberschriftSpeisekarte = @ueberschriftSpeisekarte
                 WHERE Id = @id;";
             AddParameters(command, verein);
             command.Parameters.AddWithValue("id", verein.Id);
@@ -115,6 +120,9 @@ namespace Bewirtung.Webserver.Data
             command.Parameters.AddWithValue("strasse", (object?)verein.Strasse ?? DBNull.Value);
             command.Parameters.AddWithValue("plz", (object?)verein.Plz ?? DBNull.Value);
             command.Parameters.AddWithValue("ort", (object?)verein.Ort ?? DBNull.Value);
+            command.Parameters.AddWithValue("status", verein.Status);
+            command.Parameters.AddWithValue("foerderverein", verein.Foerderverein);
+            command.Parameters.AddWithValue("ueberschriftSpeisekarte", (object?)verein.UeberschriftSpeisekarte ?? DBNull.Value);
         }
 
         private static Verein Map(NpgsqlDataReader reader) => new()
@@ -125,7 +133,10 @@ namespace Bewirtung.Webserver.Data
             Strasse = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
             Plz = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
             Ort = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
-            AnsprechpartnerName = reader.IsDBNull(6) ? string.Empty : reader.GetString(6)
+            AnsprechpartnerName = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
+            Status = !reader.IsDBNull(7) && reader.GetBoolean(7),
+            Foerderverein = !reader.IsDBNull(8) && reader.GetBoolean(8),
+            UeberschriftSpeisekarte = reader.IsDBNull(9) ? string.Empty : reader.GetString(9)
         };
     }
 }
