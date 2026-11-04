@@ -183,6 +183,7 @@ namespace Bewirtung.Webserver.Data
         public bool Druck { get; set; }
         public bool Status { get; set; } = true;
         public string Zusatztext { get; set; } = string.Empty;
+        public int Reihenfolge { get; set; }
 
         public decimal? Preis { get; set; }
         public decimal? Verrechnungspreis { get; set; }
@@ -212,6 +213,7 @@ namespace Bewirtung.Webserver.Data
         public string BildPfad { get; set; } = string.Empty;
         public bool Druck { get; set; }
         public bool Status { get; set; } = true;
+        public int Reihenfolge { get; set; }
 
         public decimal? Preis { get; set; }
         public decimal? Verrechnungspreis { get; set; }

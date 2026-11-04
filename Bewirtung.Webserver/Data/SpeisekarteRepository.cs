@@ -38,7 +38,7 @@ namespace Bewirtung.Webserver.Data
                     LEFT JOIN GlobalerPreis gp2 ON gp2.GlobalePreislisteId = p.Id AND gp2.ZusatzId = z.Id
                         AND gp2.GueltigAb <= @datum AND (gp2.GueltigBis IS NULL OR NOT isfinite(gp2.GueltigBis) OR gp2.GueltigBis >= @datum)
                     WHERE p.Status = true
-                    ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
+                    ORDER BY p.Preiskategorie, p.Reihenfolge, p.Name, z.Reihenfolge, z.Bezeichnung;";
                 command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
                 using var reader = command.ExecuteReader();
                 while (reader.Read())

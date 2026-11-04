@@ -32,12 +32,12 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Id, Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, Status
+                SELECT Id, Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, Status, Reihenfolge
                 FROM GlobalePreisliste
                 LEFT JOIN GlobalerPreis ON GlobalePreislisteId = Id
                 AND GueltigAb <= @DatumAb
-                GROUP BY Id, Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status
-                ORDER BY Preiskategorie, Name;";
+                GROUP BY Id, Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge
+                ORDER BY Preiskategorie, Reihenfolge, Name;";
             command.Parameters.AddWithValue("DatumAb", datumAb);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -74,8 +74,8 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO GlobalePreisliste (Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status)
-                VALUES (@name, @preiskategorie, @bildPfad, @druck, @zusatztext, @status)
+                INSERT INTO GlobalePreisliste (Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge)
+                VALUES (@name, @preiskategorie, @bildPfad, @druck, @zusatztext, @status, @reihenfolge)
                 RETURNING Id;";
             AddParameters(command, eintrag);
             var id = Convert.ToInt64(command.ExecuteScalar()!);
@@ -94,7 +94,8 @@ namespace Bewirtung.Webserver.Data
                     BildPfad = @bildPfad,
                     Druck = @druck,
                     Zusatztext = @zusatztext,
-                    Status = @status
+                    Status = @status,
+                    Reihenfolge = @reihenfolge
                 WHERE Id = @id;";
             AddParameters(command, eintrag);
             command.Parameters.AddWithValue("id", eintrag.Id);
@@ -132,10 +133,10 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Id, SpeisekarteId, Bezeichnung, BildPfad, Druck, Status
+                SELECT Id, SpeisekarteId, Bezeichnung, BildPfad, Druck, Status, Reihenfolge
                 FROM GlobalePreislisteZusatz
                 WHERE SpeisekarteId = @speisekarteId
-                ORDER BY Bezeichnung;";
+                ORDER BY Reihenfolge, Bezeichnung;";
             command.Parameters.AddWithValue("speisekarteId", speisekarteId);
             using (var reader = command.ExecuteReader())
             {
@@ -171,14 +172,15 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO GlobalePreislisteZusatz (SpeisekarteId, Bezeichnung, BildPfad, Druck, Status)
-                VALUES (@speisekarteId, @bezeichnung, @bildPfad, @druck, @status)
+                INSERT INTO GlobalePreislisteZusatz (SpeisekarteId, Bezeichnung, BildPfad, Druck, Status, Reihenfolge)
+                VALUES (@speisekarteId, @bezeichnung, @bildPfad, @druck, @status, @reihenfolge)
                 RETURNING Id;";
             command.Parameters.AddWithValue("speisekarteId", zusatz.SpeisekarteId);
             command.Parameters.AddWithValue("bezeichnung", (object?)zusatz.Bezeichnung ?? DBNull.Value);
             command.Parameters.AddWithValue("bildPfad", (object?)zusatz.BildPfad ?? DBNull.Value);
             command.Parameters.AddWithValue("druck", zusatz.Druck);
             command.Parameters.AddWithValue("status", zusatz.Status);
+            command.Parameters.AddWithValue("reihenfolge", zusatz.Reihenfolge);
             var id = Convert.ToInt64(command.ExecuteScalar()!);
             zusatz.Id = id;
             return id;
@@ -193,12 +195,14 @@ namespace Bewirtung.Webserver.Data
                     Bezeichnung = @bezeichnung,
                     BildPfad = @bildPfad,
                     Druck = @druck,
-                    Status = @status
+                    Status = @status,
+                    Reihenfolge = @reihenfolge
                 WHERE Id = @id;";
             command.Parameters.AddWithValue("bezeichnung", (object?)zusatz.Bezeichnung ?? DBNull.Value);
             command.Parameters.AddWithValue("bildPfad", (object?)zusatz.BildPfad ?? DBNull.Value);
             command.Parameters.AddWithValue("druck", zusatz.Druck);
             command.Parameters.AddWithValue("status", zusatz.Status);
+            command.Parameters.AddWithValue("reihenfolge", zusatz.Reihenfolge);
             command.Parameters.AddWithValue("id", zusatz.Id);
             command.ExecuteNonQuery();
         }
@@ -567,6 +571,7 @@ namespace Bewirtung.Webserver.Data
             command.Parameters.AddWithValue("druck", eintrag.Druck);
             command.Parameters.AddWithValue("zusatztext", (object?)eintrag.Zusatztext ?? DBNull.Value);
             command.Parameters.AddWithValue("status", eintrag.Status);
+            command.Parameters.AddWithValue("reihenfolge", eintrag.Reihenfolge);
         }
 
         private static GlobalePreisliste Map(NpgsqlDataReader reader) => new()
@@ -579,6 +584,7 @@ namespace Bewirtung.Webserver.Data
             StartDatum = reader.IsDBNull(5) ? DateTime.MinValue : reader.GetDateTime(5),
             Zusatztext = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
             Status = !reader.IsDBNull(7) && reader.GetBoolean(7),
+            Reihenfolge = reader.IsDBNull(8) ? 0 : reader.GetInt32(8),
         };
 
         private static GlobalePreislisteZusatz MapZusatz(NpgsqlDataReader reader) => new()
@@ -588,7 +594,8 @@ namespace Bewirtung.Webserver.Data
             Bezeichnung = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
             BildPfad = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
             Druck = !reader.IsDBNull(4) && reader.GetBoolean(4),
-            Status = !reader.IsDBNull(5) && reader.GetBoolean(5)
+            Status = !reader.IsDBNull(5) && reader.GetBoolean(5),
+            Reihenfolge = reader.IsDBNull(6) ? 0 : reader.GetInt32(6)
         };
     }
 }

@@ -42,6 +42,7 @@ else
 			<table class="table table-sm table-striped">
 				<thead>
 					<tr>
+						<th>Reihenfolge</th>
 						<th>Name</th>
 						<th>Kategorie</th>
 						<th>Druck</th>
@@ -57,6 +58,7 @@ else
 					@foreach (var e in _eintraege)
 					{
 						<tr class="@(e.Id == _selected?.Id ? "gpl-selected" : "")" @onclick="() => SelectPosition(e)">
+							<td>@e.Reihenfolge</td>
 							<td>@e.Name</td>
 							<td>@e.KategorieText</td>
 							<td>@(e.Druck ? "Ja" : "Nein")</td>
@@ -84,6 +86,7 @@ else
 			<table class="table table-sm table-striped">
 				<thead>
 					<tr>
+						<th>Reihenfolge</th>
 						<th>Bezeichnung</th>
 						<th>Druck</th>
 						<th>Start-Datum</th>
@@ -97,6 +100,7 @@ else
 					@foreach (var z in _zusaetze)
 					{
 						<tr class="@(z.Id == _selectedZusatz?.Id ? "gpl-selected" : "")" @onclick="() => SelectZusatz(z)">
+							<td>@z.Reihenfolge</td>
 							<td>@z.Bezeichnung</td>
 							<td>@(z.Druck ? "Ja" : "Nein")</td>
 							<td>@(z.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
@@ -122,6 +126,10 @@ else
 					<div class="mb-2">
 						<label class="form-label">Name</label>
 						<input class="form-control" @bind="_positionDialog.Name" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Reihenfolge</label>
+						<input type="number" class="form-control" @bind="_positionDialog.Reihenfolge" />
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Kategorie</label>
@@ -190,6 +198,10 @@ else
 					<div class="mb-2">
 						<label class="form-label">Bezeichnung</label>
 						<input class="form-control" @bind="_zusatzDialog.Bezeichnung" />
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Reihenfolge</label>
+						<input type="number" class="form-control" @bind="_zusatzDialog.Reihenfolge" />
 					</div>
 					<div class="mb-2">
 						<label class="form-label">Bildpfad</label>
@@ -376,6 +388,7 @@ else
 			BildPfad = _selected.BildPfad,
 			Druck = _selected.Druck,
 			Zusatztext = _selected.Zusatztext,
+			Reihenfolge = _selected.Reihenfolge,
 			Status = _selected.Status
 		};
 		_dialogPreis = _selected.Preis ?? 0m;
@@ -471,6 +484,7 @@ else
 			Bezeichnung = _selectedZusatz.Bezeichnung,
 			BildPfad = _selectedZusatz.BildPfad,
 			Druck = _selectedZusatz.Druck,
+			Reihenfolge = _selectedZusatz.Reihenfolge,
 			Status = _selectedZusatz.Status
 		};
 		_zusatzPreis = _selectedZusatz.Preis ?? 0m;
