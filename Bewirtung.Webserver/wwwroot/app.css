@@ -397,15 +397,17 @@ main {
     flex-wrap: nowrap;
     overflow-x: auto;
     max-width: 100%;
+    -webkit-overflow-scrolling: touch;
 }
 
 .gpl-grid {
     flex: 0 0 auto;
+    width: max-content;
     min-width: 0;
 }
 
 .gpl-grid table {
-    width: auto;
+    width: max-content;
 }
 
 .gpl-grid-header {
