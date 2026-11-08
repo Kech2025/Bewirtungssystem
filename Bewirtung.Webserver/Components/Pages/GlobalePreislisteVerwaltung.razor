@@ -3,6 +3,7 @@
 @using Bewirtung.Webserver.Data
 
 @inject GlobalePreislisteRepository PreislisteRepo
+@inject KuechenstationRepository KuechenstationRepo
 
 <PageTitle>Globale Preisliste</PageTitle>
 
@@ -46,6 +47,7 @@ else
 						<th>Reihenfolge</th>
 						<th>Name</th>
 						<th>Kategorie</th>
+						<th>Küchenstation</th>
 						<th>Druck</th>
 						<th>Start-Datum</th>
 						<th>Gültig-Bis</th>
@@ -62,6 +64,7 @@ else
 							<td>@e.Reihenfolge</td>
 							<td>@e.Name</td>
 							<td>@e.KategorieText</td>
+							<td>@e.KuechenstationName</td>
 							<td>@(e.Druck ? "Ja" : "Nein")</td>
 							<td>@(e.StartDatumWert?.ToString("dd.MM.yyyy"))</td>
 							<td>@(e.GueltigBisWert?.ToString("dd.MM.yyyy"))</td>
@@ -138,6 +141,16 @@ else
 						<select class="form-select" @bind="_positionDialog.Preiskategorie">
 							<option value="@Preiskategorie.Speisen">Speisen</option>
 							<option value="@Preiskategorie.Getraenke">Getränke</option>
+						</select>
+					</div>
+					<div class="mb-2">
+						<label class="form-label">Küchenstation</label>
+						<select class="form-select" @bind="_positionDialog.Kuechenstation">
+							<option value="">(keine)</option>
+							@foreach (var k in _kuechenstationen)
+							{
+								<option value="@k.Id">@k.Name</option>
+							}
 						</select>
 					</div>
 					<div class="mb-2">
@@ -272,6 +285,7 @@ else
 
 @code {
 	private List<GlobalePreisliste>? _eintraege;
+	private List<Kuechenstation> _kuechenstationen = new();
 	private List<GlobalePreislisteZusatz> _zusaetze = new();
 	private List<DateTime> _datumsListe = new();
 	private int _datumAb;
@@ -308,6 +322,7 @@ else
 	protected override void OnInitialized()
 	{
 		LadeDatumsListe();
+		_kuechenstationen = KuechenstationRepo.GetAll();
 		_datumAb = Termin.ToYyyyMmDd(_datumsListe[0]);
 		LadeDaten();
 	}
@@ -391,7 +406,8 @@ else
 			Druck = _selected.Druck,
 			Zusatztext = _selected.Zusatztext,
 			Reihenfolge = _selected.Reihenfolge,
-			Status = _selected.Status
+			Status = _selected.Status,
+			Kuechenstation = _selected.Kuechenstation
 		};
 		_dialogPreis = _selected.Preis ?? 0m;
 		_dialogVerrechnungspreis = _selected.Verrechnungspreis ?? 0m;

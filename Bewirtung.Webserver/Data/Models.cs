@@ -197,6 +197,12 @@ namespace Bewirtung.Webserver.Data
         public string Zusatztext { get; set; } = string.Empty;
         public int Reihenfolge { get; set; }
 
+        /// <summary>FK auf kuechenstation.Id (optional).</summary>
+        public int? Kuechenstation { get; set; }
+
+        /// <summary>Name der zugeordneten Küchenstation (nur Anzeige).</summary>
+        public string KuechenstationName { get; set; } = string.Empty;
+
         public decimal? Preis { get; set; }
         public decimal? Verrechnungspreis { get; set; }
         public decimal? Einkaufspreis { get; set; }
@@ -321,5 +327,27 @@ namespace Bewirtung.Webserver.Data
         public byte[] Inhalt { get; set; } = Array.Empty<byte>();
         public bool Komplett { get;set;} = true;
         public DateTime Bewirtungsdatum { get;set;}
+    }
+
+    /// <summary>
+    /// Datenmodell für ein Handy (Tabelle handy).
+    /// </summary>
+    public class Handy
+    {
+        public string Seriennummer { get; set; } = string.Empty;
+        public bool Frei { get; set; } = true;
+        public int? UserId { get; set; }
+        public DateTime? Activated { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public DateTime? Terminated { get; set; }
+    }
+
+    /// <summary>
+    /// Datenmodell für eine Küchenstation (Tabelle kuechenstation).
+    /// </summary>
+    public class Kuechenstation
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }

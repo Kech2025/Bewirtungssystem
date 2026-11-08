@@ -42,7 +42,7 @@ public class SpeisekarteAnzeigeZeile : INotifyPropertyChanged
     public Color ProduktFarbe { get; init; } = Colors.Black;
 
     /// <summary>Einrückung: Untervarianten etwas eingerückt.</summary>
-    public Thickness Einzug => Art == ZeilenArt.Variante ? new Thickness(24, 6, 0, 6) : new Thickness(0, 6);
+    public Thickness Einzug => Art == ZeilenArt.Variante ? new Thickness(24, 2, 0, 2) : new Thickness(0, 2);
 
     /// <summary>+/- Buttons nur bei Einzelposition oder Untervariante.</summary>
     public bool ZeigeMengenButtons => Art != ZeilenArt.Kopf;

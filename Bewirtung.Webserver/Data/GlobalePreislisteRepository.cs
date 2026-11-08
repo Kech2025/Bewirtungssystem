@@ -32,12 +32,14 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT Id, Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, Status, Reihenfolge
+                SELECT GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, Status, Reihenfolge,
+                    GlobalePreisliste.kuechenstation, kuechenstation.name AS KuechenstationName
                 FROM GlobalePreisliste
-                LEFT JOIN GlobalerPreis ON GlobalePreislisteId = Id
+                LEFT JOIN GlobalerPreis ON GlobalePreislisteId = GlobalePreisliste.Id
                 AND GueltigAb <= @DatumAb
-                GROUP BY Id, Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge
-                ORDER BY Preiskategorie, Reihenfolge, Name;";
+                LEFT JOIN kuechenstation ON kuechenstation.id = GlobalePreisliste.kuechenstation
+                GROUP BY GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge, GlobalePreisliste.kuechenstation, kuechenstation.name
+                ORDER BY Preiskategorie, Reihenfolge, GlobalePreisliste.Name;";
             command.Parameters.AddWithValue("DatumAb", datumAb);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -74,8 +76,8 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO GlobalePreisliste (Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge)
-                VALUES (@name, @preiskategorie, @bildPfad, @druck, @zusatztext, @status, @reihenfolge)
+                INSERT INTO GlobalePreisliste (Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge, kuechenstation)
+                VALUES (@name, @preiskategorie, @bildPfad, @druck, @zusatztext, @status, @reihenfolge, @kuechenstation)
                 RETURNING Id;";
             AddParameters(command, eintrag);
             var id = Convert.ToInt64(command.ExecuteScalar()!);
@@ -572,6 +574,7 @@ namespace Bewirtung.Webserver.Data
             command.Parameters.AddWithValue("zusatztext", (object?)eintrag.Zusatztext ?? DBNull.Value);
             command.Parameters.AddWithValue("status", eintrag.Status);
             command.Parameters.AddWithValue("reihenfolge", eintrag.Reihenfolge);
+            command.Parameters.AddWithValue("kuechenstation", (object?)eintrag.Kuechenstation ?? DBNull.Value);
         }
 
         private static GlobalePreisliste Map(NpgsqlDataReader reader) => new()
@@ -585,6 +588,8 @@ namespace Bewirtung.Webserver.Data
             Zusatztext = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
             Status = !reader.IsDBNull(7) && reader.GetBoolean(7),
             Reihenfolge = reader.IsDBNull(8) ? 0 : reader.GetInt32(8),
+            Kuechenstation = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+            KuechenstationName = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
         };
 
         private static GlobalePreislisteZusatz MapZusatz(NpgsqlDataReader reader) => new()

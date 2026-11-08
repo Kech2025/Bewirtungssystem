@@ -77,6 +77,9 @@ public partial class BestellungSeite : ContentPage
         // Bei Tischwechsel stets eine leere neue Bestellung zeigen (alle Mengen auf 0).
         SetzeAlleMengenZurueck();
 
+        // Alle aufgeklappten Positionen wieder einklappen (nur oberste Ebene anzeigen).
+        KlappeAlleKoepfeEin();
+
         await PruefeOffeneBestellungAsync();
     }
 
@@ -101,6 +104,19 @@ public partial class BestellungSeite : ContentPage
         }
 
         AktualisiereGesamtpreis();
+    }
+
+    /// <summary>Klappt alle erweiterten Gruppenköpfe wieder ein (nur oberste Ebene sichtbar).</summary>
+    private void KlappeAlleKoepfeEin()
+    {
+        foreach (var kopf in _anzeigeZeilen.Where(z => z.Art == ZeilenArt.Kopf && z.IstErweitert).ToList())
+        {
+            foreach (var variante in kopf.Varianten)
+            {
+                _anzeigeZeilen.Remove(variante);
+            }
+            kopf.IstErweitert = false;
+        }
     }
 
     /// <summary>Liefert alle Anzeigezeilen inkl. der (ggf. zugeklappten) Untervarianten.</summary>
@@ -196,7 +212,7 @@ public partial class BestellungSeite : ContentPage
         }
     }
 
-    private void OnAktionButtonClicked(object? sender, EventArgs e)
+    private async void OnAktionButtonClicked(object? sender, EventArgs e)
     {
         if ((sender as Button)?.CommandParameter is not SpeisekarteAnzeigeZeile zeile)
         {
@@ -234,6 +250,23 @@ public partial class BestellungSeite : ContentPage
                 _anzeigeZeilen.Insert(index + 1 + i, kopf.Varianten[i]);
             }
             kopf.IstErweitert = true;
+
+            // Liste so verschieben, dass die neu eingefügten Untervarianten sichtbar werden
+            // (wichtig, wenn der Kopf am unteren Listenende angeklickt wird).
+            if (kopf.Varianten.Count > 0)
+            {
+                var letzteVariante = kopf.Varianten[^1];
+                // Kurze Verzögerung, damit die CollectionView die neuen Items gerendert hat.
+                await Task.Delay(50);
+                try
+                {
+                    PreislisteView.ScrollTo(letzteVariante, position: ScrollToPosition.MakeVisible, animate: true);
+                }
+                catch
+                {
+                    // ScrollTo kann fehlschlagen, wenn das Element (noch) nicht realisiert ist – ignorieren.
+                }
+            }
         }
     }
 
@@ -398,9 +431,17 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
+        // Nur noch nicht (vollständig) bezahlte Positionen in der Rechnung anzeigen;
+        // bereits per Teilzahlung vollständig bezahlte Positionen ausblenden.
+        var offenePositionen = _offeneBestellung.Positionen.Where(p => p.OffeneMenge > 0m).ToList();
+        if (offenePositionen.Count == 0)
+        {
+            return;
+        }
+
         // Für Tische mit Sofortlieferung je Position eine "geliefert"-Checkbox (vorausgewählt) anzeigen.
         var zeigeGeliefert = (TischPicker.SelectedItem as TischDto)?.SofortLieferung == 1;
-        foreach (var p in _offeneBestellung.Positionen)
+        foreach (var p in offenePositionen)
         {
             p.ZeigeGeliefert = zeigeGeliefert;
             p.Geliefert = true;
@@ -411,9 +452,10 @@ public partial class BestellungSeite : ContentPage
         PreislisteView.IsVisible = false;
         BestellenButton.IsVisible = false;
 
-        RechnungView.ItemsSource = _offeneBestellung.Positionen;
-        RechnungSummeLabel.Text = _offeneBestellung.Summe.ToString("C", EuroKultur);
-        BetragEntry.Text = _offeneBestellung.Summe.ToString("0.00", EuroKultur);
+        var offeneSumme = offenePositionen.Sum(p => p.OffeneMenge * p.Preis);
+        RechnungView.ItemsSource = offenePositionen;
+        RechnungSummeLabel.Text = offeneSumme.ToString("C", EuroKultur);
+        BetragEntry.Text = offeneSumme.ToString("0.00", EuroKultur);
         RechnungBereich.IsVisible = true;
 
         // Gesamt-Anzeige oben rechts in der Rechnungsansicht ausblenden.
@@ -424,8 +466,7 @@ public partial class BestellungSeite : ContentPage
         RechnungButton.IsEnabled = false;
 
         // "Rechnung aufteilen" anzeigen, solange der Auftrag nicht vollständig bezahlt ist.
-        var positionen = _offeneBestellung.Positionen;
-        RechnungAufteilenButton.IsVisible = positionen.Any(p => p.OffeneMenge > 0m);
+        RechnungAufteilenButton.IsVisible = offenePositionen.Any(p => p.OffeneMenge > 0m);
     }
 
     /// <summary>
@@ -615,17 +656,44 @@ public partial class BestellungSeite : ContentPage
         }
     }
 
-    /// <summary>Abbrechen der Teilrechnung: zurück zur normalen Rechnungsansicht.</summary>
+    /// <summary>"Später bezahlen": Teilrechnung verlassen und zurück zur Bestellansicht.</summary>
     private void OnTeilAbbrechenClicked(object? sender, EventArgs e)
     {
         TeilRechnungBereich.IsVisible = false;
-        OnRechnungClicked(this, EventArgs.Empty);
+        ZeigeBestellAnsicht();
+
+        // Gesamt-Anzeige oben rechts wieder einblenden.
+        GesamtTitelLabel.IsVisible = true;
+        GesamtpreisLabel.IsVisible = true;
+
+        // Rechnung-Button wieder aktivieren, da ggf. noch offene Positionen existieren.
+        RechnungButton.IsEnabled = _offeneBestellung is { Positionen.Count: > 0 };
+
+        if (_preislisteGeladen)
+        {
+            PreislisteTitel.IsVisible = true;
+            PreislisteView.IsVisible = true;
+        }
     }
 
     /// <summary>Bezahlen-Button: schließt alle offenen Aufträge des Tisches ab.</summary>
     private async void OnBezahlenClicked(object? sender, EventArgs e)
     {
         await AbschliessenAsync();
+    }
+
+    /// <summary>Beim Antippen das Betrag-Feld leeren, damit sofort neu eingegeben werden kann.</summary>
+    private void OnBetragEntryFocused(object? sender, FocusEventArgs e)
+    {
+        // Das Leeren asynchron ausführen, damit Android die Tastatur bereits beim ersten
+        // Antippen einblendet (das direkte Setzen im Focused-Event unterdrückt sie sonst).
+        Dispatcher.Dispatch(() => BetragEntry.Text = string.Empty);
+    }
+
+    /// <summary>Beim Antippen das Teilbetrag-Feld leeren, damit sofort neu eingegeben werden kann.</summary>
+    private void OnTeilbetragEntryFocused(object? sender, FocusEventArgs e)
+    {
+        Dispatcher.Dispatch(() => TeilRechnungSummeEntry.Text = string.Empty);
     }
 
     /// <summary>Abbrechen: zurück zur Bestellansicht (Preisliste), ohne zu bezahlen.</summary>

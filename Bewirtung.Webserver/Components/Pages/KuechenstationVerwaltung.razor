@@ -1,0 +1,135 @@
+@page "/kuechenstation"
+@rendermode RenderMode.InteractiveServer
+@inject KuechenstationRepository KuechenstationRepo
+
+<PageTitle>Küchenstationen verwalten</PageTitle>
+
+<AdminGuard />
+
+<h1>Küchenstationen verwalten</h1>
+
+@if (_stationen is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neue Küchenstation</button>
+
+	<table class="table table-striped" style="max-width: 500px;">
+		<thead>
+			<tr>
+				<th>ID</th>
+				<th>Name</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var s in _stationen)
+			{
+				<tr>
+					<td>@s.Id</td>
+					<td>@s.Name</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(s)">Bearbeiten</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_istNeu ? "Neue Küchenstation" : "Küchenstation bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">ID</label>
+							<InputNumber class="form-control" @bind-Value="_bearbeiten.Id" disabled="@(!_istNeu)" />
+						</div>
+						<div class="mb-3">
+							<label class="form-label">Name</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+						</div>
+
+						@if (!string.IsNullOrEmpty(_fehler))
+						{
+							<div class="alert-danger mb-2">@_fehler</div>
+						}
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<Kuechenstation>? _stationen;
+	private Kuechenstation? _bearbeiten;
+	private bool _istNeu;
+	private string? _fehler;
+
+	protected override void OnInitialized()
+	{
+		Laden();
+	}
+
+	private void Laden() => _stationen = KuechenstationRepo.GetAll();
+
+	private void Neu()
+	{
+		_bearbeiten = new Kuechenstation();
+		_istNeu = true;
+		_fehler = null;
+	}
+
+	private void Bearbeiten(Kuechenstation s)
+	{
+		_bearbeiten = new Kuechenstation
+		{
+			Id = s.Id,
+			Name = s.Name
+		};
+		_istNeu = false;
+		_fehler = null;
+	}
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		try
+		{
+			if (_istNeu)
+			{
+				KuechenstationRepo.Insert(_bearbeiten);
+			}
+			else
+			{
+				KuechenstationRepo.Update(_bearbeiten);
+			}
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Fehler beim Speichern: " + ex.Message;
+			return;
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+}

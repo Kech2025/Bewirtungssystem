@@ -203,6 +203,10 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
     public string AnzeigeText =>
         $"{Menge:0.##} × {Produkt}";
 
+    /// <summary>Anzeigetext der noch offenen (unbezahlten) Menge für die Rechnung.</summary>
+    public string OffeneAnzeigeText =>
+        $"{OffeneMenge:0.##} × {Produkt}";
+
     /// <summary>Anzeigetext für die Teilrechnung: "Produkt" + darunter "Bestellt / Bezahlt".</summary>
     public string MengenText =>
         $"{Menge:0.##} bestellt / {MengeBezahlt:0.##} bezahlt";
@@ -212,6 +216,9 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
 
     /// <summary>Zeilensumme als Euro-Text.</summary>
     public string SummeText => (Menge * Preis).ToString("C", EuroKultur);
+
+    /// <summary>Zeilensumme der noch offenen (unbezahlten) Menge als Euro-Text.</summary>
+    public string OffeneSummeText => (OffeneMenge * Preis).ToString("C", EuroKultur);
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 

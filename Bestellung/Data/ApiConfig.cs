@@ -14,7 +14,7 @@ public static class ApiConfig
     // Optionaler manueller Override. Wenn gesetzt, wird immer diese IP genutzt
     // (unabhängig von Emulator/Gerät). Nützlich, wenn der Server (API) auf der
     // Pi läuft und auch der Emulator die Pi ansprechen soll.
-    public static string? ServerIpOverride { get; set; } = PiIpAddress;
+    public static string? ServerIpOverride { get; set; } = "192.168.178.54";
 
     // Basis-URL der Web-API. Wird automatisch gewählt:
     //  - ServerIpOverride gesetzt: http://<IP>:<Port>        (manueller Override)

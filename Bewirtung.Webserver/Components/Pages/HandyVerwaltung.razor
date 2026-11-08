@@ -1,0 +1,198 @@
+@page "/handy"
+@rendermode RenderMode.InteractiveServer
+@inject HandyRepository HandyRepo
+@inject Bewirtung.Webserver.Data.SessionState Session
+
+<PageTitle>Handys verwalten</PageTitle>
+
+<AdminGuard />
+
+<h1>Handys verwalten</h1>
+
+@if (_handys is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<button class="btn btn-primary mb-3" @onclick="Neu">Neues Handy</button>
+
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Seriennummer</th>
+				<th>Name</th>
+				<th>Frei</th>
+				<th>Benutzer</th>
+				<th>Aktiviert</th>
+				<th>Beendet</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var h in _handys)
+			{
+				<tr>
+					<td>@h.Seriennummer</td>
+					<td>@h.Name</td>
+					<td>@(h.Frei ? "Ja" : "Nein")</td>
+					<td>@BenutzerName(h.UserId)</td>
+					<td>@(h.Activated?.ToString("dd.MM.yyyy HH:mm"))</td>
+					<td>@(h.Terminated?.ToString("dd.MM.yyyy HH:mm"))</td>
+					<td>
+						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(h)">Bearbeiten</button>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@if (_bearbeiten is not null)
+{
+	<div class="modal-overlay" @onclick="Abbrechen">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="card">
+				<div class="card-header">@(_istNeu ? "Neues Handy" : "Handy bearbeiten")</div>
+				<div class="card-body">
+					<EditForm Model="_bearbeiten" OnValidSubmit="Speichern">
+						<DataAnnotationsValidator />
+
+						<div class="mb-2">
+							<label class="form-label">Seriennummer</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Seriennummer" disabled="@(!_istNeu)" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Name</label>
+							<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" id="chkFrei" @bind-Value="_bearbeiten.Frei" />
+							<label class="form-check-label" for="chkFrei">Frei</label>
+						</div>
+						@if (_terminierbar)
+						{
+							<div class="mb-3">
+								<label class="form-label">Beendet am</label>
+								<InputDate class="form-control" @bind-Value="_terminiertDatum" />
+							</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_fehler))
+						{
+							<div class="alert-danger mb-2">@_fehler</div>
+						}
+
+						<button type="submit" class="btn btn-primary">Speichern</button>
+						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
+					</EditForm>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	private List<Handy>? _handys;
+	private List<BenutzerOption> _benutzer = new();
+	private Handy? _bearbeiten;
+	private bool _istNeu;
+	private string? _fehler;
+
+	// Datum für "Beendet am"; die Uhrzeit wird beim Speichern mit der aktuellen Zeit ergänzt.
+	private DateTime? _terminiertDatum;
+
+	// "Beendet am" nur anbieten, solange die Spalte terminated noch leer (null) ist.
+	private bool _terminierbar;
+
+	protected override void OnInitialized()
+	{
+		_benutzer = HandyRepo.GetBenutzer();
+		Laden();
+	}
+
+	private void Laden() => _handys = HandyRepo.GetAll();
+
+	private string BenutzerName(int? userId)
+	{
+		if (userId is null)
+		{
+			return string.Empty;
+		}
+
+		return _benutzer.FirstOrDefault(b => b.UserId == userId)?.Name ?? string.Empty;
+	}
+
+	private void Neu()
+	{
+		_bearbeiten = new Handy
+		{
+			UserId = (int?)Session.AngemeldeterBenutzer?.UserId,
+			Activated = DateTime.Now
+		};
+		_istNeu = true;
+		_terminiertDatum = null;
+		_terminierbar = true;
+		_fehler = null;
+	}
+
+	private void Bearbeiten(Handy h)
+	{
+		_bearbeiten = new Handy
+		{
+			Seriennummer = h.Seriennummer,
+			Frei = h.Frei,
+			UserId = h.UserId,
+			Activated = h.Activated,
+			Name = h.Name,
+			Terminated = h.Terminated
+		};
+		_istNeu = false;
+		_terminiertDatum = null;
+		_terminierbar = h.Terminated is null;
+		_fehler = null;
+	}
+
+	private void Abbrechen() => _bearbeiten = null;
+
+	private void Speichern()
+	{
+		if (_bearbeiten is null)
+		{
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(_bearbeiten.Seriennummer))
+		{
+			_fehler = "Bitte eine Seriennummer eingeben.";
+			return;
+		}
+
+		// "Beendet am": gewähltes Datum mit der aktuellen Uhrzeit ergänzen.
+		if (_terminierbar && _terminiertDatum is { } datum)
+		{
+			var jetzt = DateTime.Now;
+			_bearbeiten.Terminated = datum.Date.Add(jetzt.TimeOfDay);
+		}
+
+		try
+		{
+			if (_istNeu)
+			{
+				HandyRepo.Insert(_bearbeiten);
+			}
+			else
+			{
+				HandyRepo.Update(_bearbeiten);
+			}
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Fehler beim Speichern: " + ex.Message;
+			return;
+		}
+
+		_bearbeiten = null;
+		Laden();
+	}
+}

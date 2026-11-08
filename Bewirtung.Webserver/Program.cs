@@ -27,6 +27,8 @@ builder.Services.AddScoped<GlobalePreislisteRepository>();
 builder.Services.AddScoped<MwstRepository>();
 builder.Services.AddScoped<AbrechnungRepository>();
 builder.Services.AddScoped<WordVorlageRepository>();
+builder.Services.AddScoped<HandyRepository>();
+builder.Services.AddScoped<KuechenstationRepository>();
 builder.Services.AddScoped<PreislisteDokumentService>();
 builder.Services.AddScoped<AbrechnungPdfService>();
 builder.Services.AddSingleton<PasswordHasher>();
