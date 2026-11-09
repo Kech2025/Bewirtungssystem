@@ -141,6 +141,77 @@ static FiskalBeleg BaueFiskalBeleg(NpgsqlConnection connection, List<long> auftr
     return beleg;
 }
 
+// Baut einen Fiskalbeleg für eine Teilzahlung aus den tatsächlich bezahlten Teilmengen.
+static FiskalBeleg BaueFiskalBelegTeilzahlung(NpgsqlConnection connection, NpgsqlTransaction transaction, TeilzahlenRequest req)
+{
+    var beleg = new FiskalBeleg
+    {
+        KasseId = string.IsNullOrWhiteSpace(req.HandyName) ? "UNBEKANNT" : req.HandyName!,
+        Bediener = req.HandyName ?? string.Empty,
+        VorgangsTyp = FiskalVorgangsTyp.Beleg,
+        Zahlart = FiskalZahlart.Bar,
+        StartZeitpunkt = DateTime.Now,
+        GesamtBrutto = req.Betrag
+    };
+
+    var positionsNr = 0;
+    foreach (var pos in req.Positionen.Where(p => p.MengeZahlen > 0m))
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = @"
+            SELECT p.Name,
+                   bp.Preis,
+                   COALESCE(m.mwst, 0) AS MwstSatz
+            FROM BewirtungsPosition bp
+            LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+            LEFT JOIN Mwst m ON m.Preiskategorie = p.Preiskategorie
+            WHERE bp.BewirtungsauftragId = @auftragId AND bp.Bewirtungsposition = @posNr;";
+        cmd.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
+        cmd.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
+
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            var artikel = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+            var einzelpreis = reader.IsDBNull(1) ? 0m : reader.GetDecimal(1);
+            var satz = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
+            beleg.Positionen.Add(new FiskalBelegPosition
+            {
+                PositionsNummer = ++positionsNr,
+                Artikel = artikel,
+                Menge = pos.MengeZahlen,
+                EinzelpreisBrutto = einzelpreis,
+                GesamtBrutto = einzelpreis * pos.MengeZahlen,
+                MwstSatz = satz
+            });
+        }
+    }
+
+    // Steueraufteilung je Steuersatz aus den Positionen berechnen.
+    foreach (var gruppe in beleg.Positionen.GroupBy(p => p.MwstSatz))
+    {
+        var brutto = gruppe.Sum(p => p.GesamtBrutto);
+        var satz = gruppe.Key;
+        var netto = satz > 0 ? Math.Round(brutto / (1 + satz / 100m), 2) : brutto;
+        beleg.SteuerPositionen.Add(new FiskalSteuerPosition
+        {
+            SteuerSchluessel = satz == 19m ? 1 : satz == 7m ? 2 : 0,
+            MwstSatz = satz,
+            Brutto = brutto,
+            Netto = netto,
+            Steuer = brutto - netto
+        });
+    }
+
+    if (beleg.GesamtBrutto == 0m && beleg.Positionen.Count > 0)
+    {
+        beleg.GesamtBrutto = beleg.Positionen.Sum(p => p.GesamtBrutto);
+    }
+
+    return beleg;
+}
+
 // GET /api/tische  -> [{ Tischnummer, Bereich }, ...]
 app.MapGet("/api/tische", (int datum) =>
 {
@@ -698,7 +769,7 @@ app.MapPost("/api/bestellung/geliefert", (GeliefertRequest req) =>
 
 // POST /api/bestellung/teilzahlen  -> Erhöht die bezahlte Menge je Position (Teilrechnung).
 //   Aufträge, deren Positionen alle voll bezahlt sind, werden auf Status = 1 gesetzt.
-app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
+app.MapPost("/api/bestellung/teilzahlen", async (TeilzahlenRequest req, FiskalRepository fiskal) =>
 {
     if (req?.Positionen is null || req.Positionen.Count == 0)
     {
@@ -706,6 +777,7 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
     }
 
     var abgeschlossen = new List<long>();
+    FiskalBeleg? fiskalBeleg = null;
     using var connection = OpenConnection();
     {
         using (var transaction = connection.BeginTransaction())
@@ -788,6 +860,9 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                         }
                     }
                 }
+
+                // Fiskalbeleg aus den bezahlten Teilmengen erzeugen (noch innerhalb der Transaktion lesen).
+                fiskalBeleg = BaueFiskalBelegTeilzahlung(connection, transaction, req);
                 transaction.Commit();
             }
             catch (Exception)
@@ -797,7 +872,28 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
             }
         }
     }
-    return Results.Ok(new { Abgeschlossen = abgeschlossen });
+
+    // Fiskalisierung: signierten Kassenbeleg über die TSE erzeugen und speichern.
+    try
+    {
+        await fiskal.SpeichereBelegMitSignaturAsync(fiskalBeleg!);
+        return Results.Ok(new
+        {
+            Abgeschlossen = abgeschlossen.Count,
+            fiskalBeleg!.BelegNummer,
+            Signatur = fiskalBeleg.Signatur?.Signatur,
+            fiskalBeleg.Signatur?.TransaktionsNummer,
+            QrCode = fiskalBeleg.Signatur?.QrCodeDaten
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new
+        {
+            Abgeschlossen = abgeschlossen.Count,
+            FiskalFehler = ex.Message
+        });
+    }
 });
 
 // GET /api/auslieferung/getraenke?termin=YYYYMMDD
@@ -818,8 +914,11 @@ app.MapGet("/api/auslieferung/station", (int termin, int station) =>
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
         LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+        JOIN PreislisteTermin pt ON pt.PreislisteId = bp.PreislisteId
+            AND pt.PreislisteZusatzId = bp.PreislisteZusatzId
+            AND pt.Bewirtungsdatum = a.Bewirtungstermin
         WHERE a.Bewirtungstermin = @termin
-          AND p.kuechenstation = @station
+          AND pt.kuechenstation = @station
           AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
         ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
     command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));

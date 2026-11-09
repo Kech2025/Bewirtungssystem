@@ -1,4 +1,6 @@
 using Npgsql;
+using System;
+using System.Collections.Generic;
 
 namespace Bewirtung.Webserver.Data
 {
@@ -30,7 +32,8 @@ namespace Bewirtung.Webserver.Data
             {
                 command.CommandText = @"
                     SELECT p.Id, p.Name, p.Preiskategorie, z.Id AS ZusatzId, z.Bezeichnung,
-                           COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0) AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient
+                           COALESCE(gp.Preis,0)+COALESCE(gp2.Preis,0) AS GlobalPreis, p.Druck AS DruckParent, z.Druck AS DruckClient,
+                           p.Kuechenstation AS KuechenstationDefault
                     FROM GlobalePreisliste p
                     LEFT JOIN GlobalePreislisteZusatz z ON z.SpeisekarteId = p.Id AND z.Status = true
                     LEFT JOIN GlobalerPreis gp ON gp.GlobalePreislisteId = p.Id AND gp.ZusatzId = 0 AND gp.Preis > 0
@@ -53,7 +56,8 @@ namespace Bewirtung.Webserver.Data
                         ZusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
                         GlobalPreis = reader.IsDBNull(5) ? null : reader.GetDecimal(5),
                         DruckParent = (!reader.IsDBNull(6) && reader.GetBoolean(6)),
-                        DruckClient = (!reader.IsDBNull(7) && reader.GetBoolean(7))
+                        DruckClient = (!reader.IsDBNull(7) && reader.GetBoolean(7)),
+                        Kuechenstation = reader.IsDBNull(8) ? null : reader.GetInt32(8)
                     });
                 }
             }
@@ -70,19 +74,24 @@ namespace Bewirtung.Webserver.Data
                 if (terminPreise.TryGetValue(key, out var tp))
                 {
                     zeile.Ausgewaehlt = true;
-                    zeile.TerminPreis = tp > 0 ? tp : zeile.GlobalPreis ?? 0m;
+                    zeile.TerminPreis = tp.Preis > 0 ? tp.Preis : zeile.GlobalPreis ?? 0m;
+                    // Terminbezogene Küchenstation überschreibt den globalen Default, sofern gesetzt.
+                    if (tp.Kuechenstation.HasValue)
+                    {
+                        zeile.Kuechenstation = tp.Kuechenstation;
+                    }
                 }
             }
 
             return zeilen;
         }
 
-        private static Dictionary<(long, long), decimal> GetPreislisteTermin(NpgsqlConnection connection, int datum, long vereinId)
+        private static Dictionary<(long, long), (decimal Preis, int? Kuechenstation)> GetPreislisteTermin(NpgsqlConnection connection, int datum, long vereinId)
         {
-            var result = new Dictionary<(long, long), decimal>();
+            var result = new Dictionary<(long, long), (decimal Preis, int? Kuechenstation)>();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT PreislisteId, PreislisteZusatzId, Preis
+                SELECT PreislisteId, PreislisteZusatzId, Preis, Kuechenstation
                 FROM PreislisteTermin
                 WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId;";
             command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
@@ -91,7 +100,9 @@ namespace Bewirtung.Webserver.Data
             while (reader.Read())
             {
                 var key = ((long)reader.GetInt32(0), (long)reader.GetInt32(1));
-                result[key] = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
+                var preis = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
+                int? station = reader.IsDBNull(3) ? null : reader.GetInt32(3);
+                result[key] = (preis, station);
             }
             return result;
         }
@@ -125,13 +136,14 @@ namespace Bewirtung.Webserver.Data
                 using var insert = connection.CreateCommand();
                 insert.CommandText = @"
                     INSERT INTO PreislisteTermin
-                        (PreislisteId, PreislisteZusatzId, VereinId, Bewirtungsdatum, Preis)
-                    VALUES (@preislisteId, @zusatzId, @vereinId, @datum, @preis);";
+                        (PreislisteId, PreislisteZusatzId, VereinId, Bewirtungsdatum, Preis, Kuechenstation)
+                    VALUES (@preislisteId, @zusatzId, @vereinId, @datum, @preis, @kuechenstation);";
                 insert.Parameters.AddWithValue("preislisteId", zeile.PreislisteId);
                 insert.Parameters.AddWithValue("zusatzId", zeile.ZusatzId);
                 insert.Parameters.AddWithValue("vereinId", vereinId);
                 insert.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
                 insert.Parameters.AddWithValue("preis", zeile.TerminPreis);
+                insert.Parameters.AddWithValue("kuechenstation", (object?)zeile.Kuechenstation ?? DBNull.Value);
                 insert.ExecuteNonQuery();
             }
 

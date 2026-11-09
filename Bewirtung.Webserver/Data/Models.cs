@@ -140,6 +140,7 @@ namespace Bewirtung.Webserver.Data
         public decimal TerminPreis { get; set; }
         public bool DruckParent { get; set; }
         public bool DruckClient { get; set; }
+        public int? Kuechenstation { get; set; }
         public string Produkt =>
             string.IsNullOrEmpty(ZusatzText) ? Name : $"{Name} – {ZusatzText}";
     }

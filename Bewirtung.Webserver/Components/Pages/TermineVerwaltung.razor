@@ -112,10 +112,6 @@ else
 						<button class="nav-link @(ActiveTab == Tab.Helfer ? "active" : "")"
 								@onclick="() => ActiveTab = Tab.Helfer">Helfer</button>
 					</li>
-					<li class="nav-item">
-						<button class="nav-link @(ActiveTab == Tab.Kuechenstationen ? "active" : "")"
-								@onclick="() => ActiveTab = Tab.Kuechenstationen">Küchenstationen</button>
-					</li>
 				</ul>
 
 				@if (ActiveTab == Tab.Speisekarte)
@@ -191,6 +187,7 @@ else
 									<tr>
 										<th>Kategorie</th>
 										<th>Position</th>
+										<th>Küchenstation</th>
 										<th class="text-end">Terminpreis</th>
 									</tr>
 								</thead>
@@ -200,6 +197,15 @@ else
 										<tr>
 											<td>@z.KategorieText</td>
 											<td>@z.Produkt</td>
+											<td>
+												<select class="form-select form-select-sm" @bind="z.Kuechenstation">
+													<option value="">– keine –</option>
+													@foreach (var k in _alleKuechenstationen)
+													{
+														<option value="@k.Id">@k.Name</option>
+													}
+												</select>
+											</td>
 											<td class="text-end">
 												<input type="number" step="0.01" class="form-control form-control-sm text-end speisekarte-preis"
 													   @bind="z.TerminPreis" />
@@ -208,7 +214,7 @@ else
 									}
 									@if (!AusgewaehlteZeilen.Any())
 									{
-										<tr><td colspan="3" class="text-muted">Keine Positionen ausgewählt.</td></tr>
+										<tr><td colspan="4" class="text-muted">Keine Positionen ausgewählt.</td></tr>
 									}
 								</tbody>
 							</table>
@@ -260,23 +266,6 @@ else
 					</table>
 				}
 
-				@if (ActiveTab == Tab.Kuechenstationen)
-				{
-					<table class="table table-sm table-striped">
-						<thead>
-							<tr><th></th><th>Name</th></tr>
-						</thead>
-						<tbody>
-							@foreach (var k in _alleKuechenstationen)
-							{
-								<tr>
-									<td><input type="checkbox" class="form-check-input" checked="@IstStationZugeordnet(k.Id)" @onchange="e => StationZuordnungGeaendert(k, e)" /></td>
-									<td>@k.Name</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				}
 			}
 		</div>
 	</div>
@@ -438,7 +427,7 @@ else
 }
 
 @code {
-	private enum Tab { Speisekarte, Tische, Helfer, Kuechenstationen }
+	private enum Tab { Speisekarte, Tische, Helfer }
 	private Tab ActiveTab { get; set; } = Tab.Speisekarte;
 
 	private List<VereinOption>? _vereine;
@@ -636,6 +625,16 @@ else
 			return;
 		}
 		SpeisekarteRepo.Speichern(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, _zeilen);
+
+		// Die in der aktuellen Preisliste ausgewählten Küchenstationen in die Tabelle
+		// kuechenstationtermin übernehmen.
+		var stationIds = AusgewaehlteZeilen
+			.Where(z => z.Kuechenstation.HasValue)
+			.Select(z => z.Kuechenstation!.Value)
+			.Distinct()
+			.ToList();
+		KuechenstationTerminRepo.SetFuerTermin(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, stationIds);
+		_kuechenstationEintraege = KuechenstationTerminRepo.GetFuerTermin(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId);
 	}
 
 	private async Task SpeisekarteDrucken()
@@ -783,6 +782,7 @@ else
 
 		LadeTabs(_aktuellerTermin);
 	}
+
 
 	private void NeuerTisch()
 	{

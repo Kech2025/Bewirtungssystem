@@ -74,7 +74,7 @@
                     Text="0,00 €"
                     VerticalOptions="Center" />
             </Grid>
-            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                 <Label
                     Grid.Column="0"
                     Text="Tisch:"
@@ -85,7 +85,7 @@
                     Grid.Column="1"
                     ItemDisplayBinding="{Binding Anzeige}"
                     SelectedIndexChanged="OnTischChanged"
-                    WidthRequest="150" />
+                    HorizontalOptions="Fill" />
             </Grid>
         </VerticalStackLayout>
 

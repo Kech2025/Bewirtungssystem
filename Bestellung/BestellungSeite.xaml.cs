@@ -618,9 +618,7 @@ public partial class BestellungSeite : ContentPage
             }
 
             var handyName = await HandyIdentitaet.GetNameAsync();
-            await _bestellungApiClient.TeilzahlenAsync(betrag, zuZahlen, handyName);
-            await DisplayAlertAsync("Teilrechnung",
-                $"Teilbetrag {betrag.ToString("C", EuroKultur)} wurde verbucht.", "OK");
+            var ergebnis = await _bestellungApiClient.TeilzahlenAsync(betrag, zuZahlen, handyName);
 
             // Offene Bestellung neu laden (aktualisiert offene/bezahlte Mengen).
             await PruefeOffeneBestellungAsync();
@@ -646,6 +644,9 @@ public partial class BestellungSeite : ContentPage
                 GesamtpreisLabel.IsVisible = true;
                 TischPicker.SelectedItem = null;
             }
+
+            // Fiskal-QR-Code des Teilzahlungsbelegs anzeigen (falls die TSE-Signatur erfolgreich war).
+            ZeigeFiskalBeleg(ergebnis);
         }
         catch (Exception ex)
         {
@@ -749,9 +750,6 @@ public partial class BestellungSeite : ContentPage
 
             var handyName = await HandyIdentitaet.GetNameAsync();
             var ergebnis = await _bestellungApiClient.BezahlenAsync(_offeneBestellung.AlleAuftragIds, betrag, handyName);
-            await DisplayAlertAsync("Rechnung",
-                $"{_offeneBestellung.AlleAuftragIds.Count} Auftrag/Aufträge wurden mit {betrag.ToString("C", EuroKultur)} abgeschlossen.",
-                "OK");
 
             // Zurück zur Tischauswahl.
             _offeneBestellung = null;

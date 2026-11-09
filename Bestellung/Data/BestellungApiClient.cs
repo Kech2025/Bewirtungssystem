@@ -85,7 +85,7 @@ public class BestellungApiClient
     /// Bezahlt eine Teilmenge je Position (Teilrechnung). Vollständig bezahlte Aufträge
     /// werden serverseitig auf Status = 1 gesetzt.
     /// </summary>
-    public async Task TeilzahlenAsync(
+    public async Task<BezahlenErgebnis> TeilzahlenAsync(
         decimal betrag,
         IEnumerable<OffeneBestellungPosition> positionen,
         string? handyName = null,
@@ -103,6 +103,8 @@ public class BestellungApiClient
         };
         var response = await _httpClient.PostAsJsonAsync(url, body, cancellationToken);
         response.EnsureSuccessStatusCode();
+        var ergebnis = await response.Content.ReadFromJsonAsync<BezahlenErgebnis>(cancellationToken);
+        return ergebnis ?? new BezahlenErgebnis();
     }
 }
 
