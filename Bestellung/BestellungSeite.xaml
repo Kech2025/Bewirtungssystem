@@ -52,8 +52,14 @@
                 VerticalOptions="Center" />
         </Grid>
     </Shell.TitleView>
-    <Grid Padding="20,6,20,20" RowDefinitions="Auto,Auto,*" RowSpacing="8">
-        <VerticalStackLayout Grid.Row="0" Spacing="4" VerticalOptions="Start">
+    <Grid
+        Padding="20,6,20,20"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="8">
+        <VerticalStackLayout
+            Grid.Row="0"
+            Spacing="4"
+            VerticalOptions="Start">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
                 <Label
                     x:Name="GesamtTitelLabel"
@@ -75,8 +81,8 @@
                     VerticalOptions="Center" />
                 <Picker
                     x:Name="TischPicker"
-                    Grid.Column="1"
                     Title="Tischnummer wählen"
+                    Grid.Column="1"
                     ItemDisplayBinding="{Binding Anzeige}"
                     SelectedIndexChanged="OnTischChanged"
                     WidthRequest="150" />
@@ -114,7 +120,10 @@
                             Text="{Binding AktionsZeichen}"
                             VerticalOptions="Center"
                             WidthRequest="30" />
-                        <VerticalStackLayout Grid.Row="0" Grid.Column="1" VerticalOptions="Center">
+                        <VerticalStackLayout
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            VerticalOptions="Center">
                             <Label
                                 FontAttributes="Bold"
                                 LineBreakMode="WordWrap"
@@ -183,18 +192,17 @@
                 Margin="0,6,0,0">
                 <CollectionView.ItemTemplate>
                     <DataTemplate>
-                        <Grid Padding="0,6" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid
+                            Padding="0,6"
+                            ColumnDefinitions="*,Auto"
+                            ColumnSpacing="8">
                             <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label
-                                    Text="{Binding OffeneAnzeigeText}"
-                                    VerticalOptions="Center" />
-                                <HorizontalStackLayout
-                                    IsVisible="{Binding ZeigeGeliefert}"
-                                    Spacing="6">
+                                <Label Text="{Binding OffeneAnzeigeText}" VerticalOptions="Center" />
+                                <HorizontalStackLayout IsVisible="{Binding ZeigeGeliefert}" Spacing="6">
                                     <CheckBox IsChecked="{Binding Geliefert}" VerticalOptions="Center" />
                                     <Label
-                                        Text="geliefert"
                                         FontSize="12"
+                                        Text="geliefert"
                                         TextColor="Gray"
                                         VerticalOptions="Center" />
                                 </HorizontalStackLayout>
@@ -237,8 +245,8 @@
                     VerticalOptions="Center" />
                 <Entry
                     x:Name="BetragEntry"
-                    FontAttributes="Bold"
                     Focused="OnBetragEntryFocused"
+                    FontAttributes="Bold"
                     Keyboard="Numeric"
                     Placeholder="0,00"
                     VerticalOptions="Center"
@@ -281,20 +289,16 @@
                             ColumnDefinitions="*,Auto,Auto,Auto"
                             ColumnSpacing="4">
                             <VerticalStackLayout Grid.Column="0" VerticalOptions="Center">
-                                <Label
-                                    FontAttributes="Bold"
-                                    Text="{Binding Produkt}" />
+                                <Label FontAttributes="Bold" Text="{Binding Produkt}" />
                                 <Label
                                     FontSize="12"
                                     Text="{Binding MengenText}"
                                     TextColor="Gray" />
-                                <HorizontalStackLayout
-                                    IsVisible="{Binding ZeigeGeliefert}"
-                                    Spacing="6">
+                                <HorizontalStackLayout IsVisible="{Binding ZeigeGeliefert}" Spacing="6">
                                     <CheckBox IsChecked="{Binding Geliefert}" VerticalOptions="Center" />
                                     <Label
-                                        Text="geliefert"
                                         FontSize="12"
+                                        Text="geliefert"
                                         TextColor="Gray"
                                         VerticalOptions="Center" />
                                 </HorizontalStackLayout>
@@ -338,8 +342,8 @@
                 <Entry
                     x:Name="TeilRechnungSummeEntry"
                     Grid.Column="1"
-                    FontAttributes="Bold"
                     Focused="OnTeilbetragEntryFocused"
+                    FontAttributes="Bold"
                     HorizontalTextAlignment="End"
                     Keyboard="Numeric"
                     Placeholder="0,00"
@@ -398,8 +402,8 @@
                     x:Name="QrHinweisLabel"
                     FontSize="11"
                     HorizontalTextAlignment="Center"
-                    TextColor="Gray"
-                    Text="Hinweis: Simulierte TSE (nicht fiskalkonform)." />
+                    Text="Hinweis: Simulierte TSE (nicht fiskalkonform)."
+                    TextColor="Gray" />
             </VerticalStackLayout>
             <Button
                 x:Name="QrFertigButton"

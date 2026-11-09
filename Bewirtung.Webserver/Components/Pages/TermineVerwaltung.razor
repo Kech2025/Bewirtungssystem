@@ -8,6 +8,8 @@
 @inject TischTerminRepository TischTerminRepo
 @inject SpeisekarteRepository SpeisekarteRepo
 @inject BereichTischeRepository BereichRepo
+@inject KuechenstationRepository KuechenstationRepo
+@inject KuechenstationTerminRepository KuechenstationTerminRepo
 @inject GlobalePreislisteRepository PreislisteRepo
 @inject PreislisteDokumentService PreislisteDokument
 @inject WordVorlageRepository VorlageRepo
@@ -109,6 +111,10 @@ else
 					<li class="nav-item">
 						<button class="nav-link @(ActiveTab == Tab.Helfer ? "active" : "")"
 								@onclick="() => ActiveTab = Tab.Helfer">Helfer</button>
+					</li>
+					<li class="nav-item">
+						<button class="nav-link @(ActiveTab == Tab.Kuechenstationen ? "active" : "")"
+								@onclick="() => ActiveTab = Tab.Kuechenstationen">Küchenstationen</button>
 					</li>
 				</ul>
 
@@ -248,6 +254,24 @@ else
 									<td><input type="checkbox" class="form-check-input" checked="@IstHelferGebucht(b.UserId)" @onchange="e => HelferGebuchtGeaendert(b, e)" /></td>
 									<td>@b.Name</td>
 									<td>@b.VereinName</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+
+				@if (ActiveTab == Tab.Kuechenstationen)
+				{
+					<table class="table table-sm table-striped">
+						<thead>
+							<tr><th></th><th>Name</th></tr>
+						</thead>
+						<tbody>
+							@foreach (var k in _alleKuechenstationen)
+							{
+								<tr>
+									<td><input type="checkbox" class="form-check-input" checked="@IstStationZugeordnet(k.Id)" @onchange="e => StationZuordnungGeaendert(k, e)" /></td>
+									<td>@k.Name</td>
 								</tr>
 							}
 						</tbody>
@@ -414,7 +438,7 @@ else
 }
 
 @code {
-	private enum Tab { Speisekarte, Tische, Helfer }
+	private enum Tab { Speisekarte, Tische, Helfer, Kuechenstationen }
 	private Tab ActiveTab { get; set; } = Tab.Speisekarte;
 
 	private List<VereinOption>? _vereine;
@@ -447,6 +471,9 @@ else
 
 	private Benutzer? _neuerBenutzer;
 
+	private List<Kuechenstation> _alleKuechenstationen = new();
+	private List<KuechenstationTermin> _kuechenstationEintraege = new();
+
 	// Globale Preisliste – neue Position
 	private GlobalePreisliste? _globalePosition;
 	private decimal _globalePositionPreis;
@@ -461,6 +488,7 @@ else
 		_alleTische = TischRepo.GetAll();
 		_alleBenutzer = BenutzerRepo.GetAll();
 		_bereiche = BereichRepo.GetAll();
+		_alleKuechenstationen = KuechenstationRepo.GetAll();
 		AktualisiereAuswahl();
 	}
 
@@ -557,6 +585,7 @@ else
 			.Where(x => x.Bewirtungsdatum == termin.BewirtungsDatum && x.VereinId == termin.VereinId)
 			.ToList();
 		_helfer = TerminRepo.GetHelfer(termin.BewirtungsDatum, termin.VereinId);
+		_kuechenstationEintraege = KuechenstationTerminRepo.GetFuerTermin(termin.BewirtungsDatum, termin.VereinId);
 	}
 
 	private void Speichern()
@@ -722,6 +751,34 @@ else
 		else
 		{
 			TischTerminRepo.Delete(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, tisch.Tischnummer);
+		}
+
+		LadeTabs(_aktuellerTermin);
+	}
+
+	// ----- Küchenstationen -----
+
+	private bool IstStationZugeordnet(int kuechenstationId) =>
+		_kuechenstationEintraege.Any(x => x.KuechenstationId == kuechenstationId);
+
+	private void StationZuordnungGeaendert(Kuechenstation station, ChangeEventArgs e)
+	{
+		if (_aktuellerTermin == null)
+		{
+			return;
+		}
+
+		var zugeordnet = e.Value is bool b && b;
+		if (zugeordnet)
+		{
+			if (!_kuechenstationEintraege.Any(x => x.KuechenstationId == station.Id))
+			{
+				KuechenstationTerminRepo.Insert(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, station.Id);
+			}
+		}
+		else
+		{
+			KuechenstationTerminRepo.Delete(_aktuellerTermin.BewirtungsDatum, _aktuellerTermin.VereinId, station.Id);
 		}
 
 		LadeTabs(_aktuellerTermin);

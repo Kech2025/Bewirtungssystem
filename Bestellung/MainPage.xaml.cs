@@ -32,12 +32,15 @@ public partial class MainPage : ContentPage
 
     /// <summary>
     /// Befüllt den Modus-Picker: Index 0 = "Bestellung", danach je Küchenstation ein Eintrag.
+    /// Wird ein Termin übergeben, werden nur die diesem Termin zugeordneten Küchenstationen geladen.
     /// </summary>
-    private async Task LadeModusAsync()
+    private async Task LadeModusAsync(TerminDto? termin = null)
     {
         try
         {
-            _kuechenstationen = await _kuechenstationApiClient.GetKuechenstationenAsync();
+            _kuechenstationen = termin is null
+                ? await _kuechenstationApiClient.GetKuechenstationenAsync()
+                : await _kuechenstationApiClient.GetKuechenstationenFuerTerminAsync(termin.BewirtungsDatum, termin.VereinId);
         }
         catch (Exception ex)
         {
@@ -164,6 +167,7 @@ public partial class MainPage : ContentPage
         if (TerminPicker.SelectedItem is TerminDto termin)
         {
             await LadeBenutzerFuerTerminAsync(termin);
+            await LadeModusAsync(termin);
         }
         else
         {

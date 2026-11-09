@@ -34,7 +34,7 @@
 		<ApplicationId>com.companyname.bestellung</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>2.0.0</ApplicationDisplayVersion>
+		<ApplicationDisplayVersion>3.0.0</ApplicationDisplayVersion>
 		<ApplicationVersion>9</ApplicationVersion>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->

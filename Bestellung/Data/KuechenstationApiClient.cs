@@ -27,4 +27,14 @@ public class KuechenstationApiClient
         var result = await _httpClient.GetFromJsonAsync<List<KuechenstationDto>>(url, cancellationToken);
         return result ?? new List<KuechenstationDto>();
     }
+
+    /// <summary>
+    /// Lädt die einem Termin (Datum + Verein) zugeordneten Küchenstationen.
+    /// </summary>
+    public async Task<List<KuechenstationDto>> GetKuechenstationenFuerTerminAsync(int bewirtungsDatum, long vereinId, CancellationToken cancellationToken = default)
+    {
+        var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/kuechenstationen?datum={bewirtungsDatum}&vereinId={vereinId}";
+        var result = await _httpClient.GetFromJsonAsync<List<KuechenstationDto>>(url, cancellationToken);
+        return result ?? new List<KuechenstationDto>();
+    }
 }

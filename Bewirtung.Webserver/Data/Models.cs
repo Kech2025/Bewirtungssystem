@@ -350,4 +350,15 @@ namespace Bewirtung.Webserver.Data
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// Datenmodell für eine Küchenstation-Termin-Zuordnung (Tabelle kuechenstationtermin).
+    /// </summary>
+    public class KuechenstationTermin
+    {
+        public int Bewirtungsdatum { get; set; }
+        public long VereinId { get; set; }
+        public int KuechenstationId { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
 }

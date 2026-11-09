@@ -246,12 +246,28 @@ app.MapGet("/api/handy/validate", (string? seriennummer) =>
 });
 
 // GET /api/kuechenstationen  -> [{ Id, Name }, ...] aus Tabelle kuechenstation.
-app.MapGet("/api/kuechenstationen", () =>
+// Optional: ?datum=YYYYMMDD&vereinId=123 -> nur die dem Termin zugeordneten Küchenstationen.
+app.MapGet("/api/kuechenstationen", (int? datum, long? vereinId) =>
 {
     var stationen = new List<object>();
     using var connection = OpenConnection();
     using var command = connection.CreateCommand();
-    command.CommandText = "SELECT id, name FROM kuechenstation ORDER BY name;";
+    if (datum.HasValue && vereinId.HasValue)
+    {
+        command.CommandText = @"
+            SELECT k.id, k.name
+            FROM kuechenstationtermin kst
+            JOIN Termin t ON t.bewirtungsdatum = kst.bewirtungsdatum
+            JOIN kuechenstation k ON k.id = kst.kuechenstationid
+            WHERE t.BewirtungsDatum = @datum AND t.VereinId = @vereinId
+            ORDER BY k.name;";
+        command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum.Value));
+        command.Parameters.AddWithValue("@vereinId", vereinId.Value);
+    }
+    else
+    {
+        command.CommandText = "SELECT id, name FROM kuechenstation ORDER BY name;";
+    }
     using var reader = command.ExecuteReader();
     while (reader.Read())
     {
