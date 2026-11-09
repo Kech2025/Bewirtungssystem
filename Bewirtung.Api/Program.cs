@@ -1,6 +1,23 @@
 using Npgsql;
+using Bewirtung.Fiskal;
+using Bewirtung.Fiskal.Tse;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// TSE / Fiskalisierung (KassenSichV) – gemeinsame Bibliothek Bewirtung.Fiskal.
+// Läuft aktuell im Cloud-TSE-Dummy-Modus (CloudTse:DummyModus) – NICHT fiskalkonform.
+builder.Services.Configure<CloudTseOptions>(
+    builder.Configuration.GetSection(CloudTseOptions.SectionName));
+builder.Services.AddSingleton<ITseProvider, CloudTseProvider>();
+builder.Services.AddSingleton<FiskalDatabase>(_ =>
+{
+    const string fallback =
+        "Host=localhost;Port=5432;Database=bewirtung;Username=postgres;Password=postgres";
+    var configured = builder.Configuration.GetConnectionString("Postgres")
+        ?? builder.Configuration["Database:ConnectionString"];
+    return new FiskalDatabase(string.IsNullOrWhiteSpace(configured) ? fallback : configured);
+});
+builder.Services.AddSingleton<FiskalRepository>();
 
 var app = builder.Build();
 
@@ -46,6 +63,83 @@ static DateTime FromYyyyMmDd(int value)
 
 static int ToYyyyMmDd(DateTime date) =>
     date.Year * 10000 + date.Month * 100 + date.Day;
+
+// Baut aus den bezahlten Aufträgen einen fiskalischen Beleg (Kopf, Positionen,
+// Steueraufteilung) für die TSE-Signatur. Nutzt die vorhandene offene Verbindung.
+static FiskalBeleg BaueFiskalBeleg(NpgsqlConnection connection, List<long> auftragIds, BezahlenRequest req)
+{
+    var beleg = new FiskalBeleg
+    {
+        KasseId = string.IsNullOrWhiteSpace(req.HandyName) ? "UNBEKANNT" : req.HandyName!,
+        Bediener = req.HandyName ?? string.Empty,
+        VorgangsTyp = FiskalVorgangsTyp.Beleg,
+        Zahlart = FiskalZahlart.Bar,
+        StartZeitpunkt = DateTime.Now,
+        GesamtBrutto = req.Betrag
+    };
+
+    var inClause = string.Join(",", auftragIds.Select((_, i) => $"@id{i}"));
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = $@"
+        SELECT p.Name,
+               bp.Preis,
+               bp.Menge,
+               COALESCE(m.mwst, 0) AS MwstSatz
+        FROM BewirtungsPosition bp
+        LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+        LEFT JOIN Mwst m ON m.Preiskategorie = p.Preiskategorie
+        WHERE bp.BewirtungsauftragId IN ({inClause})
+        ORDER BY bp.BewirtungsauftragId, bp.Bewirtungsposition;";
+    for (var i = 0; i < auftragIds.Count; i++)
+    {
+        cmd.Parameters.AddWithValue($"@id{i}", (int)auftragIds[i]);
+    }
+
+    var positionsNr = 0;
+    using (var reader = cmd.ExecuteReader())
+    {
+        while (reader.Read())
+        {
+            var artikel = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+            var einzelpreis = reader.IsDBNull(1) ? 0m : reader.GetDecimal(1);
+            var menge = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
+            var satz = reader.IsDBNull(3) ? 0m : reader.GetDecimal(3);
+            beleg.Positionen.Add(new FiskalBelegPosition
+            {
+                PositionsNummer = ++positionsNr,
+                Artikel = artikel,
+                Menge = menge,
+                EinzelpreisBrutto = einzelpreis,
+                GesamtBrutto = einzelpreis * menge,
+                MwstSatz = satz
+            });
+        }
+    }
+
+    // Steueraufteilung je Steuersatz aus den Positionen berechnen.
+    foreach (var gruppe in beleg.Positionen.GroupBy(p => p.MwstSatz))
+    {
+        var brutto = gruppe.Sum(p => p.GesamtBrutto);
+        var satz = gruppe.Key;
+        var netto = satz > 0 ? Math.Round(brutto / (1 + satz / 100m), 2) : brutto;
+        beleg.SteuerPositionen.Add(new FiskalSteuerPosition
+        {
+            SteuerSchluessel = satz == 19m ? 1 : satz == 7m ? 2 : 0,
+            MwstSatz = satz,
+            Brutto = brutto,
+            Netto = netto,
+            Steuer = brutto - netto
+        });
+    }
+
+    // Falls keine Positionen ermittelbar sind, zumindest den Gesamtbetrag abbilden.
+    if (beleg.GesamtBrutto == 0m && beleg.Positionen.Count > 0)
+    {
+        beleg.GesamtBrutto = beleg.Positionen.Sum(p => p.GesamtBrutto);
+    }
+
+    return beleg;
+}
 
 // GET /api/tische  -> [{ Tischnummer, Bereich }, ...]
 app.MapGet("/api/tische", (int datum) =>
@@ -434,7 +528,7 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
 });
 
 // POST /api/bestellung/bezahlen  -> Setzt Status = 1 und den bezahlten Betrag für einen oder mehrere Aufträge.
-app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
+app.MapPost("/api/bestellung/bezahlen", async (BezahlenRequest req, FiskalRepository fiskal) =>
 {
     // Zu bezahlende Aufträge zusammenstellen (Liste hat Vorrang, sonst einzelne AuftragId).
     var auftragIds = (req?.AuftragIds is { Count: > 0 })
@@ -489,7 +583,33 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
         {
             return Results.NotFound("Kein offener Auftrag gefunden.");
         }
-        return Results.Ok(new { AuftragIds = auftragIds, Abgeschlossen = totalRows });
+
+        // Fiskalisierung: signierten Kassenbeleg über die TSE erzeugen und speichern.
+        // Schlägt dies fehl, bleibt die Zahlung bestehen; der Fehler wird protokolliert
+        // zurückgemeldet, damit er nicht unbemerkt bleibt.
+        try
+        {
+            var beleg = BaueFiskalBeleg(connection, auftragIds, req!);
+            await fiskal.SpeichereBelegMitSignaturAsync(beleg);
+            return Results.Ok(new
+            {
+                AuftragIds = auftragIds,
+                Abgeschlossen = totalRows,
+                beleg.BelegNummer,
+                Signatur = beleg.Signatur?.Signatur,
+                beleg.Signatur?.TransaktionsNummer,
+                QrCode = beleg.Signatur?.QrCodeDaten
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Ok(new
+            {
+                AuftragIds = auftragIds,
+                Abgeschlossen = totalRows,
+                FiskalFehler = ex.Message
+            });
+        }
     }
 });
 

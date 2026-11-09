@@ -39,21 +39,24 @@ public class BestellungApiClient
     /// <summary>
     /// Schließt einen Auftrag ab (Status = 1) und speichert den bezahlten Betrag.
     /// </summary>
-    public async Task BezahlenAsync(long auftragId, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
+    public async Task<BezahlenErgebnis> BezahlenAsync(long auftragId, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
     {
-        await BezahlenAsync(new List<long> { auftragId }, betrag, handyName, cancellationToken);
+        return await BezahlenAsync(new List<long> { auftragId }, betrag, handyName, cancellationToken);
     }
 
     /// <summary>
     /// Schließt mehrere Aufträge ab (Status = 1) und speichert den bezahlten Betrag.
+    /// Liefert die fiskalischen Belegdaten (Belegnummer, Signatur, QR-Code) zurück.
     /// </summary>
-    public async Task BezahlenAsync(List<long> auftragIds, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
+    public async Task<BezahlenErgebnis> BezahlenAsync(List<long> auftragIds, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/bestellung/bezahlen";
         var auftragId = auftragIds is { Count: > 0 } ? auftragIds[0] : 0L;
         var response = await _httpClient.PostAsJsonAsync(
             url, new { AuftragId = auftragId, Betrag = betrag, AuftragIds = auftragIds, HandyName = handyName }, cancellationToken);
         response.EnsureSuccessStatusCode();
+        var ergebnis = await response.Content.ReadFromJsonAsync<BezahlenErgebnis>(cancellationToken);
+        return ergebnis ?? new BezahlenErgebnis();
     }
 
     /// <summary>
@@ -252,4 +255,18 @@ public class BestellungPosition
 public class BestellungResponse
 {
     public long AuftragId { get; set; }
+}
+
+/// <summary>
+/// Antwort der API nach dem Bezahlen inkl. fiskalischer Belegdaten.
+/// </summary>
+public class BezahlenErgebnis
+{
+    public List<long> AuftragIds { get; set; } = new();
+    public int Abgeschlossen { get; set; }
+    public long BelegNummer { get; set; }
+    public string? Signatur { get; set; }
+    public long? TransaktionsNummer { get; set; }
+    public string? QrCode { get; set; }
+    public string? FiskalFehler { get; set; }
 }

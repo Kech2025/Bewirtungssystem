@@ -5,4 +5,5 @@
   </Project>
   <Project Path="../Bewirtung.Api/Bewirtung.Api.csproj" />
   <Project Path="../Bewirtung.Webserver/Bewirtung.Webserver.csproj" />
+  <Project Path="../Bewirtung.Fiskal/Bewirtung.Fiskal.csproj" />
 </Solution>

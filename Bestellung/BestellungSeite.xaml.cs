@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Bestellung.Data;
+using QRCoder;
 
 namespace Bestellung;
 
@@ -747,7 +748,7 @@ public partial class BestellungSeite : ContentPage
             }
 
             var handyName = await HandyIdentitaet.GetNameAsync();
-            await _bestellungApiClient.BezahlenAsync(_offeneBestellung.AlleAuftragIds, betrag, handyName);
+            var ergebnis = await _bestellungApiClient.BezahlenAsync(_offeneBestellung.AlleAuftragIds, betrag, handyName);
             await DisplayAlertAsync("Rechnung",
                 $"{_offeneBestellung.AlleAuftragIds.Count} Auftrag/Aufträge wurden mit {betrag.ToString("C", EuroKultur)} abgeschlossen.",
                 "OK");
@@ -762,6 +763,9 @@ public partial class BestellungSeite : ContentPage
             RechnungButton.IsEnabled = false;
             BezahlenButton.IsEnabled = true;
             TischPicker.SelectedItem = null;
+
+            // Fiskal-QR-Code des Belegs anzeigen (falls die TSE-Signatur erfolgreich war).
+            ZeigeFiskalBeleg(ergebnis);
         }
         catch (Exception ex)
         {
@@ -770,5 +774,54 @@ public partial class BestellungSeite : ContentPage
             RechnungButton.IsEnabled = true;
             BezahlenButton.IsEnabled = true;
         }
+    }
+
+    /// <summary>
+    /// Zeigt den fiskalischen Beleg mit QR-Code an. Bei einem TSE-Fehler wird
+    /// stattdessen ein Hinweis angezeigt, dass keine Signatur erzeugt werden konnte.
+    /// </summary>
+    private void ZeigeFiskalBeleg(BezahlenErgebnis ergebnis)
+    {
+        if (ergebnis is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(ergebnis.FiskalFehler) || string.IsNullOrEmpty(ergebnis.QrCode))
+        {
+            QrImage.Source = null;
+            QrBelegLabel.Text = $"Beleg-Nr. {ergebnis.BelegNummer}";
+            QrHinweisLabel.Text = string.IsNullOrEmpty(ergebnis.FiskalFehler)
+                ? "Für diesen Beleg wurde keine TSE-Signatur erzeugt."
+                : $"TSE-Fehler: {ergebnis.FiskalFehler}";
+            QrBereich.IsVisible = true;
+            return;
+        }
+
+        try
+        {
+            using var generator = new QRCodeGenerator();
+            using var data = generator.CreateQrCode(ergebnis.QrCode, QRCodeGenerator.ECCLevel.M);
+            var png = new PngByteQRCode(data).GetGraphic(20);
+            QrImage.Source = ImageSource.FromStream(() => new MemoryStream(png));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"QR-Code konnte nicht erzeugt werden: {ex.Message}");
+            QrImage.Source = null;
+        }
+
+        QrBelegLabel.Text = ergebnis.TransaktionsNummer is { } tx
+            ? $"Beleg-Nr. {ergebnis.BelegNummer} · TSE-Transaktion {tx}"
+            : $"Beleg-Nr. {ergebnis.BelegNummer}";
+        QrHinweisLabel.Text = "Hinweis: Simulierte TSE (nicht fiskalkonform).";
+        QrBereich.IsVisible = true;
+    }
+
+    /// <summary>Schließt die QR-/Beleganzeige und kehrt zur Bestellansicht zurück.</summary>
+    private void OnQrFertigClicked(object? sender, EventArgs e)
+    {
+        QrBereich.IsVisible = false;
+        QrImage.Source = null;
     }
 }

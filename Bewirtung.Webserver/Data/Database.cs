@@ -31,5 +31,12 @@ namespace Bewirtung.Webserver.Data
             connection.Open();
             return connection;
         }
+
+        public async Task<NpgsqlConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return connection;
+        }
     }
 }

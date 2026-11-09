@@ -1,5 +1,7 @@
 using Bewirtung.Webserver.Components;
 using Bewirtung.Webserver.Data;
+using Bewirtung.Fiskal;
+using Bewirtung.Fiskal.Tse;
 using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +31,21 @@ builder.Services.AddScoped<AbrechnungRepository>();
 builder.Services.AddScoped<WordVorlageRepository>();
 builder.Services.AddScoped<HandyRepository>();
 builder.Services.AddScoped<KuechenstationRepository>();
+
+// TSE / Fiskalisierung (KassenSichV).
+// Cloud-TSE (z. B. fiskaly / Deutsche Fiskal). Läuft aktuell im Dummy-Modus
+// (CloudTse:DummyModus) und erzeugt simulierte Signaturen – NICHT fiskalkonform.
+builder.Services.Configure<CloudTseOptions>(
+    builder.Configuration.GetSection(CloudTseOptions.SectionName));
+builder.Services.AddSingleton<ITseProvider, CloudTseProvider>();
+
+// FiskalDatabase nutzt denselben Connection-String wie der Webserver-Database-Service.
+builder.Services.AddScoped<FiskalDatabase>(sp =>
+    new FiskalDatabase(sp.GetRequiredService<Database>().ConnectionString));
+builder.Services.AddScoped<FiskalRepository>();
+
+builder.Services.AddScoped<DsfinvkExportService>();
+
 builder.Services.AddScoped<PreislisteDokumentService>();
 builder.Services.AddScoped<AbrechnungPdfService>();
 builder.Services.AddSingleton<PasswordHasher>();

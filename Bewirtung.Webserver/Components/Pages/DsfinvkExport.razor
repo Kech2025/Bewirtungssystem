@@ -1,0 +1,88 @@
+@page "/dsfinvk-export"
+@rendermode RenderMode.InteractiveServer
+@using Bewirtung.Fiskal
+@inject DsfinvkExportService ExportService
+@inject IJSRuntime JS
+<PageTitle>DSFinV-K-Export</PageTitle>
+
+<h1>DSFinV-K-Export</h1>
+
+<div class="alert alert-warning" role="alert">
+	Hinweis: Dieser Export ist bewusst reduziert (Kern-Dateien) und beruht derzeit auf
+	<strong>simulierten TSE-Daten</strong>. Er ist damit <strong>nicht zertifizierungs- bzw.
+	prüfungskonform</strong> und dient ausschließlich der internen Auswertung/Entwicklung.
+</div>
+
+<div class="row g-3 align-items-end" style="max-width:640px;">
+	<div class="col-auto">
+		<label class="form-label">Von (inklusive)</label>
+		<input type="date" class="form-control" @bind="_von" />
+	</div>
+	<div class="col-auto">
+		<label class="form-label">Bis (inklusive)</label>
+		<input type="date" class="form-control" @bind="_bis" />
+	</div>
+	<div class="col-auto">
+		<label class="form-label">Kasse (optional)</label>
+		<input type="text" class="form-control" placeholder="alle" @bind="_kasseId" />
+	</div>
+	<div class="col-auto">
+		<button class="btn btn-primary" @onclick="ExportierenAsync" disabled="@_laeuft">
+			@(_laeuft ? "Erzeuge…" : "Export herunterladen")
+		</button>
+	</div>
+</div>
+
+@if (!string.IsNullOrEmpty(_meldung))
+{
+	<p class="text-success mt-3">@_meldung</p>
+}
+@if (!string.IsNullOrEmpty(_fehler))
+{
+	<p class="text-danger mt-3">@_fehler</p>
+}
+
+@code {
+	private DateTime _von = DateTime.Today;
+	private DateTime _bis = DateTime.Today;
+	private string? _kasseId;
+	private bool _laeuft;
+	private string? _meldung;
+	private string? _fehler;
+
+	private async Task ExportierenAsync()
+	{
+		_meldung = null;
+		_fehler = null;
+
+		if (_bis < _von)
+		{
+			_fehler = "Das Bis-Datum darf nicht vor dem Von-Datum liegen.";
+			return;
+		}
+
+		try
+		{
+			_laeuft = true;
+
+			// Bis-Datum inklusive -> als exklusive Obergrenze den Folgetag verwenden.
+			var vonInklusive = _von.Date;
+			var bisExklusive = _bis.Date.AddDays(1);
+			var kasse = string.IsNullOrWhiteSpace(_kasseId) ? null : _kasseId.Trim();
+
+			var bytes = await Task.Run(() => ExportService.ErstelleExportZip(vonInklusive, bisExklusive, kasse));
+
+			var dateiname = $"dsfinvk_export_{_von:yyyyMMdd}_{_bis:yyyyMMdd}.zip";
+			await JS.InvokeVoidAsync("downloadFileFromBytes", dateiname, "application/zip", bytes);
+			_meldung = "Download gestartet.";
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Export fehlgeschlagen: " + ex.Message;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+}

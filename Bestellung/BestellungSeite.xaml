@@ -368,5 +368,46 @@
                     VerticalOptions="Center" />
             </HorizontalStackLayout>
         </Grid>
+
+        <Grid
+            x:Name="QrBereich"
+            Grid.Row="2"
+            BackgroundColor="White"
+            IsVisible="False"
+            RowDefinitions="Auto,*,Auto">
+            <Label
+                Grid.Row="0"
+                FontAttributes="Bold"
+                FontSize="18"
+                HorizontalTextAlignment="Center"
+                Text="Beleg / Rechnung" />
+            <VerticalStackLayout
+                Grid.Row="1"
+                Spacing="8"
+                VerticalOptions="Center">
+                <Image
+                    x:Name="QrImage"
+                    HeightRequest="240"
+                    HorizontalOptions="Center"
+                    WidthRequest="240" />
+                <Label
+                    x:Name="QrBelegLabel"
+                    HorizontalTextAlignment="Center"
+                    Text="" />
+                <Label
+                    x:Name="QrHinweisLabel"
+                    FontSize="11"
+                    HorizontalTextAlignment="Center"
+                    TextColor="Gray"
+                    Text="Hinweis: Simulierte TSE (nicht fiskalkonform)." />
+            </VerticalStackLayout>
+            <Button
+                x:Name="QrFertigButton"
+                Grid.Row="2"
+                Clicked="OnQrFertigClicked"
+                FontAttributes="Bold"
+                HeightRequest="40"
+                Text="Fertig" />
+        </Grid>
     </Grid>
 </ContentPage>
