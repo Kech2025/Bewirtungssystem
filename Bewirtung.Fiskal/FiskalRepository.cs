@@ -252,7 +252,10 @@ namespace Bewirtung.Fiskal
                 ORDER BY kasseid, belegnummer;";
             command.Parameters.AddWithValue("von", vonInklusive);
             command.Parameters.AddWithValue("bis", bisExklusive);
-            command.Parameters.AddWithValue("kasseid", (object?)kasseId ?? DBNull.Value);
+            command.Parameters.Add(new NpgsqlParameter("kasseid", NpgsqlTypes.NpgsqlDbType.Text)
+            {
+                Value = (object?)kasseId ?? DBNull.Value
+            });
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -304,7 +307,10 @@ namespace Bewirtung.Fiskal
                     ORDER BY p.belegid, p.positionsnummer;";
                 command.Parameters.AddWithValue("von", vonInklusive);
                 command.Parameters.AddWithValue("bis", bisExklusive);
-                command.Parameters.AddWithValue("kasseid", (object?)kasseId ?? DBNull.Value);
+                command.Parameters.Add(new NpgsqlParameter("kasseid", NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = (object?)kasseId ?? DBNull.Value
+                });
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
@@ -338,7 +344,10 @@ namespace Bewirtung.Fiskal
                     ORDER BY s.belegid, s.steuerschluessel;";
                 command.Parameters.AddWithValue("von", vonInklusive);
                 command.Parameters.AddWithValue("bis", bisExklusive);
-                command.Parameters.AddWithValue("kasseid", (object?)kasseId ?? DBNull.Value);
+                command.Parameters.Add(new NpgsqlParameter("kasseid", NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = (object?)kasseId ?? DBNull.Value
+                });
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
@@ -372,7 +381,10 @@ namespace Bewirtung.Fiskal
                       AND (@kasseid IS NULL OR b.kasseid = @kasseid);";
                 command.Parameters.AddWithValue("von", vonInklusive);
                 command.Parameters.AddWithValue("bis", bisExklusive);
-                command.Parameters.AddWithValue("kasseid", (object?)kasseId ?? DBNull.Value);
+                command.Parameters.Add(new NpgsqlParameter("kasseid", NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = (object?)kasseId ?? DBNull.Value
+                });
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
