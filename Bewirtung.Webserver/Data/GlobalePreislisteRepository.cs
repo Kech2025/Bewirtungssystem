@@ -97,7 +97,8 @@ namespace Bewirtung.Webserver.Data
                     Druck = @druck,
                     Zusatztext = @zusatztext,
                     Status = @status,
-                    Reihenfolge = @reihenfolge
+                    Reihenfolge = @reihenfolge,
+                    kuechenstation = @kuechenstation
                 WHERE Id = @id;";
             AddParameters(command, eintrag);
             command.Parameters.AddWithValue("id", eintrag.Id);

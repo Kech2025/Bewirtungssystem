@@ -120,6 +120,56 @@ app.MapGet("/api/benutzer/termin", (int datum, long vereinId) =>
     }
     return Results.Ok(benutzer);
 });
+
+// GET /api/handy/validate?seriennummer=...  -> Prüft die Seriennummer gegen die Tabelle handy.
+//   Liefert bei Treffer { Seriennummer, Name }, sonst 404.
+app.MapGet("/api/handy/validate", (string? seriennummer) =>
+{
+    if (string.IsNullOrWhiteSpace(seriennummer))
+    {
+        return Results.BadRequest("Keine Seriennummer übergeben.");
+    }
+
+    using var connection = OpenConnection();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        SELECT seriennummer, name
+        FROM handy
+        WHERE seriennummer = @seriennummer
+        LIMIT 1;";
+    command.Parameters.AddWithValue("@seriennummer", seriennummer.Trim());
+    using var reader = command.ExecuteReader();
+    if (!reader.Read())
+    {
+        return Results.NotFound("Seriennummer nicht gefunden.");
+    }
+
+    return Results.Ok(new
+    {
+        Seriennummer = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
+        Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+    });
+});
+
+// GET /api/kuechenstationen  -> [{ Id, Name }, ...] aus Tabelle kuechenstation.
+app.MapGet("/api/kuechenstationen", () =>
+{
+    var stationen = new List<object>();
+    using var connection = OpenConnection();
+    using var command = connection.CreateCommand();
+    command.CommandText = "SELECT id, name FROM kuechenstation ORDER BY name;";
+    using var reader = command.ExecuteReader();
+    while (reader.Read())
+    {
+        stationen.Add(new
+        {
+            Id = reader.GetInt32(0),
+            Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+        });
+    }
+    return Results.Ok(stationen);
+});
+
 app.MapGet("/api/termine", () =>
 {
     var termine = new List<object>();
@@ -409,9 +459,10 @@ app.MapPost("/api/bestellung/bezahlen", (BezahlenRequest req) =>
                     command.Transaction = transaction;
                     command.CommandText = @"
                         UPDATE Bewirtungsauftrag
-                        SET Status = true, Bezahlt = @betrag, enddatetime = now()
+                        SET Status = true, Bezahlt = @betrag, enddatetime = now(), handyname = @handyname
                         WHERE AuftragId = @auftragId AND Status = false;";
                     command.Parameters.AddWithValue("@betrag", i == 0 ? req!.Betrag : 0m);
+                    command.Parameters.AddWithValue("@handyname", (object?)req!.HandyName ?? DBNull.Value);
                     command.Parameters.AddWithValue("@auftragId", (int)auftragIds[i]);
                     totalRows += command.ExecuteNonQuery();
 
@@ -550,9 +601,11 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
                                 SELECT Preis FROM BewirtungsPosition
                                 WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr
                             )
-                        )
+                        ),
+                        handyname = @handyname
                         WHERE AuftragId = @auftragId;";
                     betragCmd.Parameters.AddWithValue("@mengeZahlen", pos.MengeZahlen);
+                    betragCmd.Parameters.AddWithValue("@handyname", (object?)req.HandyName ?? DBNull.Value);
                     betragCmd.Parameters.AddWithValue("@auftragId", (int)pos.AuftragId);
                     betragCmd.Parameters.AddWithValue("@posNr", (int)pos.PosNr);
                     betragCmd.ExecuteNonQuery();
@@ -613,6 +666,62 @@ app.MapPost("/api/bestellung/teilzahlen", (TeilzahlenRequest req) =>
 
 // GET /api/auslieferung/getraenke?termin=YYYYMMDD
 //   -> Offene Getränke-Positionen (Preiskategorie=1, MengeGeliefert < Menge) je Tisch gruppiert.
+app.MapGet("/api/auslieferung/station", (int termin, int station) =>
+{
+    using var connection = OpenConnection();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        SELECT a.TischNummer,
+               bp.BewirtungsauftragId,
+               bp.Bewirtungsposition,
+               p.Name,
+               COALESCE(z.Bezeichnung, '') AS ZusatzText,
+               bp.Menge,
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+        FROM BewirtungsPosition bp
+        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
+        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+        WHERE a.Bewirtungstermin = @termin
+          AND p.kuechenstation = @station
+          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
+        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
+    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
+    command.Parameters.AddWithValue("@station", station);
+
+    var tische = new Dictionary<int, List<object>>();
+    using (var reader = command.ExecuteReader())
+    {
+        while (reader.Read())
+        {
+            var tischNummer = reader.GetInt32(0);
+            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+            var position = new
+            {
+                AuftragId = (long)reader.GetInt32(1),
+                PosNr = (long)reader.GetInt32(2),
+                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
+                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
+            };
+            if (!tische.TryGetValue(tischNummer, out var liste))
+            {
+                liste = new List<object>();
+                tische[tischNummer] = liste;
+            }
+            liste.Add(position);
+        }
+    }
+
+    var ergebnis = tische
+        .OrderBy(t => t.Key)
+        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
+        .ToList();
+    return Results.Ok(ergebnis);
+});
+
+// GET /api/auslieferung/getraenke?termin=YYYYMMDD
 app.MapGet("/api/auslieferung/getraenke", (int termin) =>
 {
     using var connection = OpenConnection();
@@ -800,8 +909,8 @@ app.Run();
 
 record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen);
 record BestellungPosition(long PreislisteId, long ZusatzId, decimal Preis, decimal Menge, string? Besonderheit = null);
-record BezahlenRequest(long AuftragId, decimal Betrag, List<long>? AuftragIds = null);
-record TeilzahlenRequest(decimal Betrag, List<TeilzahlenPosition> Positionen);
+record BezahlenRequest(long AuftragId, decimal Betrag, List<long>? AuftragIds = null, string? HandyName = null);
+record TeilzahlenRequest(decimal Betrag, List<TeilzahlenPosition> Positionen, string? HandyName = null);
 record TeilzahlenPosition(long AuftragId, long PosNr, decimal MengeZahlen);
 record AuslieferungFertigRequest(List<AuslieferungFertigPosition> Positionen);
 record AuslieferungFertigPosition(long AuftragId, long PosNr, decimal SeitenMenge);

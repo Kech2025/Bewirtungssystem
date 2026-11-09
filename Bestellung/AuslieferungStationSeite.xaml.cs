@@ -3,33 +3,36 @@ using Bestellung.Data;
 
 namespace Bestellung;
 
-public partial class AuslieferungSpeisenSeite : ContentPage
+public partial class AuslieferungStationSeite : ContentPage
 {
     private readonly AuslieferungApiClient _auslieferungApiClient = new();
     private readonly BenutzerDto _benutzer;
     private readonly TerminDto _termin;
+    private readonly KuechenstationDto _station;
     private readonly ObservableCollection<AuslieferungTischDto> _tische = new();
 
-    public AuslieferungSpeisenSeite(BenutzerDto benutzer, TerminDto termin)
+    public AuslieferungStationSeite(BenutzerDto benutzer, TerminDto termin, KuechenstationDto station)
     {
         InitializeComponent();
         _benutzer = benutzer;
         _termin = termin;
-        TitelLabel.Text = $"Offene Speisen – {_termin.Anzeige}";
+        _station = station;
+        Title = $"Auslieferung {_station.Name}";
+        TitelLabel.Text = $"Offene Positionen {_station.Name} – {_termin.Anzeige}";
         TischeView.ItemsSource = _tische;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await LadeSpeisenAsync();
+        await LadePositionenAsync();
     }
 
-    private async Task LadeSpeisenAsync()
+    private async Task LadePositionenAsync()
     {
         try
         {
-            var tische = await _auslieferungApiClient.GetSpeisenAsync(_termin.BewirtungsDatum);
+            var tische = await _auslieferungApiClient.GetStationAsync(_termin.BewirtungsDatum, _station.Id);
             _tische.Clear();
             foreach (var tisch in tische)
             {
@@ -43,8 +46,8 @@ public partial class AuslieferungSpeisenSeite : ContentPage
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Speisen konnten nicht geladen werden: {ex.Message}");
-            await DisplayAlertAsync("Fehler", "Offene Speisen konnten nicht vom Server geladen werden.", "OK");
+            System.Diagnostics.Debug.WriteLine($"Positionen konnten nicht geladen werden: {ex.Message}");
+            await DisplayAlertAsync("Fehler", "Offene Positionen konnten nicht vom Server geladen werden.", "OK");
         }
     }
 
@@ -83,9 +86,7 @@ public partial class AuslieferungSpeisenSeite : ContentPage
         try
         {
             await _auslieferungApiClient.FertigAsync(positionen);
-            // Neu laden: Der Tisch verschwindet nur, wenn alle seine Positionen
-            // vollständig ausgeliefert sind (Server liefert nur offene Positionen).
-            await LadeSpeisenAsync();
+            await LadePositionenAsync();
         }
         catch (Exception ex)
         {

@@ -21,13 +21,7 @@
         <Label Text="Modus" />
         <Picker
             x:Name="ModusPicker"
-            Title="Modus wählen">
-            <Picker.Items>
-                <x:String>Bestellung</x:String>
-                <x:String>Auslieferung Getränke</x:String>
-                <x:String>Auslieferung Speisen</x:String>
-            </Picker.Items>
-        </Picker>
+            Title="Modus wählen" />
         <Button
             Margin="0,16,0,0"
             Clicked="OnAnmeldenClicked"

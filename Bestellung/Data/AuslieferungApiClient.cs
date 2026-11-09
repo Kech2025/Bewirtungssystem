@@ -36,6 +36,17 @@ public class AuslieferungApiClient
     }
 
     /// <summary>
+    /// Lädt offene Positionen (gefiltert nach Küchenstation, MengeGeliefert &lt; Menge)
+    /// gruppiert je Tisch für den angegebenen Termin.
+    /// </summary>
+    public async Task<List<AuslieferungTischDto>> GetStationAsync(int termin, int stationId, CancellationToken cancellationToken = default)
+    {
+        var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/station?termin={termin}&station={stationId}";
+        var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
+        return result ?? new List<AuslieferungTischDto>();
+    }
+
+    /// <summary>
     /// Meldet die Auslieferung für einen Tisch: setzt je Position MengeGeliefert (und ggf. Menge).
     /// </summary>
     public async Task FertigAsync(IEnumerable<AuslieferungFertigPosition> positionen, CancellationToken cancellationToken = default)

@@ -39,20 +39,20 @@ public class BestellungApiClient
     /// <summary>
     /// Schließt einen Auftrag ab (Status = 1) und speichert den bezahlten Betrag.
     /// </summary>
-    public async Task BezahlenAsync(long auftragId, decimal betrag, CancellationToken cancellationToken = default)
+    public async Task BezahlenAsync(long auftragId, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
     {
-        await BezahlenAsync(new List<long> { auftragId }, betrag, cancellationToken);
+        await BezahlenAsync(new List<long> { auftragId }, betrag, handyName, cancellationToken);
     }
 
     /// <summary>
     /// Schließt mehrere Aufträge ab (Status = 1) und speichert den bezahlten Betrag.
     /// </summary>
-    public async Task BezahlenAsync(List<long> auftragIds, decimal betrag, CancellationToken cancellationToken = default)
+    public async Task BezahlenAsync(List<long> auftragIds, decimal betrag, string? handyName = null, CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/bestellung/bezahlen";
         var auftragId = auftragIds is { Count: > 0 } ? auftragIds[0] : 0L;
         var response = await _httpClient.PostAsJsonAsync(
-            url, new { AuftragId = auftragId, Betrag = betrag, AuftragIds = auftragIds }, cancellationToken);
+            url, new { AuftragId = auftragId, Betrag = betrag, AuftragIds = auftragIds, HandyName = handyName }, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -85,12 +85,14 @@ public class BestellungApiClient
     public async Task TeilzahlenAsync(
         decimal betrag,
         IEnumerable<OffeneBestellungPosition> positionen,
+        string? handyName = null,
         CancellationToken cancellationToken = default)
     {
         var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/bestellung/teilzahlen";
         var body = new
         {
             Betrag = betrag,
+            HandyName = handyName,
             Positionen = positionen
                 .Where(p => p.TeilMenge > 0m)
                 .Select(p => new { p.AuftragId, p.PosNr, MengeZahlen = p.TeilMenge })

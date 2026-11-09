@@ -6,6 +6,11 @@ public partial class MainPage : ContentPage
 {
     private readonly TerminApiClient _terminApiClient = new();
     private readonly BenutzerApiClient _benutzerApiClient = new();
+    private readonly HandyApiClient _handyApiClient = new();
+    private readonly KuechenstationApiClient _kuechenstationApiClient = new();
+
+    // Im Modus-Picker geführte Küchenstationen (Index im Picker = Index hier + 1, da Index 0 = Bestellung).
+    private List<KuechenstationDto> _kuechenstationen = new();
 
     // Zuletzt verwendete Anmeldung, um sie bei Rückkehr zur Anmeldeseite vorzubelegen.
     private int? _letzterBewirtungsDatum;
@@ -15,13 +20,98 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
-        ModusPicker.SelectedIndex = 0;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await StelleHandyRegistrierungSicherAsync();
+        await LadeModusAsync();
         await LadeTermineAsync();
+    }
+
+    /// <summary>
+    /// Befüllt den Modus-Picker: Index 0 = "Bestellung", danach je Küchenstation ein Eintrag.
+    /// </summary>
+    private async Task LadeModusAsync()
+    {
+        try
+        {
+            _kuechenstationen = await _kuechenstationApiClient.GetKuechenstationenAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Küchenstationen konnten nicht geladen werden: {ex.Message}");
+            _kuechenstationen = new List<KuechenstationDto>();
+        }
+
+        ModusPicker.Items.Clear();
+        ModusPicker.Items.Add("Bestellung");
+        foreach (var station in _kuechenstationen)
+        {
+            ModusPicker.Items.Add(station.Name);
+        }
+        ModusPicker.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// Erfasst beim ersten Start einmalig die Seriennummer des Geräts, validiert sie
+    /// gegen die Tabelle handy und speichert Seriennummer + Name im SecureStorage.
+    /// </summary>
+    private async Task StelleHandyRegistrierungSicherAsync()
+    {
+        if (await HandyIdentitaet.IstRegistriertAsync())
+        {
+            return;
+        }
+
+        while (true)
+        {
+            var eingabe = await DisplayPromptAsync(
+                "Geräte-Registrierung",
+                "Bitte die Seriennummer dieses Geräts eingeben:",
+                accept: "Speichern",
+                cancel: "Abbrechen",
+                keyboard: Keyboard.Default);
+
+            if (string.IsNullOrWhiteSpace(eingabe))
+            {
+                await DisplayAlertAsync(
+                    "Hinweis",
+                    "Ohne gültige Seriennummer kann das Gerät nicht verwendet werden.",
+                    "OK");
+                continue;
+            }
+
+            try
+            {
+                var handy = await _handyApiClient.ValidiereSeriennummerAsync(eingabe.Trim());
+                if (handy is null)
+                {
+                    await DisplayAlertAsync(
+                        "Ungültig",
+                        "Diese Seriennummer wurde nicht gefunden. Bitte erneut versuchen.",
+                        "OK");
+                    continue;
+                }
+
+                await HandyIdentitaet.SpeichereAsync(handy.Seriennummer, handy.Name);
+                await DisplayAlertAsync(
+                    "Registriert",
+                    $"Gerät erfolgreich registriert: {handy.Name}",
+                    "OK");
+                return;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Seriennummer-Validierung fehlgeschlagen: {ex.Message}");
+                await DisplayAlertAsync(
+                    "Fehler",
+                    "Die Seriennummer konnte nicht geprüft werden (Server nicht erreichbar?).",
+                    "OK");
+                return;
+            }
+        }
     }
 
     private async Task LadeBenutzerFuerTerminAsync(TerminDto termin)
@@ -100,17 +190,16 @@ public partial class MainPage : ContentPage
         _letzterVereinId = termin.VereinId;
         _letzterUserId = benutzer.UserId;
 
-        switch (ModusPicker.SelectedIndex)
+        // Index 0 = Bestellung, Index >= 1 = jeweilige Küchenstation (_kuechenstationen[index - 1]).
+        var modusIndex = ModusPicker.SelectedIndex;
+        if (modusIndex >= 1 && modusIndex - 1 < _kuechenstationen.Count)
         {
-            case 1:
-                await Navigation.PushAsync(new AuslieferungGetraenkeSeite(benutzer, termin));
-                break;
-            case 2:
-                await Navigation.PushAsync(new AuslieferungSpeisenSeite(benutzer, termin));
-                break;
-            default:
-                await Navigation.PushAsync(new BestellungSeite(benutzer, termin));
-                break;
+            var station = _kuechenstationen[modusIndex - 1];
+            await Navigation.PushAsync(new AuslieferungStationSeite(benutzer, termin, station));
+        }
+        else
+        {
+            await Navigation.PushAsync(new BestellungSeite(benutzer, termin));
         }
     }
 
