@@ -20,7 +20,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT t.BewirtungsDatum, t.VereinId, v.Name, COALESCE(v.""förderverein"", false) AS Foerderverein
+                SELECT t.BewirtungsDatum, t.VereinId, v.Name, COALESCE(v.förderverein, false) AS Foerderverein
                 FROM Termin t
                 LEFT JOIN Verein v ON v.Id = t.VereinId
                 ORDER BY t.BewirtungsDatum DESC, v.Name;";

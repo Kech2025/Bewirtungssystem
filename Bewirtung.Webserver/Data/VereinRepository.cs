@@ -39,7 +39,7 @@ namespace Bewirtung.Webserver.Data
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT v.Id, v.Name, v.AnsprechpartnerId, v.Strasse, v.PLZ, v.Ort, b.Name AS AnsprechpartnerName,
-                       COALESCE(v.Status, false) AS Status, COALESCE(v.""förderverein"", false) AS Foerderverein,
+                       COALESCE(v.Status, false) AS Status, COALESCE(v.förderverein, false) AS Foerderverein,
                        COALESCE(v.UeberschriftSpeisekarte, '') AS UeberschriftSpeisekarte
                 FROM Verein v
                 LEFT JOIN Benutzer b ON b.UserId = v.AnsprechpartnerId
@@ -75,7 +75,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Verein (Name, AnsprechpartnerId, Strasse, PLZ, Ort, Status, ""förderverein"", UeberschriftSpeisekarte)
+                INSERT INTO Verein (Name, AnsprechpartnerId, Strasse, PLZ, Ort, Status, förderverein, UeberschriftSpeisekarte)
                 VALUES (@name, @ansprechpartnerId, @strasse, @plz, @ort, @status, @foerderverein, @ueberschriftSpeisekarte)
                 RETURNING Id;";
             AddParameters(command, verein);
@@ -96,7 +96,7 @@ namespace Bewirtung.Webserver.Data
                     PLZ = @plz,
                     Ort = @ort,
                     Status = @status,
-                    ""förderverein"" = @foerderverein,
+                    förderverein = @foerderverein,
                     UeberschriftSpeisekarte = @ueberschriftSpeisekarte
                 WHERE Id = @id;";
             AddParameters(command, verein);
