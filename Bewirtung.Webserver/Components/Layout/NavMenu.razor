@@ -32,32 +32,35 @@
 				<NavLink class="nav-link" href="kuechenstation">Küchenstation</NavLink>
 			</li>
 		}
-		<li class="nav-item">
-			<NavLink class="nav-link" href="termine">Termine</NavLink>
-		</li>
-		@if (Session.IstAdmin)
+		@if (Session.IstAngemeldet)
 		{
 			<li class="nav-item">
-				<NavLink class="nav-link" href="globalepreisliste">Globale Preisliste</NavLink>
+				<NavLink class="nav-link" href="termine">Termine</NavLink>
+			</li>
+			@if (Session.IstAdmin)
+			{
+				<li class="nav-item">
+					<NavLink class="nav-link" href="globalepreisliste">Globale Preisliste</NavLink>
+				</li>
+				<li class="nav-item">
+					<NavLink class="nav-link" href="mwst">Mehrwertsteuer</NavLink>
+				</li>
+			}
+			<li class="nav-item">
+				<NavLink class="nav-link" href="tagesabrechnung">Tagesabrechnung</NavLink>
 			</li>
 			<li class="nav-item">
-				<NavLink class="nav-link" href="mwst">Mehrwertsteuer</NavLink>
+				<NavLink class="nav-link" href="dsfinvk-export">DSFinV-K-Export</NavLink>
 			</li>
-		}
-		<li class="nav-item">
-			<NavLink class="nav-link" href="tagesabrechnung">Tagesabrechnung</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="dsfinvk-export">DSFinV-K-Export</NavLink>
-		</li>
-		<li class="nav-item">
-			<NavLink class="nav-link" href="fehler">Fehlerhafte Abrechnungen</NavLink>
-		</li>
-		@if (Session.IstAdmin)
-		{
 			<li class="nav-item">
-				<NavLink class="nav-link" href="wordvorlage">Wordvorlage erstellen</NavLink>
+				<NavLink class="nav-link" href="fehler">Fehlerhafte Abrechnungen</NavLink>
 			</li>
+			@if (Session.IstAdmin)
+			{
+				<li class="nav-item">
+					<NavLink class="nav-link" href="wordvorlage">Wordvorlage erstellen</NavLink>
+				</li>
+			}
 		}
 	</ul>
 </nav>
