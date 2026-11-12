@@ -47,6 +47,8 @@ builder.Services.AddScoped<FiskalRepository>();
 
 builder.Services.AddScoped<DsfinvkExportService>();
 
+builder.Services.AddScoped<DatenbankBackupService>();
+
 builder.Services.AddScoped<PreislisteDokumentService>();
 builder.Services.AddScoped<AbrechnungPdfService>();
 builder.Services.AddSingleton<PasswordHasher>();

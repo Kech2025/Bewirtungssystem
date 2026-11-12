@@ -1,7 +1,9 @@
 @page "/dsfinvk-export"
 @rendermode RenderMode.InteractiveServer
 @using Bewirtung.Fiskal
+@using Bewirtung.Webserver.Data
 @inject DsfinvkExportService ExportService
+@inject DatenbankBackupService BackupService
 @inject IConfiguration Configuration
 @inject IJSRuntime JS
 <PageTitle>DSFinV-K-Export</PageTitle>
@@ -27,16 +29,18 @@
 		<label class="form-label">Kasse (optional)</label>
 		<input type="text" class="form-control" placeholder="alle" @bind="_kasseId" />
 	</div>
-	<div class="col-auto">
-		<button class="btn btn-primary" @onclick="ExportierenAsync" disabled="@_laeuft">
-			@(_laeuft ? "Erzeuge…" : "Export herunterladen")
-		</button>
-	</div>
-	<div class="col-auto">
-		<button class="btn btn-outline-primary" @onclick="AufUsbSpeichernAsync" disabled="@_laeuft">
-			@(_laeuft ? "Erzeuge…" : "Auf USB-Stick speichern")
-		</button>
-	</div>
+</div>
+
+<div class="d-flex flex-wrap gap-3 mt-4" style="max-width:640px;">
+	<button class="btn btn-primary" @onclick="ExportierenAsync" disabled="@_laeuft">
+		@(_laeuft ? "Erzeuge…" : "Export herunterladen")
+	</button>
+	<button class="btn btn-outline-primary" @onclick="AufUsbSpeichernAsync" disabled="@_laeuft">
+		@(_laeuft ? "Erzeuge…" : "Auf USB-Stick speichern")
+	</button>
+	<button class="btn btn-outline-secondary" @onclick="DatenbankBackupAsync" disabled="@_laeuft">
+		@(_laeuft ? "Erzeuge…" : "Datenbank-Backup auf USB")
+	</button>
 </div>
 
 @if (!string.IsNullOrEmpty(_meldung))
@@ -48,6 +52,34 @@
 	<p class="text-danger mt-3">@_fehler</p>
 }
 
+<hr class="my-4" style="max-width:640px;" />
+
+<h2 class="h5">Datenbank wiederherstellen</h2>
+<p class="text-muted" style="max-width:640px;">
+	Stellt die Datenbank aus einem Backup auf dem USB-Stick wieder her.
+	<strong>Achtung:</strong> Die aktuellen Daten werden dabei überschrieben.
+</p>
+
+<div class="d-flex flex-wrap gap-3 align-items-end mt-2" style="max-width:640px;">
+	<div class="flex-grow-1">
+		<label class="form-label">Backup-Datei</label>
+		<select class="form-select" @bind="_ausgewaehltesBackup" disabled="@_laeuft">
+			<option value="">– bitte wählen –</option>
+			@foreach (var datei in _backups)
+			{
+				<option value="@datei">@datei</option>
+			}
+		</select>
+	</div>
+	<button class="btn btn-outline-secondary" @onclick="BackupsAktualisieren" disabled="@_laeuft">
+		Aktualisieren
+	</button>
+	<button class="btn btn-danger" @onclick="DatenbankRestoreAsync"
+			disabled="@(_laeuft || string.IsNullOrEmpty(_ausgewaehltesBackup))">
+		@(_laeuft ? "Stelle wieder her…" : "Wiederherstellen")
+	</button>
+</div>
+
 @code {
 	private DateTime _von = DateTime.Today;
 	private DateTime _bis = DateTime.Today;
@@ -55,6 +87,24 @@
 	private bool _laeuft;
 	private string? _meldung;
 	private string? _fehler;
+
+	private IReadOnlyList<string> _backups = Array.Empty<string>();
+	private string? _ausgewaehltesBackup;
+
+	protected override void OnInitialized()
+	{
+		BackupsAktualisieren();
+	}
+
+	private void BackupsAktualisieren()
+	{
+		var zielPfad = Configuration["Export:UsbZielPfad"];
+		_backups = BackupService.ListeBackups(zielPfad ?? string.Empty);
+		if (_ausgewaehltesBackup is not null && !_backups.Contains(_ausgewaehltesBackup))
+		{
+			_ausgewaehltesBackup = null;
+		}
+	}
 
 	private async Task ExportierenAsync()
 	{
@@ -127,6 +177,89 @@
 		catch (Exception ex)
 		{
 			_fehler = "Speichern auf USB-Stick fehlgeschlagen: " + ex.Message;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+
+	private async Task DatenbankBackupAsync()
+	{
+		_meldung = null;
+		_fehler = null;
+
+		var zielPfad = Configuration["Export:UsbZielPfad"];
+		if (string.IsNullOrWhiteSpace(zielPfad))
+		{
+			_fehler = "Es ist kein USB-Zielpfad konfiguriert (Export:UsbZielPfad).";
+			return;
+		}
+
+		try
+		{
+			_laeuft = true;
+
+			var gespeichert = await BackupService.ErstelleBackupAsync(zielPfad);
+
+			_meldung = $"Datenbank-Backup gespeichert unter: {gespeichert}";
+
+			// Nach dem Backup die Liste aktualisieren, damit die neue Datei auswählbar ist.
+			BackupsAktualisieren();
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Datenbank-Backup fehlgeschlagen: " + ex.Message;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+
+	private async Task DatenbankRestoreAsync()
+	{
+		_meldung = null;
+		_fehler = null;
+
+		if (string.IsNullOrWhiteSpace(_ausgewaehltesBackup))
+		{
+			_fehler = "Bitte zuerst eine Backup-Datei auswählen.";
+			return;
+		}
+
+		var zielPfad = Configuration["Export:UsbZielPfad"];
+		if (string.IsNullOrWhiteSpace(zielPfad))
+		{
+			_fehler = "Es ist kein USB-Zielpfad konfiguriert (Export:UsbZielPfad).";
+			return;
+		}
+
+		var bestaetigt = await JS.InvokeAsync<bool>("confirm",
+			$"Die Datenbank wird aus \"{_ausgewaehltesBackup}\" wiederhergestellt. " +
+			"Die aktuellen Daten gehen dabei verloren. Fortfahren?");
+		if (!bestaetigt)
+		{
+			return;
+		}
+
+		try
+		{
+			_laeuft = true;
+
+			// Sicherheits-Backup des aktuellen Standes vor dem Überschreiben.
+			var sicherung = await BackupService.ErstelleBackupAsync(zielPfad, "vor-restore");
+
+			await BackupService.RestoreBackupAsync(zielPfad, _ausgewaehltesBackup);
+
+			BackupsAktualisieren();
+
+			_meldung = $"Datenbank erfolgreich aus \"{_ausgewaehltesBackup}\" wiederhergestellt. " +
+				$"Sicherung des vorherigen Standes: {System.IO.Path.GetFileName(sicherung)}";
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Wiederherstellung fehlgeschlagen: " + ex.Message;
 		}
 		finally
 		{
