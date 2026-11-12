@@ -34,6 +34,14 @@ spec:
             # Zielpfad des serverseitigen DSFinV-K-USB-Exports
             - name: Export__UsbZielPfad
               value: "/media/usb"
+            # Stirling-PDF (DOCX -> PDF): Dienst-URL und API-Key
+            - name: StirlingPdf__BaseUrl
+              value: "http://stirling-pdf-service.stirling-pdf.svc.cluster.local:8080"
+            - name: StirlingPdf__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: bewirtung-stirling
+                  key: StirlingPdf__ApiKey
           volumeMounts:
             - name: usb-stick
               mountPath: /media/usb
