@@ -5,16 +5,16 @@ namespace Bestellung.Data;
 /// </summary>
 public static class ApiConfig
 {
-    // Port der Web-API (siehe appsettings.json im Bewirtung.Api-Projekt).
-    private const int Port = 5080;
+    // Port der Web-API (NodePort des bewirtung-api-Service im k3s-Cluster).
+    private const int Port = 30580;
 
     // IP des Raspberry Pi (Server) im LAN. Wird für echte Geräte verwendet.
-    private const string PiIpAddress = "192.168.178.111";
+    private const string PiIpAddress = "192.168.170.31";
 
     // Optionaler manueller Override. Wenn gesetzt, wird immer diese IP genutzt
     // (unabhängig von Emulator/Gerät). Nützlich, wenn der Server (API) auf der
     // Pi läuft und auch der Emulator die Pi ansprechen soll.
-    public static string? ServerIpOverride { get; set; } = "192.168.178.54";
+    public static string? ServerIpOverride { get; set; } = "192.168.170.31";
 
     // Basis-URL der Web-API. Wird automatisch gewählt:
     //  - ServerIpOverride gesetzt: http://<IP>:<Port>        (manueller Override)
