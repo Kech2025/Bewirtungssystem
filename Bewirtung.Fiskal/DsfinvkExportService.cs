@@ -56,6 +56,35 @@ namespace Bewirtung.Fiskal
             return speicher.ToArray();
         }
 
+        /// <summary>
+        /// Erzeugt das Export-ZIP für den Zeitraum [von, bis) und speichert es als Datei
+        /// in das angegebene Zielverzeichnis (z. B. ein am Server eingehängter USB-Stick).
+        /// Liefert den vollständigen Pfad der geschriebenen Datei zurück.
+        /// </summary>
+        public string SpeichereExportZip(string zielVerzeichnis, DateTime vonInklusive, DateTime bisExklusive, string? kasseId = null)
+        {
+            if (string.IsNullOrWhiteSpace(zielVerzeichnis))
+            {
+                throw new ArgumentException("Es ist kein Zielverzeichnis konfiguriert.", nameof(zielVerzeichnis));
+            }
+
+            if (!Directory.Exists(zielVerzeichnis))
+            {
+                throw new DirectoryNotFoundException(
+                    $"Das Zielverzeichnis \"{zielVerzeichnis}\" wurde nicht gefunden. " +
+                    "Ist der USB-Stick eingesteckt und korrekt eingehängt?");
+            }
+
+            var bytes = ErstelleExportZip(vonInklusive, bisExklusive, kasseId);
+
+            var dateiname = $"dsfinvk_export_{vonInklusive:yyyyMMdd}_{bisExklusive.AddDays(-1):yyyyMMdd}_{DateTime.Now:HHmmss}.zip";
+            var zielPfad = Path.Combine(zielVerzeichnis, dateiname);
+
+            File.WriteAllBytes(zielPfad, bytes);
+
+            return zielPfad;
+        }
+
         private static void SchreibeEintrag(ZipArchive archiv, string name, string inhalt)
         {
             var eintrag = archiv.CreateEntry(name, CompressionLevel.Optimal);
