@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bewirtung-webserver
+  namespace: bewirtung
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bewirtung-webserver
+  template:
+    metadata:
+      labels:
+        app: bewirtung-webserver
+    spec:
+      # Pod nur auf dem Node mit dem USB-Stick starten (Node vorher labeln:
+      #   kubectl label node <NODE> usb-stick=true)
+      nodeSelector:
+        usb-stick: "true"
+      containers:
+        - name: bewirtung-webserver
+          image: kechg/bewirtung-webserver:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://0.0.0.0:8080"
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: bewirtung-db
+                  key: ConnectionStrings__Postgres
+            # Zielpfad des serverseitigen DSFinV-K-USB-Exports
+            - name: Export__UsbZielPfad
+              value: "/media/usb"
+          volumeMounts:
+            - name: usb-stick
+              mountPath: /media/usb
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+      volumes:
+        - name: usb-stick
+          hostPath:
+            path: /media/usb      # Mountpunkt des USB-Sticks auf dem Node
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bewirtung-webserver
+  namespace: bewirtung
+spec:
+  type: NodePort
+  selector:
+    app: bewirtung-webserver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080

@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY Bewirtung.Webserver/Bewirtung.Webserver.csproj Bewirtung.Webserver/
+COPY Bewirtung.Fiskal/Bewirtung.Fiskal.csproj Bewirtung.Fiskal/
 RUN dotnet restore Bewirtung.Webserver/Bewirtung.Webserver.csproj
 COPY . .
 RUN dotnet publish Bewirtung.Webserver/Bewirtung.Webserver.csproj -c Release -o /app
