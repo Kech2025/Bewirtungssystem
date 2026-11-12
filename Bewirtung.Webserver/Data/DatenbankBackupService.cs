@@ -120,6 +120,43 @@ namespace Bewirtung.Webserver.Data
         }
 
         /// <summary>
+        /// Schreibt alle gepufferten Dateisystem-Daten auf den Datenträger (sync),
+        /// damit der USB-Stick anschließend sicher abgezogen werden kann.
+        /// Ein echtes Aushängen (umount) ist aus dem Container heraus nicht möglich,
+        /// da der Stick per hostPath vom Node eingebunden ist.
+        /// </summary>
+        public async Task UsbSynchronisierenAsync(CancellationToken cancellationToken = default)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "sync",
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var prozess = new Process { StartInfo = startInfo };
+
+            try
+            {
+                prozess.Start();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Der Befehl 'sync' konnte nicht gestartet werden.", ex);
+            }
+
+            var fehlerAusgabe = await prozess.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await prozess.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+            if (prozess.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"'sync' ist mit Code {prozess.ExitCode} fehlgeschlagen: {fehlerAusgabe}");
+            }
+        }
+
+        /// <summary>
         /// Stellt die Datenbank aus der angegebenen Backup-Datei wieder her (pg_restore).
         /// Bestehende Objekte werden dabei überschrieben (--clean --if-exists).
         /// Achtung: Vorhandene Daten in der Zieldatenbank gehen verloren.

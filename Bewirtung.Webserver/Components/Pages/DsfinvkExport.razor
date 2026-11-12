@@ -41,6 +41,9 @@
 	<button class="btn btn-outline-secondary" @onclick="DatenbankBackupAsync" disabled="@_laeuft">
 		@(_laeuft ? "Erzeuge…" : "Datenbank-Backup auf USB")
 	</button>
+	<button class="btn btn-outline-warning" @onclick="UsbAuswerfenAsync" disabled="@_laeuft">
+		@(_laeuft ? "Bitte warten…" : "USB auswerfen")
+	</button>
 </div>
 
 @if (!string.IsNullOrEmpty(_meldung))
@@ -210,6 +213,29 @@
 		catch (Exception ex)
 		{
 			_fehler = "Datenbank-Backup fehlgeschlagen: " + ex.Message;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+
+	private async Task UsbAuswerfenAsync()
+	{
+		_meldung = null;
+		_fehler = null;
+
+		try
+		{
+			_laeuft = true;
+
+			await BackupService.UsbSynchronisierenAsync();
+
+			_meldung = "Daten wurden auf den USB-Stick geschrieben. Der Stick kann jetzt sicher abgezogen werden.";
+		}
+		catch (Exception ex)
+		{
+			_fehler = "USB auswerfen fehlgeschlagen: " + ex.Message;
 		}
 		finally
 		{
