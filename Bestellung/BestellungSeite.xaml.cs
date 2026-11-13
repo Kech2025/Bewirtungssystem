@@ -80,7 +80,7 @@ public partial class BestellungSeite : ContentPage
         TischAuswahlOverlay.IsVisible = false;
         _gewaehlterTisch = tisch;
         TischAuswahlButton.Text = tisch.Anzeige;
-        TischAuswahlButton.TextColor = tisch.AnzeigeFarbe;
+        TischAuswahlButton.TextColor = Colors.White;
 
         await TischGewechseltAsync();
     }
@@ -120,7 +120,7 @@ public partial class BestellungSeite : ContentPage
     {
         _gewaehlterTisch = null;
         TischAuswahlButton.Text = "Tischnummer wählen";
-        TischAuswahlButton.TextColor = Colors.Black;
+        TischAuswahlButton.TextColor = Colors.White;
     }
     private void SetzeAlleMengenZurueck()
     {
