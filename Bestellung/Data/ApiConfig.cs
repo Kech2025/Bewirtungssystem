@@ -9,12 +9,12 @@ public static class ApiConfig
     private const int Port = 30580;
 
     // IP des Raspberry Pi (Server) im LAN. Wird für echte Geräte verwendet.
-    private const string PiIpAddress = "192.168.170.31";
+    private const string PiIpAddress = "192.168.170.30";
 
     // Optionaler manueller Override. Wenn gesetzt, wird immer diese IP genutzt
     // (unabhängig von Emulator/Gerät). Nützlich, wenn der Server (API) auf der
     // Pi läuft und auch der Emulator die Pi ansprechen soll.
-    public static string? ServerIpOverride { get; set; } = "192.168.170.31";
+    public static string? ServerIpOverride { get; set; } = "192.168.170.30";
 
     // Basis-URL der Web-API. Wird automatisch gewählt:
     //  - ServerIpOverride gesetzt: http://<IP>:<Port>        (manueller Override)
