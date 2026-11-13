@@ -206,6 +206,17 @@ public partial class BestellungSeite : ContentPage
         TeilRechnungBereich.IsVisible = false;
         RechnungAufteilenButton.IsVisible = false;
         BestellenButton.IsVisible = true;
+
+        // Tischauswahl wieder aktivieren, sobald wir die Rechnung verlassen.
+        TischAuswahlButton.IsEnabled = true;
+        TischAuswahlButton.BackgroundColor = null;
+    }
+
+    /// <summary>Deaktiviert den Tischauswahl-Button (grau), solange die Rechnung angezeigt wird.</summary>
+    private void SperreTischAuswahl()
+    {
+        TischAuswahlButton.IsEnabled = false;
+        TischAuswahlButton.BackgroundColor = Colors.LightGray;
     }
 
     private async Task LadePreislisteAsync()
@@ -502,6 +513,9 @@ public partial class BestellungSeite : ContentPage
 
         // Rechnung-Button deaktivieren, solange die Rechnung angezeigt wird.
         RechnungButton.IsEnabled = false;
+
+        // Tischauswahl sperren (grau), solange die Rechnung erstellt wird.
+        SperreTischAuswahl();
 
         // "Rechnung aufteilen" anzeigen, solange der Auftrag nicht vollständig bezahlt ist.
         RechnungAufteilenButton.IsVisible = offenePositionen.Any(p => p.OffeneMenge > 0m);

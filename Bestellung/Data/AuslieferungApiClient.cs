@@ -142,6 +142,12 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
 
     public string SeitenMengeText => _seitenMenge.ToString();
 
+    /// <summary>Freitext-Zusatzinfo (Besonderheit) aus dem Bestellvorgang.</summary>
+    public string Besonderheit { get; set; } = string.Empty;
+
+    /// <summary>True, wenn eine Besonderheit vorhanden ist (steuert die Sichtbarkeit in der UI).</summary>
+    public bool HatBesonderheit => !string.IsNullOrWhiteSpace(Besonderheit);
+
     /// <summary>Anzeigetext: bestellte Menge und Produktname.</summary>
     public string AnzeigeText => $"{Menge:0.##} × {Produkt}";
 

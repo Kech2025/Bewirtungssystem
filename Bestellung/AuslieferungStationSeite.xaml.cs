@@ -139,6 +139,7 @@ public partial class AuslieferungStationSeite : ContentPage
                     // Bestehende Position: nur Serverwerte aktualisieren, Benutzereingabe (SeitenMenge) beibehalten.
                     bestehendePos.Menge = neuePos.Menge;
                     bestehendePos.MengeGeliefert = neuePos.MengeGeliefert;
+                    bestehendePos.Besonderheit = neuePos.Besonderheit;
                 }
             }
         }

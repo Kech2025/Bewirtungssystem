@@ -917,7 +917,8 @@ app.MapGet("/api/auslieferung/station", (int termin, int station) =>
                p.Name,
                COALESCE(z.Bezeichnung, '') AS ZusatzText,
                bp.Menge,
-               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
+               COALESCE(bp.Besonderheit, '') AS Besonderheit
         FROM BewirtungsPosition bp
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
@@ -946,7 +947,8 @@ app.MapGet("/api/auslieferung/station", (int termin, int station) =>
                 PosNr = (long)reader.GetInt32(2),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
                 Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
             };
             if (!tische.TryGetValue(tischNummer, out var liste))
             {
@@ -976,7 +978,8 @@ app.MapGet("/api/auslieferung/getraenke", (int termin) =>
                p.Name,
                COALESCE(z.Bezeichnung, '') AS ZusatzText,
                bp.Menge,
-               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
+               COALESCE(bp.Besonderheit, '') AS Besonderheit
         FROM BewirtungsPosition bp
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
@@ -1001,7 +1004,8 @@ app.MapGet("/api/auslieferung/getraenke", (int termin) =>
                 PosNr = (long)reader.GetInt32(2),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
                 Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
             };
             if (!tische.TryGetValue(tischNummer, out var liste))
             {
@@ -1032,7 +1036,8 @@ app.MapGet("/api/auslieferung/speisen", (int termin) =>
                p.Name,
                COALESCE(z.Bezeichnung, '') AS ZusatzText,
                bp.Menge,
-               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert
+               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
+               COALESCE(bp.Besonderheit, '') AS Besonderheit
         FROM BewirtungsPosition bp
         JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
         JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
@@ -1057,7 +1062,8 @@ app.MapGet("/api/auslieferung/speisen", (int termin) =>
                 PosNr = (long)reader.GetInt32(2),
                 Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
                 Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6)
+                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
             };
             if (!tische.TryGetValue(tischNummer, out var liste))
             {

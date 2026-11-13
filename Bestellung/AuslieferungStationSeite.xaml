@@ -41,7 +41,7 @@
                                         <Grid
                                             Margin="0,4"
                                             ColumnDefinitions="*,Auto,Auto,Auto"
-                                            RowDefinitions="Auto,Auto"
+                                            RowDefinitions="Auto,Auto,Auto"
                                             ColumnSpacing="8">
                                             <Label
                                                 Grid.Column="0"
@@ -57,6 +57,16 @@
                                                 TextColor="DarkBlue"
                                                 VerticalOptions="Center"
                                                 Text="{Binding GeliefertText}" />
+                                            <Label
+                                                Grid.Column="0"
+                                                Grid.ColumnSpan="4"
+                                                Grid.Row="2"
+                                                FontAttributes="Bold"
+                                                FontSize="24"
+                                                IsVisible="{Binding HatBesonderheit}"
+                                                TextColor="Red"
+                                                VerticalOptions="Center"
+                                                Text="{Binding Besonderheit}" />
                                             <Button
                                                 Grid.Column="1"
                                                 Grid.Row="0"
