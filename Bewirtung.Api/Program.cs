@@ -298,7 +298,7 @@ app.MapGet("/api/handy/validate", (string? seriennummer) =>
     using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
-        SELECT seriennummer, name
+        SELECT seriennummer, name, bestellung
         FROM handy
         WHERE seriennummer = @seriennummer
         LIMIT 1;";
@@ -312,7 +312,8 @@ app.MapGet("/api/handy/validate", (string? seriennummer) =>
     return Results.Ok(new
     {
         Seriennummer = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
-        Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+        Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+        Bestellung = !reader.IsDBNull(2) && reader.GetBoolean(2)
     });
 });
 

@@ -8,6 +8,7 @@ public static class HandyIdentitaet
 {
     private const string SeriennummerKey = "handy_seriennummer";
     private const string NameKey = "handy_name";
+    private const string BestellungKey = "handy_bestellung";
 
     /// <summary>Gespeicherte Seriennummer oder null, wenn noch keine erfasst wurde.</summary>
     public static async Task<string?> GetSeriennummerAsync()
@@ -40,6 +41,26 @@ public static class HandyIdentitaet
     {
         await SecureStorage.Default.SetAsync(SeriennummerKey, seriennummer);
         await SecureStorage.Default.SetAsync(NameKey, name ?? string.Empty);
+    }
+
+    /// <summary>Speichert das Bestellmodus-Flag für dieses Gerät.</summary>
+    public static async Task SpeichereBestellungAsync(bool bestellung)
+    {
+        await SecureStorage.Default.SetAsync(BestellungKey, bestellung ? "1" : "0");
+    }
+
+    /// <summary>Gespeichertes Bestellmodus-Flag (Default true, falls nicht gesetzt).</summary>
+    public static async Task<bool> GetBestellungAsync()
+    {
+        try
+        {
+            var wert = await SecureStorage.Default.GetAsync(BestellungKey);
+            return wert is null || wert == "1";
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     /// <summary>True, wenn bereits eine Seriennummer hinterlegt ist.</summary>

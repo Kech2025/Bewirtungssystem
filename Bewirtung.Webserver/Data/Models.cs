@@ -341,6 +341,7 @@ namespace Bewirtung.Webserver.Data
         public DateTime? Activated { get; set; }
         public string Name { get; set; } = string.Empty;
         public DateTime? Terminated { get; set; }
+        public bool Bestellung { get; set; } = true;
     }
 
     /// <summary>

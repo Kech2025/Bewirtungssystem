@@ -18,7 +18,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT seriennummer, frei, userid, activated, name, terminated
+                SELECT seriennummer, frei, userid, activated, name, terminated, bestellung
                 FROM handy
                 ORDER BY name;";
             using var reader = command.ExecuteReader();
@@ -31,7 +31,8 @@ namespace Bewirtung.Webserver.Data
                     UserId = reader.IsDBNull(2) ? null : reader.GetInt32(2),
                     Activated = reader.IsDBNull(3) ? null : reader.GetDateTime(3),
                     Name = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                    Terminated = reader.IsDBNull(5) ? null : reader.GetDateTime(5)
+                    Terminated = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
+                    Bestellung = !reader.IsDBNull(6) && reader.GetBoolean(6)
                 });
             }
             return result;
@@ -42,8 +43,8 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO handy (seriennummer, frei, userid, activated, name, terminated)
-                VALUES (@seriennummer, @frei, @userid, @activated, @name, @terminated);";
+                INSERT INTO handy (seriennummer, frei, userid, activated, name, terminated, bestellung)
+                VALUES (@seriennummer, @frei, @userid, @activated, @name, @terminated, @bestellung);";
             AddParameters(command, handy);
             command.ExecuteNonQuery();
         }
@@ -58,7 +59,8 @@ namespace Bewirtung.Webserver.Data
                     userid = @userid,
                     activated = @activated,
                     name = @name,
-                    terminated = @terminated
+                    terminated = @terminated,
+                    bestellung = @bestellung
                 WHERE seriennummer = @seriennummer;";
             AddParameters(command, handy);
             command.ExecuteNonQuery();
@@ -90,6 +92,7 @@ namespace Bewirtung.Webserver.Data
             command.Parameters.AddWithValue("activated", (object?)handy.Activated ?? DBNull.Value);
             command.Parameters.AddWithValue("name", (object?)handy.Name ?? DBNull.Value);
             command.Parameters.AddWithValue("terminated", (object?)handy.Terminated ?? DBNull.Value);
+            command.Parameters.AddWithValue("bestellung", handy.Bestellung);
         }
     }
 }

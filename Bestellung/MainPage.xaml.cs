@@ -12,6 +12,9 @@ public partial class MainPage : ContentPage
     // Im Modus-Picker geführte Küchenstationen (Index im Picker = Index hier + 1, da Index 0 = Bestellung).
     private List<KuechenstationDto> _kuechenstationen = new();
 
+    // Ob dieses Gerät den Bestellmodus anzeigen darf (aus der Tabelle handy, Feld Bestellung).
+    private bool _bestellungErlaubt = true;
+
     // Zuletzt verwendete Anmeldung, um sie bei Rückkehr zur Anmeldeseite vorzubelegen.
     private int? _letzterBewirtungsDatum;
     private long? _letzterVereinId;
@@ -26,8 +29,38 @@ public partial class MainPage : ContentPage
     {
         base.OnAppearing();
         await StelleHandyRegistrierungSicherAsync();
+        await AktualisiereBestellungFlagAsync();
         await LadeModusAsync();
         await LadeTermineAsync();
+    }
+
+    /// <summary>
+    /// Lädt das aktuelle Bestellung-Flag des Geräts frisch vom Server (anhand der
+    /// gespeicherten Seriennummer) und merkt es für den Modus-Picker. Fällt bei
+    /// Fehlern auf den zuletzt gespeicherten Wert zurück.
+    /// </summary>
+    private async Task AktualisiereBestellungFlagAsync()
+    {
+        var seriennummer = await HandyIdentitaet.GetSeriennummerAsync();
+        if (!string.IsNullOrWhiteSpace(seriennummer))
+        {
+            try
+            {
+                var handy = await _handyApiClient.ValidiereSeriennummerAsync(seriennummer);
+                if (handy is not null)
+                {
+                    _bestellungErlaubt = handy.Bestellung;
+                    await HandyIdentitaet.SpeichereBestellungAsync(handy.Bestellung);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Bestellung-Flag konnte nicht geladen werden: {ex.Message}");
+            }
+        }
+
+        _bestellungErlaubt = await HandyIdentitaet.GetBestellungAsync();
     }
 
     /// <summary>
@@ -49,12 +82,15 @@ public partial class MainPage : ContentPage
         }
 
         ModusPicker.Items.Clear();
-        ModusPicker.Items.Add("Bestellung");
+        if (_bestellungErlaubt)
+        {
+            ModusPicker.Items.Add("Bestellung");
+        }
         foreach (var station in _kuechenstationen)
         {
             ModusPicker.Items.Add(station.Name);
         }
-        ModusPicker.SelectedIndex = 0;
+        ModusPicker.SelectedIndex = ModusPicker.Items.Count > 0 ? 0 : -1;
     }
 
     /// <summary>
@@ -99,6 +135,8 @@ public partial class MainPage : ContentPage
                 }
 
                 await HandyIdentitaet.SpeichereAsync(handy.Seriennummer, handy.Name);
+                await HandyIdentitaet.SpeichereBestellungAsync(handy.Bestellung);
+                _bestellungErlaubt = handy.Bestellung;
                 await DisplayAlertAsync(
                     "Registriert",
                     $"Gerät erfolgreich registriert: {handy.Name}",
@@ -194,11 +232,14 @@ public partial class MainPage : ContentPage
         _letzterVereinId = termin.VereinId;
         _letzterUserId = benutzer.UserId;
 
-        // Index 0 = Bestellung, Index >= 1 = jeweilige Küchenstation (_kuechenstationen[index - 1]).
+        // Modus-Picker-Belegung: Wenn Bestellung erlaubt ist, steht sie an Index 0 und
+        // die Küchenstationen beginnen bei Index 1. Ist Bestellung nicht erlaubt, beginnen
+        // die Küchenstationen bereits bei Index 0.
         var modusIndex = ModusPicker.SelectedIndex;
-        if (modusIndex >= 1 && modusIndex - 1 < _kuechenstationen.Count)
+        var stationIndex = _bestellungErlaubt ? modusIndex - 1 : modusIndex;
+        if (stationIndex >= 0 && stationIndex < _kuechenstationen.Count)
         {
-            var station = _kuechenstationen[modusIndex - 1];
+            var station = _kuechenstationen[stationIndex];
             await Navigation.PushAsync(new AuslieferungStationSeite(benutzer, termin, station));
         }
         else

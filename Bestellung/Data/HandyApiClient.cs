@@ -8,6 +8,9 @@ public class HandyDto
 {
     public string Seriennummer { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>True, wenn für dieses Gerät der Bestellmodus erlaubt ist.</summary>
+    public bool Bestellung { get; set; }
 }
 
 /// <summary>

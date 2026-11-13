@@ -23,6 +23,7 @@ else
 				<th>Seriennummer</th>
 				<th>Name</th>
 				<th>Frei</th>
+				<th>Bestellung</th>
 				<th>Benutzer</th>
 				<th>Aktiviert</th>
 				<th>Beendet</th>
@@ -36,6 +37,7 @@ else
 					<td>@h.Seriennummer</td>
 					<td>@h.Name</td>
 					<td>@(h.Frei ? "Ja" : "Nein")</td>
+					<td>@(h.Bestellung ? "Ja" : "Nein")</td>
 					<td>@BenutzerName(h.UserId)</td>
 					<td>@(h.Activated?.ToString("dd.MM.yyyy HH:mm"))</td>
 					<td>@(h.Terminated?.ToString("dd.MM.yyyy HH:mm"))</td>
@@ -69,6 +71,10 @@ else
 						<div class="form-check mb-3">
 							<InputCheckbox class="form-check-input" id="chkFrei" @bind-Value="_bearbeiten.Frei" />
 							<label class="form-check-label" for="chkFrei">Frei</label>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" id="chkBestellung" @bind-Value="_bearbeiten.Bestellung" />
+							<label class="form-check-label" for="chkBestellung">Bestellung</label>
 						</div>
 						@if (_terminierbar)
 						{
@@ -145,7 +151,8 @@ else
 			UserId = h.UserId,
 			Activated = h.Activated,
 			Name = h.Name,
-			Terminated = h.Terminated
+			Terminated = h.Terminated,
+			Bestellung = h.Bestellung
 		};
 		_istNeu = false;
 		_terminiertDatum = null;
