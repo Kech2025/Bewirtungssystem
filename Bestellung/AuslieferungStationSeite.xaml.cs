@@ -72,16 +72,7 @@ public partial class AuslieferungStationSeite : ContentPage
         try
         {
             var tische = await _auslieferungApiClient.GetStationAsync(_termin.BewirtungsDatum, _station.Id);
-            _tische.Clear();
-            foreach (var tisch in tische)
-            {
-                foreach (var position in tisch.Positionen)
-                {
-                    var offen = position.Menge - position.MengeGeliefert;
-                    position.SeitenMenge = offen > 0m ? (int)offen : 0;
-                }
-                _tische.Add(tisch);
-            }
+            MergePositionen(tische);
         }
         catch (Exception ex)
         {
@@ -90,6 +81,66 @@ public partial class AuslieferungStationSeite : ContentPage
         finally
         {
             _ladeLaeuft = false;
+        }
+    }
+
+    // Aktualisiert die Anzeige, ohne die laufende Benutzereingabe (SeitenMenge) zu verwerfen.
+    // Es werden nur neue Tische/Positionen hinzugefügt bzw. nicht mehr offene entfernt und
+    // die Serverwerte (Menge/MengeGeliefert) bestehender Positionen aktualisiert.
+    private void MergePositionen(List<AuslieferungTischDto> neueTische)
+    {
+        // Entfernte Tische löschen.
+        for (var i = _tische.Count - 1; i >= 0; i--)
+        {
+            var vorhanden = _tische[i];
+            if (!neueTische.Any(t => t.TischNummer == vorhanden.TischNummer))
+            {
+                _tische.RemoveAt(i);
+            }
+        }
+
+        foreach (var neuerTisch in neueTische)
+        {
+            var bestehenderTisch = _tische.FirstOrDefault(t => t.TischNummer == neuerTisch.TischNummer);
+            if (bestehenderTisch is null)
+            {
+                // Neuer Tisch: Seitenmenge auf offene Menge vorbelegen.
+                foreach (var position in neuerTisch.Positionen)
+                {
+                    position.SeitenMenge = position.MaxSeitenMenge;
+                }
+                _tische.Add(neuerTisch);
+                continue;
+            }
+
+            // Entfernte Positionen löschen.
+            for (var i = bestehenderTisch.Positionen.Count - 1; i >= 0; i--)
+            {
+                var vorhandenePos = bestehenderTisch.Positionen[i];
+                if (!neuerTisch.Positionen.Any(p => p.AuftragId == vorhandenePos.AuftragId && p.PosNr == vorhandenePos.PosNr))
+                {
+                    bestehenderTisch.Positionen.RemoveAt(i);
+                }
+            }
+
+            foreach (var neuePos in neuerTisch.Positionen)
+            {
+                var bestehendePos = bestehenderTisch.Positionen
+                    .FirstOrDefault(p => p.AuftragId == neuePos.AuftragId && p.PosNr == neuePos.PosNr);
+
+                if (bestehendePos is null)
+                {
+                    // Neue Position: Seitenmenge auf offene Menge vorbelegen.
+                    neuePos.SeitenMenge = neuePos.MaxSeitenMenge;
+                    bestehenderTisch.Positionen.Add(neuePos);
+                }
+                else
+                {
+                    // Bestehende Position: nur Serverwerte aktualisieren, Benutzereingabe (SeitenMenge) beibehalten.
+                    bestehendePos.Menge = neuePos.Menge;
+                    bestehendePos.MengeGeliefert = neuePos.MengeGeliefert;
+                }
+            }
         }
     }
 

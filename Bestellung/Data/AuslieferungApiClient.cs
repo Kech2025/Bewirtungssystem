@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Net.Http.Json;
 
@@ -62,7 +63,7 @@ public class AuslieferungApiClient
 public class AuslieferungTischDto
 {
     public int TischNummer { get; set; }
-    public List<AuslieferungPositionDto> Positionen { get; set; } = new();
+    public ObservableCollection<AuslieferungPositionDto> Positionen { get; set; } = new();
 
     public string TischTitel => $"Tisch {TischNummer}";
 }
@@ -73,8 +74,39 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
     public long AuftragId { get; set; }
     public long PosNr { get; set; }
     public string Produkt { get; set; } = string.Empty;
-    public decimal Menge { get; set; }
-    public decimal MengeGeliefert { get; set; }
+
+    private decimal _menge;
+    public decimal Menge
+    {
+        get => _menge;
+        set
+        {
+            if (_menge != value)
+            {
+                _menge = value;
+                OnPropertyChanged(nameof(Menge));
+                OnPropertyChanged(nameof(MaxSeitenMenge));
+                OnPropertyChanged(nameof(AnzeigeText));
+                OnPropertyChanged(nameof(GeliefertText));
+            }
+        }
+    }
+
+    private decimal _mengeGeliefert;
+    public decimal MengeGeliefert
+    {
+        get => _mengeGeliefert;
+        set
+        {
+            if (_mengeGeliefert != value)
+            {
+                _mengeGeliefert = value;
+                OnPropertyChanged(nameof(MengeGeliefert));
+                OnPropertyChanged(nameof(MaxSeitenMenge));
+                OnPropertyChanged(nameof(GeliefertText));
+            }
+        }
+    }
 
     private int _seitenMenge;
 

@@ -94,7 +94,7 @@
                                 Clicked="OnFertigClicked"
                                 CommandParameter="{Binding .}"
                                 HorizontalOptions="End"
-                                Text="Fertig" />
+                                Text="Liefern" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
