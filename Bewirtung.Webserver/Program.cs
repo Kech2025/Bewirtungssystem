@@ -31,6 +31,7 @@ builder.Services.AddScoped<AbrechnungRepository>();
 builder.Services.AddScoped<WordVorlageRepository>();
 builder.Services.AddScoped<HandyRepository>();
 builder.Services.AddScoped<KuechenstationRepository>();
+builder.Services.AddScoped<JournalRepository>();
 builder.Services.AddScoped<KuechenstationTerminRepository>();
 
 // TSE / Fiskalisierung (KassenSichV).

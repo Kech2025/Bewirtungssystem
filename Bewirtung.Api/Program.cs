@@ -1154,6 +1154,42 @@ app.MapPost("/api/auslieferung/fertig", (AuslieferungFertigRequest req) =>
     return Results.Ok(new { Aktualisiert = aktualisiert });
 });
 
+// POST /api/journal/login  -> Protokolliert einen Login (userid, eingeloggt=now, modus, termin).
+app.MapPost("/api/journal/login", (JournalLoginRequest req) =>
+{
+    using var connection = OpenConnection();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        INSERT INTO journal (userid, eingeloggt, modus, termin)
+        VALUES (@userid, @eingeloggt, @modus, @termin);";
+    command.Parameters.AddWithValue("@userid", (int)req.UserId);
+    command.Parameters.AddWithValue("@eingeloggt", DateTime.Now);
+    command.Parameters.AddWithValue("@modus", (object?)req.Modus ?? DBNull.Value);
+    command.Parameters.AddWithValue("@termin",
+        req.Termin is int t ? FromYyyyMmDd(t) : (object)DBNull.Value);
+    command.ExecuteNonQuery();
+    return Results.Ok();
+});
+
+// POST /api/journal/logout  -> Setzt ausgeloggt=now beim letzten noch offenen Login des Benutzers.
+app.MapPost("/api/journal/logout", (JournalLogoutRequest req) =>
+{
+    using var connection = OpenConnection();
+    using var command = connection.CreateCommand();
+    command.CommandText = @"
+        UPDATE journal
+        SET ausgeloggt = @ausgeloggt
+        WHERE userid = @userid
+          AND eingeloggt = (
+              SELECT MAX(eingeloggt) FROM journal
+              WHERE userid = @userid AND ausgeloggt IS NULL
+          );";
+    command.Parameters.AddWithValue("@ausgeloggt", DateTime.Now);
+    command.Parameters.AddWithValue("@userid", (int)req.UserId);
+    var aktualisiert = command.ExecuteNonQuery();
+    return Results.Ok(new { Aktualisiert = aktualisiert });
+});
+
 app.Run();
 
 record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen);
@@ -1164,4 +1200,6 @@ record TeilzahlenPosition(long AuftragId, long PosNr, decimal MengeZahlen);
 record AuslieferungFertigRequest(List<AuslieferungFertigPosition> Positionen);
 record AuslieferungFertigPosition(long AuftragId, long PosNr, decimal SeitenMenge);
 record GeliefertRequest(List<GeliefertPosition> Positionen);
+record JournalLoginRequest(long UserId, int? Modus, int? Termin);
+record JournalLogoutRequest(long UserId);
 record GeliefertPosition(long AuftragId, long PosNr);

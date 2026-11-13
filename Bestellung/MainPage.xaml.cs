@@ -8,6 +8,7 @@ public partial class MainPage : ContentPage
     private readonly BenutzerApiClient _benutzerApiClient = new();
     private readonly HandyApiClient _handyApiClient = new();
     private readonly KuechenstationApiClient _kuechenstationApiClient = new();
+    private readonly JournalApiClient _journalApiClient = new();
 
     // Im Modus-Picker geführte Küchenstationen (Index im Picker = Index hier + 1, da Index 0 = Bestellung).
     private List<KuechenstationDto> _kuechenstationen = new();
@@ -20,6 +21,9 @@ public partial class MainPage : ContentPage
     private long? _letzterVereinId;
     private long? _letzterUserId;
 
+    // Benutzer-ID der aktuell offenen Journal-Sitzung (Login ohne zugehörigen Logout).
+    private long? _aktiveJournalUserId;
+
     public MainPage()
     {
         InitializeComponent();
@@ -28,10 +32,37 @@ public partial class MainPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        // Kehrt der Benutzer von einer Modus-/Bestellseite zur Anmeldeseite zurück,
+        // wird die noch offene Journal-Sitzung abgemeldet.
+        await BeendeJournalSitzungAsync();
+
         await StelleHandyRegistrierungSicherAsync();
         await AktualisiereBestellungFlagAsync();
         await LadeModusAsync();
         await LadeTermineAsync();
+    }
+
+    /// <summary>
+    /// Schließt eine noch offene Journal-Sitzung (Logout). Idempotent: ohne offene
+    /// Sitzung passiert nichts und Fehler werden ignoriert.
+    /// </summary>
+    private async Task BeendeJournalSitzungAsync()
+    {
+        if (_aktiveJournalUserId is not long userId)
+        {
+            return;
+        }
+
+        _aktiveJournalUserId = null;
+        try
+        {
+            await _journalApiClient.LogoutAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Journal-Logout fehlgeschlagen: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -237,6 +268,18 @@ public partial class MainPage : ContentPage
         // die Küchenstationen bereits bei Index 0.
         var modusIndex = ModusPicker.SelectedIndex;
         var stationIndex = _bestellungErlaubt ? modusIndex - 1 : modusIndex;
+
+        // Login in der journal-Tabelle protokollieren (modus = gewählter Modus-Index).
+        try
+        {
+            await _journalApiClient.LoginAsync(benutzer.UserId, modusIndex, termin.BewirtungsDatum);
+            _aktiveJournalUserId = benutzer.UserId;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Journal-Login fehlgeschlagen: {ex.Message}");
+        }
+
         if (stationIndex >= 0 && stationIndex < _kuechenstationen.Count)
         {
             var station = _kuechenstationen[stationIndex];
@@ -254,6 +297,8 @@ public partial class MainPage : ContentPage
         _letzterBewirtungsDatum = null;
         _letzterVereinId = null;
         _letzterUserId = null;
+
+        _ = BeendeJournalSitzungAsync();
 
         TerminPicker.SelectedIndex = -1;
         BenutzerPicker.ItemsSource = null;

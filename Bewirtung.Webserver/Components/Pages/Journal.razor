@@ -1,0 +1,54 @@
+@page "/journal"
+@rendermode RenderMode.InteractiveServer
+@inject JournalRepository JournalRepo
+@inject Bewirtung.Webserver.Data.SessionState Session
+
+<PageTitle>Journal</PageTitle>
+
+<AdminGuard />
+
+<h1>Journal</h1>
+
+@if (_eintraege is null)
+{
+	<p><em>Lade…</em></p>
+}
+else if (_eintraege.Count == 0)
+{
+	<p>Keine Journal-Einträge vorhanden.</p>
+}
+else
+{
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Benutzer</th>
+				<th>Eingeloggt</th>
+				<th>Ausgeloggt</th>
+				<th>Modus</th>
+				<th>Termin</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var e in _eintraege)
+			{
+				<tr>
+					<td>@(string.IsNullOrEmpty(e.BenutzerName) ? e.UserId.ToString() : e.BenutzerName)</td>
+					<td>@e.Eingeloggt.ToString("dd.MM.yyyy HH:mm:ss")</td>
+					<td>@(e.Ausgeloggt?.ToString("dd.MM.yyyy HH:mm:ss"))</td>
+					<td>@(string.IsNullOrEmpty(e.ModusText) ? e.Modus?.ToString() : e.ModusText)</td>
+					<td>@(e.Termin?.ToString("dd.MM.yyyy"))</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+@code {
+	private List<JournalEintrag>? _eintraege;
+
+	protected override void OnInitialized()
+	{
+		_eintraege = JournalRepo.GetAll();
+	}
+}
