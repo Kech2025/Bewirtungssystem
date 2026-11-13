@@ -219,7 +219,13 @@ app.MapGet("/api/tische", (int datum) =>
     using var connection = OpenConnection();
     using var command = connection.CreateCommand();
     command.CommandText = @"
-        SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, false)
+        SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, false),
+               CASE WHEN EXISTS (
+                   SELECT 1 FROM Bewirtungsauftrag ba
+                   WHERE ba.TischNummer = t.Tischnummer
+                     AND ba.Bewirtungstermin = @datum
+                     AND ba.Status = false
+               ) THEN true ELSE false END AS OffeneRechnung
         FROM Tisch t
         INNER JOIN TischTermin tt ON tt.Tischnummer = t.Tischnummer AND tt.Bewirtungsdatum = @datum
         LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
@@ -234,7 +240,8 @@ app.MapGet("/api/tische", (int datum) =>
             {
                 Tischnummer = reader.GetInt32(0),
                 Bereich = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                SofortLieferung = reader.IsDBNull(2) ? 0 : (reader.GetBoolean(2) ? 1 : 0)
+                SofortLieferung = reader.IsDBNull(2) ? 0 : (reader.GetBoolean(2) ? 1 : 0),
+                OffeneRechnung = !reader.IsDBNull(3) && reader.GetBoolean(3)
             });
         }
     }

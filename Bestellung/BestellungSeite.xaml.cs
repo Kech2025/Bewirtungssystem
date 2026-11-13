@@ -19,6 +19,10 @@ public partial class BestellungSeite : ContentPage
     private OffeneBestellungDto? _offeneBestellung;
     private static readonly CultureInfo EuroKultur = CultureInfo.GetCultureInfo("de-DE");
 
+    // Aktuell geladene Tische und der ausgewählte Tisch (ersetzt den früheren Picker).
+    private List<TischDto> _tische = new();
+    private TischDto? _gewaehlterTisch;
+
     // True, wenn der Teilbetrag manuell im Entry überschrieben wurde.
     private bool _teilbetragUeberschrieben;
     // Verhindert, dass programmatische Änderungen des Entry als manuelle Eingabe gewertet werden.
@@ -43,8 +47,8 @@ public partial class BestellungSeite : ContentPage
     {
         try
         {
-            var tische = await _tischApiClient.GetTischeAsync(_termin.BewirtungsDatum);
-            TischPicker.ItemsSource = tische;
+            _tische = await _tischApiClient.GetTischeAsync(_termin.BewirtungsDatum);
+            TischAuswahlView.ItemsSource = _tische;
         }
         catch (Exception ex)
         {
@@ -53,10 +57,37 @@ public partial class BestellungSeite : ContentPage
         }
     }
 
-    private async void OnTischChanged(object? sender, EventArgs e)
+    /// <summary>Öffnet das Overlay zur Tischauswahl (Tische mit offener Rechnung erscheinen rot).</summary>
+    private async void OnTischAuswahlOeffnen(object? sender, EventArgs e)
     {
-        // Preisliste erst anzeigen, wenn eine Tischnummer ausgewählt wurde.
-        if (TischPicker.SelectedItem is null)
+        // Beim Öffnen die aktuellen Tische inkl. Offene-Rechnung-Status neu laden.
+        await LadeTischnummernAsync();
+        TischAuswahlOverlay.IsVisible = true;
+    }
+
+    private void OnTischAuswahlAbbrechen(object? sender, EventArgs e)
+    {
+        TischAuswahlOverlay.IsVisible = false;
+    }
+
+    private async void OnTischAusgewaehlt(object? sender, EventArgs e)
+    {
+        if ((sender as Element)?.BindingContext is not TischDto tisch)
+        {
+            return;
+        }
+
+        TischAuswahlOverlay.IsVisible = false;
+        _gewaehlterTisch = tisch;
+        TischAuswahlButton.Text = tisch.Anzeige;
+        TischAuswahlButton.TextColor = tisch.AnzeigeFarbe;
+
+        await TischGewechseltAsync();
+    }
+
+    private async Task TischGewechseltAsync()
+    {
+        if (_gewaehlterTisch is null)
         {
             RechnungButton.IsEnabled = false;
             return;
@@ -84,7 +115,13 @@ public partial class BestellungSeite : ContentPage
         await PruefeOffeneBestellungAsync();
     }
 
-    /// <summary>Setzt die Menge aller Preislistenpositionen auf 0 (leere neue Bestellung).</summary>
+    /// <summary>Setzt die Tischauswahl zurück (kein Tisch gewählt).</summary>
+    private void SetzeTischAuswahlZurueck()
+    {
+        _gewaehlterTisch = null;
+        TischAuswahlButton.Text = "Tischnummer wählen";
+        TischAuswahlButton.TextColor = Colors.Black;
+    }
     private void SetzeAlleMengenZurueck()
     {
         // Zuerst die Anzeigezeilen (inkl. zugeklappter Varianten) über ihre Setter
@@ -143,7 +180,7 @@ public partial class BestellungSeite : ContentPage
         RechnungButton.IsEnabled = false;
         _offeneBestellung = null;
 
-        if (TischPicker.SelectedItem is not TischDto tisch)
+        if (_gewaehlterTisch is not TischDto tisch)
         {
             return;
         }
@@ -361,7 +398,7 @@ public partial class BestellungSeite : ContentPage
             return null;
         }
 
-        if (TischPicker.SelectedItem is not TischDto tisch)
+        if (_gewaehlterTisch is not TischDto tisch)
         {
             await DisplayAlertAsync("Hinweis", "Bitte zuerst eine Tischnummer wählen.", "OK");
             return false;
@@ -441,7 +478,7 @@ public partial class BestellungSeite : ContentPage
         }
 
         // Für Tische mit Sofortlieferung je Position eine "geliefert"-Checkbox (vorausgewählt) anzeigen.
-        var zeigeGeliefert = (TischPicker.SelectedItem as TischDto)?.SofortLieferung == 1;
+        var zeigeGeliefert = _gewaehlterTisch?.SofortLieferung == 1;
         foreach (var p in offenePositionen)
         {
             p.ZeigeGeliefert = zeigeGeliefert;
@@ -518,7 +555,7 @@ public partial class BestellungSeite : ContentPage
         var offene = _offeneBestellung?.Positionen.Where(p => p.OffeneMenge > 0m).ToList()
             ?? new List<OffeneBestellungPosition>();
 
-        var zeigeGeliefert = (TischPicker.SelectedItem as TischDto)?.SofortLieferung == 1;
+        var zeigeGeliefert = _gewaehlterTisch?.SofortLieferung == 1;
         foreach (var p in offene)
         {
             p.ZeigeGeliefert = zeigeGeliefert;
@@ -642,7 +679,7 @@ public partial class BestellungSeite : ContentPage
                 ZeigeBestellAnsicht();
                 GesamtTitelLabel.IsVisible = true;
                 GesamtpreisLabel.IsVisible = true;
-                TischPicker.SelectedItem = null;
+                SetzeTischAuswahlZurueck();
             }
 
             // Fiskal-QR-Code des Teilzahlungsbelegs anzeigen (falls die TSE-Signatur erfolgreich war).
@@ -760,7 +797,7 @@ public partial class BestellungSeite : ContentPage
             GesamtpreisLabel.IsVisible = true;
             RechnungButton.IsEnabled = false;
             BezahlenButton.IsEnabled = true;
-            TischPicker.SelectedItem = null;
+            SetzeTischAuswahlZurueck();
 
             // Fiskal-QR-Code des Belegs anzeigen (falls die TSE-Signatur erfolgreich war).
             ZeigeFiskalBeleg(ergebnis);

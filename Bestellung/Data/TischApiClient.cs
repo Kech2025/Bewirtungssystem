@@ -13,9 +13,15 @@ public class TischDto
     /// <summary>Sofortlieferung: 0 = Nein, 1 = Ja.</summary>
     public int SofortLieferung { get; set; }
 
+    /// <summary>True, wenn für den Tisch noch eine offene (unbezahlte) Rechnung existiert.</summary>
+    public bool OffeneRechnung { get; set; }
+
     /// <summary>Anzeigetext für die Auswahl, z. B. "Tisch 5 – Terrasse".</summary>
     public string Anzeige =>
         string.IsNullOrWhiteSpace(Bereich) ? $"Tisch {Tischnummer}" : $"Tisch {Tischnummer} – {Bereich}";
+
+    /// <summary>Textfarbe in der Auswahl: Rot bei offener Rechnung, sonst Standard.</summary>
+    public Color AnzeigeFarbe => OffeneRechnung ? Colors.Red : Colors.Black;
 
     public override string ToString() => Anzeige;
 }

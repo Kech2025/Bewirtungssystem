@@ -79,13 +79,12 @@
                     Grid.Column="0"
                     Text="Tisch:"
                     VerticalOptions="Center" />
-                <Picker
-                    x:Name="TischPicker"
-                    Title="Tischnummer wählen"
+                <Button
+                    x:Name="TischAuswahlButton"
                     Grid.Column="1"
-                    ItemDisplayBinding="{Binding Anzeige}"
-                    SelectedIndexChanged="OnTischChanged"
-                    HorizontalOptions="Fill" />
+                    Clicked="OnTischAuswahlOeffnen"
+                    HorizontalOptions="Fill"
+                    Text="Tischnummer wählen" />
             </Grid>
         </VerticalStackLayout>
 
@@ -412,6 +411,54 @@
                 FontAttributes="Bold"
                 HeightRequest="40"
                 Text="Fertig" />
+        </Grid>
+
+        <!-- Overlay für die Tischauswahl: Tische mit offener Rechnung erscheinen rot. -->
+        <Grid
+            x:Name="TischAuswahlOverlay"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            BackgroundColor="#99000000"
+            IsVisible="False">
+            <Border
+                Margin="24"
+                Padding="0"
+                BackgroundColor="White"
+                HorizontalOptions="Fill"
+                StrokeShape="RoundRectangle 12"
+                VerticalOptions="Center">
+                <Grid Padding="16" RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                    <Label
+                        Grid.Row="0"
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        Text="Tischnummer wählen" />
+                    <CollectionView
+                        x:Name="TischAuswahlView"
+                        Grid.Row="1"
+                        SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="8,12">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnTischAusgewaehlt" />
+                                    </Grid.GestureRecognizers>
+                                    <Label
+                                        FontSize="18"
+                                        Text="{Binding Anzeige}"
+                                        TextColor="{Binding AnzeigeFarbe}"
+                                        VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <Button
+                        Grid.Row="2"
+                        Clicked="OnTischAuswahlAbbrechen"
+                        HorizontalOptions="End"
+                        Text="Abbrechen" />
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>
