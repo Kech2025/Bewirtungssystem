@@ -33,6 +33,7 @@ builder.Services.AddScoped<HandyRepository>();
 builder.Services.AddScoped<KuechenstationRepository>();
 builder.Services.AddScoped<JournalRepository>();
 builder.Services.AddScoped<KuechenstationTerminRepository>();
+builder.Services.AddScoped<ClusterStatusService>();
 
 // TSE / Fiskalisierung (KassenSichV).
 // Cloud-TSE (z. B. fiskaly / Deutsche Fiskal). Läuft aktuell im Dummy-Modus

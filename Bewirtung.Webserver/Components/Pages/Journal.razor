@@ -1,6 +1,7 @@
 @page "/journal"
 @rendermode RenderMode.InteractiveServer
 @inject JournalRepository JournalRepo
+@inject ClusterStatusService ClusterStatus
 @inject Bewirtung.Webserver.Data.SessionState Session
 
 <PageTitle>Journal</PageTitle>
@@ -8,6 +9,66 @@
 <AdminGuard />
 
 <h1>Journal</h1>
+
+<div class="cluster-status">
+	<span class="cluster-status-titel">Cluster:</span>
+	@if (_nodes is null)
+	{
+		<span class="cluster-node"><span class="status-led unknown"></span> Lade…</span>
+	}
+	else
+	{
+		@foreach (var node in _nodes)
+		{
+			<span class="cluster-node">
+				<span class="status-led @(node.Ready ? "online" : "offline")"
+					  title="@(node.Ready ? "Bereit" : "Nicht erreichbar")"></span>
+				@node.Name.ToUpperInvariant()
+			</span>
+		}
+	}
+</div>
+
+<style>
+	.cluster-status {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		margin-bottom: 1rem;
+	}
+
+	.cluster-status-titel {
+		font-weight: 600;
+	}
+
+	.cluster-node {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.status-led {
+		display: inline-block;
+		width: 0.85rem;
+		height: 0.85rem;
+		border-radius: 50%;
+		border: 1px solid rgba(0, 0, 0, 0.25);
+	}
+
+	.status-led.online {
+		background-color: #28a745;
+		box-shadow: 0 0 6px #28a745;
+	}
+
+	.status-led.offline {
+		background-color: #dc3545;
+		box-shadow: 0 0 6px #dc3545;
+	}
+
+	.status-led.unknown {
+		background-color: #adb5bd;
+	}
+</style>
 
 @if (_eintraege is null)
 {
@@ -46,9 +107,15 @@ else
 
 @code {
 	private List<JournalEintrag>? _eintraege;
+	private List<ClusterNodeStatus>? _nodes;
 
 	protected override void OnInitialized()
 	{
 		_eintraege = JournalRepo.GetAll();
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		_nodes = await ClusterStatus.GetNodeStatusAsync();
 	}
 }
