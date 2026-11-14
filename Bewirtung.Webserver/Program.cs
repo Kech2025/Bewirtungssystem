@@ -54,6 +54,7 @@ builder.Services.AddScoped<PreislisteDokumentService>();
 builder.Services.AddScoped<AbrechnungPdfService>();
 builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddScoped<SessionState>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Server.Circuits.CircuitHandler, JournalCircuitHandler>();
 
 // Stirling-PDF: Umwandlung von .docx in .pdf über den Docker-Service.
 var stirlingBaseUrl = builder.Configuration["StirlingPdf:BaseUrl"] ?? "http://host.docker.internal:8080";

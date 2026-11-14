@@ -20,11 +20,51 @@ namespace Bewirtung.Webserver.Data
     /// </summary>
     public class JournalRepository
     {
+        /// <summary>Modus-Wert für Anmeldungen am Webserver (wird als "Webseite" angezeigt).</summary>
+        public const int ModusWebseite = -1;
+
         private readonly Database _database;
 
         public JournalRepository(Database database)
         {
             _database = database;
+        }
+
+        /// <summary>
+        /// Protokolliert eine Anmeldung (Login) in der Tabelle journal.
+        /// </summary>
+        public void Login(long userId, int modus)
+        {
+            using var connection = _database.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO journal (userid, eingeloggt, modus, termin)
+                VALUES (@userid, @eingeloggt, @modus, NULL);";
+            command.Parameters.AddWithValue("@userid", (int)userId);
+            command.Parameters.AddWithValue("@eingeloggt", DateTime.Now);
+            command.Parameters.AddWithValue("@modus", modus);
+            command.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Schließt den letzten noch offenen Journal-Eintrag des Benutzers ab (Logout).
+        /// </summary>
+        public void Logout(long userId, int modus)
+        {
+            using var connection = _database.CreateConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                UPDATE journal
+                SET ausgeloggt = @ausgeloggt
+                WHERE userid = @userid
+                  AND eingeloggt = (
+                      SELECT MAX(eingeloggt) FROM journal
+                      WHERE userid = @userid AND modus = @modus AND ausgeloggt IS NULL
+                  );";
+            command.Parameters.AddWithValue("@ausgeloggt", DateTime.Now);
+            command.Parameters.AddWithValue("@userid", (int)userId);
+            command.Parameters.AddWithValue("@modus", modus);
+            command.ExecuteNonQuery();
         }
 
         public List<JournalEintrag> GetAll(int limit = 500)
@@ -64,6 +104,12 @@ namespace Bewirtung.Webserver.Data
             {
                 if (eintrag.Modus is not int modus)
                 {
+                    continue;
+                }
+
+                if (modus == ModusWebseite)
+                {
+                    eintrag.ModusText = "Webseite";
                     continue;
                 }
 
