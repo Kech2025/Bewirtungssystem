@@ -45,7 +45,7 @@ public sealed class ClusterStatusService
         try
         {
             readyNamen = await LadeReadyNodesAsync(_logger, cancellationToken);
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Cluster-Status abgefragt. Ready-Nodes: {ReadyNodes}",
                 readyNamen.Count == 0 ? "(keine)" : string.Join(", ", readyNamen));
         }
@@ -106,7 +106,7 @@ public sealed class ClusterStatusService
             new AuthenticationHeaderValue("Bearer", token.Trim());
 
         using var response = await client.GetAsync("/api/v1/nodes", cancellationToken);
-        logger.LogInformation("Kubernetes-API {Host}:{Port} /api/v1/nodes -> {Status}", host, port, (int)response.StatusCode);
+        logger.LogDebug("Kubernetes-API {Host}:{Port} /api/v1/nodes -> {Status}", host, port, (int)response.StatusCode);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -131,7 +131,7 @@ public sealed class ClusterStatusService
                 }
 
                 var istReady = IstReady(node);
-                logger.LogInformation("Node gefunden: {Name} (Ready={Ready})", name, istReady);
+                logger.LogDebug("Node gefunden: {Name} (Ready={Ready})", name, istReady);
                 if (istReady)
                 {
                     ready.Add(name);
