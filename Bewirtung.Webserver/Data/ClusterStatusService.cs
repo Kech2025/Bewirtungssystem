@@ -27,6 +27,13 @@ public sealed class ClusterStatusService
     private const string TokenPfad = "/var/run/secrets/kubernetes.io/serviceaccount/token";
     private const string CaPfad = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
 
+    private readonly ILogger<ClusterStatusService> _logger;
+
+    public ClusterStatusService(ILogger<ClusterStatusService> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Liefert für jeden erwarteten Node seinen Ready-Zustand. Nicht gefundene oder
     /// nicht abfragbare Nodes werden als nicht bereit (rot) zurückgegeben.
@@ -39,9 +46,10 @@ public sealed class ClusterStatusService
         {
             readyNamen = await LadeReadyNodesAsync(cancellationToken);
         }
-        catch
+        catch (Exception ex)
         {
             // API nicht erreichbar -> alle Nodes als nicht bereit anzeigen.
+            _logger.LogError(ex, "Cluster-Status konnte nicht von der Kubernetes-API gelesen werden.");
             readyNamen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -69,7 +77,8 @@ public sealed class ClusterStatusService
         using var handler = new HttpClientHandler();
         if (File.Exists(CaPfad))
         {
-            var caCert = X509CertificateLoader.LoadCertificateFromFile(CaPfad);
+            // k3s legt die CA im PEM-Format ab; daher PEM-konform laden.
+            var caCert = X509Certificate2.CreateFromPemFile(CaPfad);
             handler.ServerCertificateCustomValidationCallback = (_, cert, chain, _) =>
             {
                 if (cert is null)
