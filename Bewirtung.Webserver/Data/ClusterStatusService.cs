@@ -44,7 +44,10 @@ public sealed class ClusterStatusService
 
         try
         {
-            readyNamen = await LadeReadyNodesAsync(cancellationToken);
+            readyNamen = await LadeReadyNodesAsync(_logger, cancellationToken);
+            _logger.LogInformation(
+                "Cluster-Status abgefragt. Ready-Nodes: {ReadyNodes}",
+                readyNamen.Count == 0 ? "(keine)" : string.Join(", ", readyNamen));
         }
         catch (Exception ex)
         {
@@ -62,7 +65,7 @@ public sealed class ClusterStatusService
             .ToList();
     }
 
-    private static async Task<HashSet<string>> LadeReadyNodesAsync(CancellationToken cancellationToken)
+    private static async Task<HashSet<string>> LadeReadyNodesAsync(ILogger logger, CancellationToken cancellationToken)
     {
         var host = Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST");
         var port = Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_PORT_HTTPS") ?? "443";
@@ -77,8 +80,8 @@ public sealed class ClusterStatusService
         using var handler = new HttpClientHandler();
         if (File.Exists(CaPfad))
         {
-            // k3s legt die CA im PEM-Format ab; daher PEM-konform laden.
-            var caCert = X509Certificate2.CreateFromPemFile(CaPfad);
+            // k3s legt die CA im PEM-Format ab; daher PEM-konform laden (nur Zertifikat, kein Key).
+            var caCert = X509Certificate2.CreateFromPem(await File.ReadAllTextAsync(CaPfad, cancellationToken));
             handler.ServerCertificateCustomValidationCallback = (_, cert, chain, _) =>
             {
                 if (cert is null)
@@ -103,6 +106,7 @@ public sealed class ClusterStatusService
             new AuthenticationHeaderValue("Bearer", token.Trim());
 
         using var response = await client.GetAsync("/api/v1/nodes", cancellationToken);
+        logger.LogInformation("Kubernetes-API {Host}:{Port} /api/v1/nodes -> {Status}", host, port, (int)response.StatusCode);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -126,7 +130,9 @@ public sealed class ClusterStatusService
                     continue;
                 }
 
-                if (IstReady(node))
+                var istReady = IstReady(node);
+                logger.LogInformation("Node gefunden: {Name} (Ready={Ready})", name, istReady);
+                if (istReady)
                 {
                     ready.Add(name);
                 }
