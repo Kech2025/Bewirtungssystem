@@ -34,8 +34,8 @@
 		<ApplicationId>com.companyname.bestellung</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>3.3.2</ApplicationDisplayVersion>
-		<ApplicationVersion>24</ApplicationVersion>
+		<ApplicationDisplayVersion>3.3.3</ApplicationDisplayVersion>
+		<ApplicationVersion>25</ApplicationVersion>
 
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
@@ -49,7 +49,7 @@
 
 	<ItemGroup>
 		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\AppIcon.png" Color="#512BD4" />
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\AppIcon.png" ForegroundScale="0.65" Color="#512BD4" />
 
 		<!-- Splash Screen -->
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
