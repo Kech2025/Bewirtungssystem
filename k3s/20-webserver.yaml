@@ -43,8 +43,14 @@ spec:
     spec:
       # ServiceAccount mit Leserecht auf Nodes (für die Cluster-LED-Anzeige im Journal).
       serviceAccountName: bewirtung-webserver
-      # Pod nur auf dem Node mit dem USB-Stick starten (Node vorher labeln:
-      #   kubectl label node <NODE> usb-stick=true)
+      # Der Pod läuft auf einem Node mit USB-Stick unter /media/usb.
+      # Für Hochverfügbarkeit mehrere Nodes labeln (z. B. pi-1 UND pi-2):
+      #   kubectl label node pi-1 usb-stick=true
+      #   kubectl label node pi-2 usb-stick=true
+      # Fällt der aktive Node aus, startet der Pod automatisch auf dem anderen
+      # gelabelten Node. Hinweis: Der DSFinV-K-USB-Export wird dann auf den Stick
+      # des jeweils aktiven Nodes geschrieben -> beide Sticks archivieren.
+      # replicas bleibt 1, da nur eine Instanz auf den lokalen Stick schreiben darf.
       nodeSelector:
         usb-stick: "true"
       containers:
