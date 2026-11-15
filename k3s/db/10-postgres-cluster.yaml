@@ -1,0 +1,51 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bewirtung-pg
+  namespace: database
+spec:
+  # 3 Instanzen: 1 Primary + 2 Replicas, je eine pro Raspberry Pi.
+  # CloudNativePG führt bei Ausfall des Primary automatisch ein Failover durch.
+  instances: 3
+
+  # Für Raspberry Pi / ARM64 ein passendes PostgreSQL-Image.
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+
+  # Jede Instanz bekommt ihr eigenes lokales Volume (local-path).
+  # Dadurch ist KEIN verteilter Storage (Longhorn o. Ä.) nötig.
+  storage:
+    size: 5Gi
+    storageClass: local-path
+
+  # Instanzen möglichst auf verschiedene Nodes verteilen (Anti-Affinity).
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+
+  # Ressourcen moderat halten (Raspberry Pi).
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+
+  # Superuser-Zugang aktivieren und Passwort aus Secret beziehen.
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: bewirtung-pg-superuser
+
+  # Beim ersten Start wird die Anwendungsdatenbank "bewirtung" angelegt.
+  bootstrap:
+    initdb:
+      database: bewirtung
+      owner: postgres
+      secret:
+        name: bewirtung-pg-superuser
