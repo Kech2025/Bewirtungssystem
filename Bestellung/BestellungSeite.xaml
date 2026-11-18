@@ -84,8 +84,8 @@
                     Grid.Column="1"
                     Clicked="OnTischAuswahlOeffnen"
                     HorizontalOptions="Fill"
-                    TextColor="White"
-                    Text="Tischnummer wählen" />
+                    Text="Tischnummer wählen"
+                    TextColor="White" />
             </Grid>
         </VerticalStackLayout>
 
@@ -415,7 +415,7 @@
                 Text="Fertig" />
         </Grid>
 
-        <!-- Overlay für die Tischauswahl: Tische mit offener Rechnung erscheinen rot. -->
+        <!--  Overlay für die Tischauswahl: Tische mit offener Rechnung erscheinen rot.  -->
         <Grid
             x:Name="TischAuswahlOverlay"
             Grid.Row="0"
@@ -429,7 +429,10 @@
                 HorizontalOptions="Fill"
                 StrokeShape="RoundRectangle 12"
                 VerticalOptions="Center">
-                <Grid Padding="16" RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                <Grid
+                    Padding="16"
+                    RowDefinitions="Auto,*,Auto"
+                    RowSpacing="12">
                     <Label
                         Grid.Row="0"
                         FontAttributes="Bold"

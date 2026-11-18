@@ -19,13 +19,13 @@ public static class ApiConfig
     // Basis-URL der Web-API. Wird automatisch gewählt:
     //  - ServerIpOverride gesetzt: http://<IP>:<Port>        (manueller Override)
     //  - Android-Emulator:         http://10.0.2.2:<Port>    (Alias für "localhost des Host-PCs")
-    //  - Echtes Gerät:             http://192.168.178.111:<Port>  (Raspberry Pi im LAN)
+    //  - Echtes Gerät:             http://192.168.170.30:<Port>  (Raspberry Pi im LAN)
     //  - Windows/sonst (Emulator): http://localhost:<Port>
     // Port der lokal (in Visual Studio) gestarteten Bewirtung.Api.
     private const int LokalerPort = 5080;
 
     // true: Im Debug-Build die lokale API verwenden (Datenbank bleibt im Cluster).
-    public static bool LokaleApiImDebug { get; set; } = true;
+    public static bool LokaleApiImDebug { get; set; } = false;
 
     // LAN-IP des Entwicklungs-PCs (für echte Geräte im Debug-Build).
     private const string DevPcIpAddress = "192.168.178.54";
