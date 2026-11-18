@@ -23,6 +23,7 @@ else
 				<th>Tischnummer</th>
 				<th>Bereich</th>
 				<th>Sofortlieferung</th>
+				<th>Status</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -33,6 +34,7 @@ else
 					<td>@t.Tischnummer</td>
 					<td>@t.BereichName</td>
 					<td>@(t.SofortLieferung == 1 ? "Ja" : "Nein")</td>
+					<td>@(t.Status ? "Aktiv" : "Inaktiv")</td>
 					<td>
 						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(t)">Bearbeiten</button>
 						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(t)">Löschen</button>
@@ -75,6 +77,10 @@ else
 						<div class="form-check mb-3">
 							<InputCheckbox class="form-check-input" @bind-Value="_sofortLieferung" id="sofortCheck" />
 							<label class="form-check-label" for="sofortCheck">Sofortlieferung</label>
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Status" id="statusCheck" />
+							<label class="form-check-label" for="statusCheck">Status (aktiv)</label>
 						</div>
 
 						@if (!string.IsNullOrEmpty(_dialogFehler))
@@ -128,7 +134,8 @@ else
 		{
 			Tischnummer = t.Tischnummer,
 			BereichId = t.BereichId,
-			SofortLieferung = t.SofortLieferung
+			SofortLieferung = t.SofortLieferung,
+			Status = t.Status
 		};
 		_sofortLieferung = t.SofortLieferung == 1;
 	}

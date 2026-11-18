@@ -12,19 +12,27 @@ namespace Bewirtung.Webserver.Data
             _database = database;
         }
 
-        public List<Kuechenstation> GetAll()
+        public List<Kuechenstation> GetAll(bool all = true)
         {
             var result = new List<Kuechenstation>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT id, name FROM kuechenstation ORDER BY id;";
+            if(all)
+            {
+                command.CommandText = "SELECT id, name, status FROM kuechenstation ORDER BY id;";
+            }
+            else
+            {
+                command.CommandText = "SELECT id, name, status FROM kuechenstation WHERE status = true ORDER BY id;";
+            }
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
                 result.Add(new Kuechenstation
                 {
                     Id = reader.GetInt32(0),
-                    Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1)
+                    Name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                    Status = reader.GetBoolean(2)
                 });
             }
             return result;
@@ -34,9 +42,10 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO kuechenstation (id, name) VALUES (@id, @name);";
+            command.CommandText = "INSERT INTO kuechenstation (id, name, status) VALUES (@id, @name, @status);";
             command.Parameters.AddWithValue("id", station.Id);
             command.Parameters.AddWithValue("name", (object?)station.Name ?? DBNull.Value);
+            command.Parameters.AddWithValue("status", station.Status);
             command.ExecuteNonQuery();
         }
 
@@ -44,8 +53,9 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE kuechenstation SET name = @name WHERE id = @id;";
+            command.CommandText = "UPDATE kuechenstation SET name = @name, status = @status WHERE id = @id;";
             command.Parameters.AddWithValue("name", (object?)station.Name ?? DBNull.Value);
+            command.Parameters.AddWithValue("status", station.Status);
             command.Parameters.AddWithValue("id", station.Id);
             command.ExecuteNonQuery();
         }

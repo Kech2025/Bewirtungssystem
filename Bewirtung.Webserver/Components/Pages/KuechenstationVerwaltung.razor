@@ -21,6 +21,7 @@ else
 			<tr>
 				<th>ID</th>
 				<th>Name</th>
+				<th>Status</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -30,6 +31,7 @@ else
 				<tr>
 					<td>@s.Id</td>
 					<td>@s.Name</td>
+					<td>@(s.Status ? "Aktiv" : "Inaktiv")</td>
 					<td>
 						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(s)">Bearbeiten</button>
 					</td>
@@ -56,6 +58,10 @@ else
 						<div class="mb-3">
 							<label class="form-label">Name</label>
 							<InputText class="form-control" @bind-Value="_bearbeiten.Name" />
+						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Status" id="statusCheck" />
+							<label class="form-check-label" for="statusCheck">Status (aktiv)</label>
 						</div>
 
 						@if (!string.IsNullOrEmpty(_fehler))
@@ -97,7 +103,8 @@ else
 		_bearbeiten = new Kuechenstation
 		{
 			Id = s.Id,
-			Name = s.Name
+			Name = s.Name,
+			Status = s.Status
 		};
 		_istNeu = false;
 		_fehler = null;

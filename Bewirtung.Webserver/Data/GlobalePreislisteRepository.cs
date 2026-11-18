@@ -32,13 +32,13 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, Status, Reihenfolge,
+                SELECT GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, MAX(GueltigAb) AS GueltigAb, Zusatztext, GlobalePreisliste.Status, Reihenfolge,
                     GlobalePreisliste.kuechenstation, kuechenstation.name AS KuechenstationName
                 FROM GlobalePreisliste
                 LEFT JOIN GlobalerPreis ON GlobalePreislisteId = GlobalePreisliste.Id
                 AND GueltigAb <= @DatumAb
                 LEFT JOIN kuechenstation ON kuechenstation.id = GlobalePreisliste.kuechenstation
-                GROUP BY GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, Zusatztext, Status, Reihenfolge, GlobalePreisliste.kuechenstation, kuechenstation.name
+                GROUP BY GlobalePreisliste.Id, GlobalePreisliste.Name, Preiskategorie, BildPfad, Druck, Zusatztext, GlobalePreisliste.Status, Reihenfolge, GlobalePreisliste.kuechenstation, kuechenstation.name
                 ORDER BY Preiskategorie, Reihenfolge, GlobalePreisliste.Name;";
             command.Parameters.AddWithValue("DatumAb", datumAb);
             using var reader = command.ExecuteReader();

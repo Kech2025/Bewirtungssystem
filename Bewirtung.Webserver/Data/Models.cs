@@ -14,6 +14,7 @@ namespace Bewirtung.Webserver.Data
         public long? VereinId { get; set; }
         public string VereinName { get; set; } = string.Empty;
         public DateTime Erstellt { get;set;}
+        public bool Status { get; set; } = true;
     }
 
     /// <summary>
@@ -68,6 +69,7 @@ namespace Bewirtung.Webserver.Data
 
         /// <summary>Sofortlieferung: 0 = Nein, 1 = Ja.</summary>
         public int SofortLieferung { get; set; }
+        public bool Status { get; set; } = true;
     }
 
     /// <summary>
@@ -143,6 +145,7 @@ namespace Bewirtung.Webserver.Data
         public int? Kuechenstation { get; set; }
         public string Produkt =>
             string.IsNullOrEmpty(ZusatzText) ? Name : $"{Name} – {ZusatzText}";
+        public int Limit { get; set; } = -1;
     }
 
     /// <summary>
@@ -351,6 +354,7 @@ namespace Bewirtung.Webserver.Data
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public bool Status { get; set; } = true;
     }
 
     /// <summary>

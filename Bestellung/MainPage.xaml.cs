@@ -213,6 +213,12 @@ public partial class MainPage : ContentPage
         try
         {
             var termine = await _terminApiClient.GetTermineAsync();
+            if (termine.Count == 0)
+            {
+                await DisplayAlertAsync("Keine Termine", "Es sind keine neuen Termine vorhanden! Bitte zuerst Termine konfigurieren am PC", "OK");
+                Application.Current?.Quit();
+                return;
+            }
             TerminPicker.ItemsSource = termine;
 
             var index = -1;

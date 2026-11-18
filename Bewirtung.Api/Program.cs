@@ -212,6 +212,9 @@ static FiskalBeleg BaueFiskalBelegTeilzahlung(NpgsqlConnection connection, Npgsq
     return beleg;
 }
 
+// GET /  -> Statusmeldung (Erreichbarkeitstest)
+app.MapGet("/", () => Results.Ok(new { status = "Bewirtung.Api läuft", zeit = DateTime.Now }));
+
 // GET /api/tische  -> [{ Tischnummer, Bereich }, ...]
 app.MapGet("/api/tische", (int datum) =>
 {
@@ -338,14 +341,14 @@ app.MapGet("/api/kuechenstationen", (int? datum, long? vereinId) =>
             FROM kuechenstationtermin kst
             JOIN Termin t ON t.bewirtungsdatum = kst.bewirtungsdatum
             JOIN kuechenstation k ON k.id = kst.kuechenstationid
-            WHERE t.BewirtungsDatum = @datum AND t.VereinId = @vereinId
+            WHERE t.BewirtungsDatum = @datum AND t.VereinId = @vereinId and k.Status = true
             ORDER BY k.name;";
         command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum.Value));
         command.Parameters.AddWithValue("@vereinId", vereinId.Value);
     }
     else
     {
-        command.CommandText = "SELECT id, name FROM kuechenstation ORDER BY name;";
+        command.CommandText = "SELECT id, name FROM kuechenstation WHERE status = true ORDER BY name;";
     }
     using var reader = command.ExecuteReader();
     while (reader.Read())
@@ -398,7 +401,9 @@ app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
                p.Name,
                COALESCE(z.Bezeichnung, '') AS ZusatzText,
                p.Preiskategorie,
-               pt.Preis + COALESCE(hp.Preis, 0) AS Preis
+               pt.Preis + COALESCE(hp.Preis, 0) AS Preis,
+               COALESCE(pt.limit, -1) AS Limit,
+               SUM(COALESCE(bp.Menge, 0)) AS MengeBestellt
         FROM PreislisteTermin pt
         JOIN GlobalePreisliste p ON p.Id = pt.PreislisteId
         LEFT JOIN GlobalePreislisteZusatz z ON z.Id = pt.PreislisteZusatzId AND z.SpeisekarteId = p.Id
@@ -407,7 +412,19 @@ app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
             AND hp.VereinId = pt.VereinId
             AND hp.Bewirtungsdatum = pt.Bewirtungsdatum
             AND pt.PreislisteZusatzId <> 0
+        LEFT JOIN bewirtungsposition bp ON bp.PreislisteId = pt.PreislisteId AND bp.PreislisteZusatzId = pt.PreislisteZusatzId
+            AND bp.BewirtungsauftragId IN (
+                SELECT AuftragId FROM Bewirtungsauftrag ba
+                WHERE ba.Bewirtungstermin = pt.Bewirtungsdatum)
         WHERE pt.Bewirtungsdatum = @datum AND pt.VereinId = @vereinId
+        GROUP BY p.Id,
+           z.Id,
+           p.Name,
+           z.Bezeichnung,
+           p.Preiskategorie,
+           pt.Preis,	   
+	       hp.Preis,
+	       pt.limit
         ORDER BY p.Preiskategorie, p.Name, z.Bezeichnung;";
     command.Parameters.AddWithValue("@datum", FromYyyyMmDd(datum));
     command.Parameters.AddWithValue("@vereinId", (int)vereinId);
@@ -417,6 +434,8 @@ app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
         var kategorie = reader.IsDBNull(4) ? 0L : (long)reader.GetInt32(4);
         var name = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
         var zusatzText = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+        var mengebestellt = reader.IsDBNull(7) ? 0m : (decimal)reader.GetInt32(7);
+        var limit = reader.IsDBNull(6) ? 0 : reader.GetInt32(6);
         positionen.Add(new
         {
             PreislisteId = (long)reader.GetInt32(0),
@@ -426,7 +445,9 @@ app.MapGet("/api/speisekarte", (int datum, long vereinId) =>
             Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
             KategorieText = kategorie == 1 ? "Getränke" : "Speisen",
             Preiskategorie = kategorie,
-            Preis = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5)
+            Preis = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5),
+            Limit = limit,
+            MengeFrei = limit == -1 ? -1 : Math.Max(0, limit - mengebestellt),
         });
     }
     return Results.Ok(positionen);
@@ -967,119 +988,119 @@ app.MapGet("/api/auslieferung/station", (int termin, int station) =>
 });
 
 // GET /api/auslieferung/getraenke?termin=YYYYMMDD
-app.MapGet("/api/auslieferung/getraenke", (int termin) =>
-{
-    using var connection = OpenConnection();
-    using var command = connection.CreateCommand();
-    command.CommandText = @"
-        SELECT a.TischNummer,
-               bp.BewirtungsauftragId,
-               bp.Bewirtungsposition,
-               p.Name,
-               COALESCE(z.Bezeichnung, '') AS ZusatzText,
-               bp.Menge,
-               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
-               COALESCE(bp.Besonderheit, '') AS Besonderheit
-        FROM BewirtungsPosition bp
-        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
-        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
-        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
-        WHERE a.Bewirtungstermin = @termin
-          AND p.Preiskategorie = 1
-          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
-        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
-    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
+//app.MapGet("/api/auslieferung/getraenke", (int termin) =>
+//{
+//    using var connection = OpenConnection();
+//    using var command = connection.CreateCommand();
+//    command.CommandText = @"
+//        SELECT a.TischNummer,
+//               bp.BewirtungsauftragId,
+//               bp.Bewirtungsposition,
+//               p.Name,
+//               COALESCE(z.Bezeichnung, '') AS ZusatzText,
+//               bp.Menge,
+//               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
+//               COALESCE(bp.Besonderheit, '') AS Besonderheit
+//        FROM BewirtungsPosition bp
+//        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
+//        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+//        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+//        WHERE a.Bewirtungstermin = @termin
+//          AND p.Preiskategorie = 1
+//          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
+//        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
+//    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
 
-    var tische = new Dictionary<int, List<object>>();
-    using (var reader = command.ExecuteReader())
-    {
-        while (reader.Read())
-        {
-            var tischNummer = reader.GetInt32(0);
-            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
-            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
-            var position = new
-            {
-                AuftragId = (long)reader.GetInt32(1),
-                PosNr = (long)reader.GetInt32(2),
-                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
-                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
-                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
-            };
-            if (!tische.TryGetValue(tischNummer, out var liste))
-            {
-                liste = new List<object>();
-                tische[tischNummer] = liste;
-            }
-            liste.Add(position);
-        }
-    }
+//    var tische = new Dictionary<int, List<object>>();
+//    using (var reader = command.ExecuteReader())
+//    {
+//        while (reader.Read())
+//        {
+//            var tischNummer = reader.GetInt32(0);
+//            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+//            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+//            var position = new
+//            {
+//                AuftragId = (long)reader.GetInt32(1),
+//                PosNr = (long)reader.GetInt32(2),
+//                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
+//                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+//                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+//                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
+//            };
+//            if (!tische.TryGetValue(tischNummer, out var liste))
+//            {
+//                liste = new List<object>();
+//                tische[tischNummer] = liste;
+//            }
+//            liste.Add(position);
+//        }
+//    }
 
-    var ergebnis = tische
-        .OrderBy(t => t.Key)
-        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
-        .ToList();
-    return Results.Ok(ergebnis);
-});
+//    var ergebnis = tische
+//        .OrderBy(t => t.Key)
+//        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
+//        .ToList();
+//    return Results.Ok(ergebnis);
+//});
 
 // GET /api/auslieferung/speisen?termin=YYYYMMDD
 //   -> Offene Speisen-Positionen (Preiskategorie=0, MengeGeliefert < Menge) je Tisch gruppiert.
-app.MapGet("/api/auslieferung/speisen", (int termin) =>
-{
-    using var connection = OpenConnection();
-    using var command = connection.CreateCommand();
-    command.CommandText = @"
-        SELECT a.TischNummer,
-               bp.BewirtungsauftragId,
-               bp.Bewirtungsposition,
-               p.Name,
-               COALESCE(z.Bezeichnung, '') AS ZusatzText,
-               bp.Menge,
-               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
-               COALESCE(bp.Besonderheit, '') AS Besonderheit
-        FROM BewirtungsPosition bp
-        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
-        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
-        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
-        WHERE a.Bewirtungstermin = @termin
-          AND p.Preiskategorie = 0
-          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
-        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
-    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
+//app.MapGet("/api/auslieferung/speisen", (int termin) =>
+//{
+//    using var connection = OpenConnection();
+//    using var command = connection.CreateCommand();
+//    command.CommandText = @"
+//        SELECT a.TischNummer,
+//               bp.BewirtungsauftragId,
+//               bp.Bewirtungsposition,
+//               p.Name,
+//               COALESCE(z.Bezeichnung, '') AS ZusatzText,
+//               bp.Menge,
+//               COALESCE(bp.MengeGeliefert, 0) AS MengeGeliefert,
+//               COALESCE(bp.Besonderheit, '') AS Besonderheit
+//        FROM BewirtungsPosition bp
+//        JOIN Bewirtungsauftrag a ON a.AuftragId = bp.BewirtungsauftragId
+//        JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
+//        LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
+//        WHERE a.Bewirtungstermin = @termin
+//          AND p.Preiskategorie = 0
+//          AND COALESCE(bp.MengeGeliefert, 0) < bp.Menge
+//        ORDER BY a.TischNummer, p.Name, z.Bezeichnung;";
+//    command.Parameters.AddWithValue("@termin", FromYyyyMmDd(termin));
 
-    var tische = new Dictionary<int, List<object>>();
-    using (var reader = command.ExecuteReader())
-    {
-        while (reader.Read())
-        {
-            var tischNummer = reader.GetInt32(0);
-            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
-            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
-            var position = new
-            {
-                AuftragId = (long)reader.GetInt32(1),
-                PosNr = (long)reader.GetInt32(2),
-                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
-                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
-                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
-                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
-            };
-            if (!tische.TryGetValue(tischNummer, out var liste))
-            {
-                liste = new List<object>();
-                tische[tischNummer] = liste;
-            }
-            liste.Add(position);
-        }
-    }
+//    var tische = new Dictionary<int, List<object>>();
+//    using (var reader = command.ExecuteReader())
+//    {
+//        while (reader.Read())
+//        {
+//            var tischNummer = reader.GetInt32(0);
+//            var name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+//            var zusatzText = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+//            var position = new
+//            {
+//                AuftragId = (long)reader.GetInt32(1),
+//                PosNr = (long)reader.GetInt32(2),
+//                Produkt = string.IsNullOrEmpty(zusatzText) ? name : $"{name} – {zusatzText}",
+//                Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
+//                MengeGeliefert = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
+//                Besonderheit = reader.IsDBNull(7) ? string.Empty : reader.GetString(7)
+//            };
+//            if (!tische.TryGetValue(tischNummer, out var liste))
+//            {
+//                liste = new List<object>();
+//                tische[tischNummer] = liste;
+//            }
+//            liste.Add(position);
+//        }
+//    }
 
-    var ergebnis = tische
-        .OrderBy(t => t.Key)
-        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
-        .ToList();
-    return Results.Ok(ergebnis);
-});
+//    var ergebnis = tische
+//        .OrderBy(t => t.Key)
+//        .Select(t => new { TischNummer = t.Key, Positionen = t.Value })
+//        .ToList();
+//    return Results.Ok(ergebnis);
+//});
 
 // POST /api/auslieferung/fertig  -> Setzt je Position MengeGeliefert (und ggf. Menge) für einen Tisch.
 //   Pro Position gilt die auf der Seite erfasste Zusatzmenge (Delta):

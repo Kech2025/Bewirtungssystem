@@ -14,16 +14,28 @@ namespace Bewirtung.Webserver.Data
             _database = database;
         }
 
-        public List<Tisch> GetAll()
+        public List<Tisch> GetAll(bool all = true)
         {
             var result = new List<Tisch>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
+            if(all)
+            { 
             command.CommandText = @"
-                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, false)
+                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, false), t.status
                 FROM Tisch t
                 LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
                 ORDER BY t.Tischnummer;";
+            }
+            else
+            {
+                command.CommandText = @"
+                SELECT t.Tischnummer, t.BereichId, b.Bezeichnung, COALESCE(t.SofortLieferung, false), t.status
+                FROM Tisch t
+                LEFT JOIN BereichTische b ON b.BereichId = t.BereichId
+                WHERE t.Status = true
+                ORDER BY t.Tischnummer;";
+            }
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -32,7 +44,8 @@ namespace Bewirtung.Webserver.Data
                     Tischnummer = reader.GetInt32(0),
                     BereichId = reader.IsDBNull(1) ? null : reader.GetInt32(1),
                     BereichName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                    SofortLieferung = (!reader.IsDBNull(3) && reader.GetBoolean(3)) ? 1 : 0
+                    SofortLieferung = (!reader.IsDBNull(3) && reader.GetBoolean(3)) ? 1 : 0,
+                    Status = !reader.IsDBNull(4) && reader.GetBoolean(4),
                 });
             }
             return result;
@@ -51,10 +64,11 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId, SofortLieferung) VALUES (@nr, @bereichId, @sofort);";
+            command.CommandText = "INSERT INTO Tisch (Tischnummer, BereichId, SofortLieferung, status) VALUES (@nr, @bereichId, @sofort, @status);";
             command.Parameters.AddWithValue("nr", tisch.Tischnummer);
             command.Parameters.AddWithValue("bereichId", (object?)tisch.BereichId ?? DBNull.Value);
             command.Parameters.AddWithValue("sofort", tisch.SofortLieferung != 0);
+            command.Parameters.AddWithValue("status", tisch.Status);
             command.ExecuteNonQuery();
         }
 
@@ -62,11 +76,12 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE Tisch SET Tischnummer = @neu, BereichId = @bereichId, SofortLieferung = @sofort WHERE Tischnummer = @alt;";
+            command.CommandText = "UPDATE Tisch SET Tischnummer = @neu, BereichId = @bereichId, SofortLieferung = @sofort, status = @status WHERE Tischnummer = @alt;";
             command.Parameters.AddWithValue("neu", neu.Tischnummer);
             command.Parameters.AddWithValue("bereichId", (object?)neu.BereichId ?? DBNull.Value);
             command.Parameters.AddWithValue("sofort", neu.SofortLieferung != 0);
             command.Parameters.AddWithValue("alt", alteNummer);
+            command.Parameters.AddWithValue("status", neu.Status);
             command.ExecuteNonQuery();
         }
 
@@ -74,7 +89,7 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM Tisch WHERE Tischnummer = @nr;";
+            command.CommandText = "UPDATE Tisch SET status = false WHERE Tischnummer = @nr;";
             command.Parameters.AddWithValue("nr", tischnummer);
             command.ExecuteNonQuery();
         }

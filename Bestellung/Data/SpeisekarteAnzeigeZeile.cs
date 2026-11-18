@@ -37,7 +37,34 @@ public class SpeisekarteAnzeigeZeile : INotifyPropertyChanged
     /// <summary>Anzeigetext des Produkts bzw. der Variante.</summary>
     public string Produkt { get; init; } = string.Empty;
 
-    public string PreisText => Position?.PreisText ?? string.Empty;
+    private string _preisText = string.Empty;
+    public string PreisText
+    {
+        get => _preisText;
+        set
+        {
+            if (_preisText != value)
+            {
+                _preisText = value;
+                OnPropertyChanged(nameof(PreisText));
+            }
+        }
+    }
+
+    private bool _plusAktiv = true;
+    /// <summary>Gibt an, ob der +-Button (Menge erhöhen) aktiv ist.</summary>
+    public bool PlusAktiv
+    {
+        get => _plusAktiv;
+        set
+        {
+            if (_plusAktiv != value)
+            {
+                _plusAktiv = value;
+                OnPropertyChanged(nameof(PlusAktiv));
+            }
+        }
+    }
 
     public Color ProduktFarbe { get; init; } = Colors.Black;
 

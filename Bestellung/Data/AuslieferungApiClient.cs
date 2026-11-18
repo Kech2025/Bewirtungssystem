@@ -18,23 +18,23 @@ public class AuslieferungApiClient
     /// Lädt offene Getränke-Positionen (Preiskategorie=1, MengeGeliefert &lt; Menge)
     /// gruppiert je Tisch für den angegebenen Termin.
     /// </summary>
-    public async Task<List<AuslieferungTischDto>> GetGetraenkeAsync(int termin, CancellationToken cancellationToken = default)
-    {
-        var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/getraenke?termin={termin}";
-        var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
-        return result ?? new List<AuslieferungTischDto>();
-    }
+    //public async Task<List<AuslieferungTischDto>> GetGetraenkeAsync(int termin, CancellationToken cancellationToken = default)
+    //{
+    //    var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/getraenke?termin={termin}";
+    //    var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
+    //    return result ?? new List<AuslieferungTischDto>();
+    //}
 
     /// <summary>
     /// Lädt offene Speisen-Positionen (Preiskategorie=0, MengeGeliefert &lt; Menge)
     /// gruppiert je Tisch für den angegebenen Termin.
     /// </summary>
-    public async Task<List<AuslieferungTischDto>> GetSpeisenAsync(int termin, CancellationToken cancellationToken = default)
-    {
-        var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/speisen?termin={termin}";
-        var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
-        return result ?? new List<AuslieferungTischDto>();
-    }
+    //public async Task<List<AuslieferungTischDto>> GetSpeisenAsync(int termin, CancellationToken cancellationToken = default)
+    //{
+    //    var url = $"{ApiConfig.BaseUrl.TrimEnd('/')}/api/auslieferung/speisen?termin={termin}";
+    //    var result = await _httpClient.GetFromJsonAsync<List<AuslieferungTischDto>>(url, cancellationToken);
+    //    return result ?? new List<AuslieferungTischDto>();
+    //}
 
     /// <summary>
     /// Lädt offene Positionen (gefiltert nach Küchenstation, MengeGeliefert &lt; Menge)

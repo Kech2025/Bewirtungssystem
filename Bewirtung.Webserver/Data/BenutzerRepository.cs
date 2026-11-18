@@ -1,3 +1,5 @@
+using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Npgsql;
 using System.Data;
 
@@ -15,16 +17,28 @@ namespace Bewirtung.Webserver.Data
             _database = database;
         }
 
-        public List<Benutzer> GetAll()
+        public List<Benutzer> GetAll(bool all = false)
         {
             var result = new List<Benutzer>();
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = @"
-                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
-                FROM Benutzer b
-                LEFT JOIN Verein v ON v.Id = b.VereinId
-                ORDER BY b.Name;";
+            if(all)
+            { 
+                command.CommandText = @"
+                    SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt, b.Status
+                    FROM Benutzer b
+                    LEFT JOIN Verein v ON v.Id = b.VereinId
+                    ORDER BY b.Name;";
+            }
+            else
+            {
+                command.CommandText = @"
+                    SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt, b.Status
+                    FROM Benutzer b
+                    LEFT JOIN Verein v ON v.Id = b.VereinId
+                    WHERE b.status = true
+                    ORDER BY b.Name;";
+            }
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -38,7 +52,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
+                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt, b.Status
                 FROM Benutzer b
                 LEFT JOIN Verein v ON v.Id = b.VereinId
                 WHERE b.UserId = @userId;";
@@ -52,7 +66,7 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt
+                SELECT b.UserId, b.Name, b.Email, b.Password, b.Administrator, b.Telefon, b.VereinId, v.Name AS VereinName, b.erstellt, b.Status
                 FROM Benutzer b
                 LEFT JOIN Verein v ON v.Id = b.VereinId
                 WHERE LOWER(b.Email) = LOWER(@email)
@@ -77,8 +91,8 @@ namespace Bewirtung.Webserver.Data
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Benutzer (Name, Email, Password, Administrator, Telefon, VereinId)
-                VALUES (@name, @email, @password, @administrator, @telefon, @vereinId)
+                INSERT INTO Benutzer (Name, Email, Password, Administrator, Telefon, VereinId, Status)
+                VALUES (@name, @email, @password, @administrator, @telefon, @vereinId, @status)
                 RETURNING UserId;";
             AddParameters(command, benutzer);
             var id = Convert.ToInt64(command.ExecuteScalar()!);
@@ -97,7 +111,8 @@ namespace Bewirtung.Webserver.Data
                     Password = @password,
                     Administrator = @administrator,
                     Telefon = @telefon,
-                    VereinId = @vereinId
+                    VereinId = @vereinId,
+                    Status = @status
                 WHERE UserId = @userId;";
             AddParameters(command, benutzer);
             command.Parameters.AddWithValue("userId", benutzer.UserId);
@@ -108,7 +123,7 @@ namespace Bewirtung.Webserver.Data
         {
             using var connection = _database.CreateConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM Benutzer WHERE UserId = @userId;";
+            command.CommandText = "UPDATE Benutzer SET Status = false WHERE UserId = @userId;";
             command.Parameters.AddWithValue("userId", userId);
             command.ExecuteNonQuery();
         }
@@ -121,6 +136,7 @@ namespace Bewirtung.Webserver.Data
             command.Parameters.AddWithValue("administrator", benutzer.Administrator);
             command.Parameters.AddWithValue("telefon", (object?)benutzer.Telefon ?? DBNull.Value);
             command.Parameters.AddWithValue("vereinId", (object?)benutzer.VereinId ?? DBNull.Value);
+            command.Parameters.AddWithValue("status", benutzer.Status);
         }
 
         private static Benutzer Map(NpgsqlDataReader reader) => new()
@@ -133,7 +149,8 @@ namespace Bewirtung.Webserver.Data
             Telefon = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
             VereinId = reader.IsDBNull(6) ? null : reader.GetInt32(6),
             VereinName = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-            Erstellt = reader.IsDBNull(8) ? System.DateTime.MinValue : reader.GetDateTime(8)
+            Erstellt = reader.IsDBNull(8) ? System.DateTime.MinValue : reader.GetDateTime(8),
+            Status = !reader.IsDBNull(9) && reader.GetBoolean(9),
         };
     }
 }

@@ -1,7 +1,8 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using Bestellung.Data;
 using QRCoder;
+using System.Collections.ObjectModel;
+using System.Globalization;
+//using static Android.Icu.Text.Transliterator;
 
 namespace Bestellung;
 
@@ -241,6 +242,21 @@ public partial class BestellungSeite : ContentPage
         }
     }
 
+    private void AktuelisiereMengeLimit(SpeisekarteAnzeigeZeile zeile)
+    {
+        if (zeile.Position is { } position)
+        {
+            if (position.Limit == -1)
+            {
+                zeile.PreisText = position.PreisText;
+            }
+            else
+            {
+                zeile.PreisText = position.PreisText + Environment.NewLine + " Noch verfügbar:" + (position.MengeFrei - position.Menge).ToString();
+            }
+            // Refresh PreisText in GUI
+        }
+    }
     private void OnMengePlus(object? sender, EventArgs e)
     {
         if ((sender as Button)?.CommandParameter is SpeisekarteAnzeigeZeile zeile
@@ -248,6 +264,12 @@ public partial class BestellungSeite : ContentPage
         {
             zeile.Menge = position.Menge + 1;
             AktualisiereGesamtpreis();
+            AktuelisiereMengeLimit(zeile);
+            if(position.Limit != -1 && position.MengeFrei - position.Menge <= 0)
+            {
+                //MengePlus-Button inaktiv setzen
+                zeile.PlusAktiv = false;
+            }
         }
     }
 
@@ -258,6 +280,9 @@ public partial class BestellungSeite : ContentPage
         {
             zeile.Menge = position.Menge - 1;
             AktualisiereGesamtpreis();
+            AktuelisiereMengeLimit(zeile);
+            //OnMengePlus-Button aktiv setzen
+            zeile.PlusAktiv = true;
         }
     }
 
@@ -339,8 +364,14 @@ public partial class BestellungSeite : ContentPage
                     Art = ZeilenArt.Einzel,
                     Position = p,
                     Produkt = p.Produkt,
-                    ProduktFarbe = p.ProduktFarbe
+                    ProduktFarbe = p.ProduktFarbe,
+                    PreisText = p.Limit == -1 ? p.PreisText : p.PreisText + Environment.NewLine + " Noch verfügbar:" + p.MengeFrei.ToString() 
                 });
+                if (p.Limit != -1 && p.MengeFrei - p.Menge <= 0)
+                {
+                    //MengePlus-Button inaktiv setzen
+                    zeilen[zeilen.Count -1].PlusAktiv = false;
+                }
             }
             else
             {
@@ -368,6 +399,22 @@ public partial class BestellungSeite : ContentPage
                 foreach (var variante in varianten)
                 {
                     variante.Kopf = kopf;
+                    if(variante.Position is { } p)
+                    {
+                        if(p.Limit == -1)
+                        {
+                            variante.PreisText = p.PreisText;
+                        }
+                        else
+                        {
+                            variante.PreisText = p.PreisText + Environment.NewLine + " Noch verfügbar:" + p.MengeFrei.ToString();
+                            if (p.Limit != -1 && p.MengeFrei - p.Menge <= 0)
+                            {
+                                //MengePlus-Button inaktiv setzen
+                                variante.PlusAktiv = false;
+                            }
+                        }
+                    }
                 }
 
                 zeilen.Add(kopf);

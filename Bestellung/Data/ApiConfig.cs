@@ -21,10 +21,38 @@ public static class ApiConfig
     //  - Android-Emulator:         http://10.0.2.2:<Port>    (Alias für "localhost des Host-PCs")
     //  - Echtes Gerät:             http://192.168.178.111:<Port>  (Raspberry Pi im LAN)
     //  - Windows/sonst (Emulator): http://localhost:<Port>
+    // Port der lokal (in Visual Studio) gestarteten Bewirtung.Api.
+    private const int LokalerPort = 5080;
+
+    // true: Im Debug-Build die lokale API verwenden (Datenbank bleibt im Cluster).
+    public static bool LokaleApiImDebug { get; set; } = true;
+
+    // LAN-IP des Entwicklungs-PCs (für echte Geräte im Debug-Build).
+    private const string DevPcIpAddress = "192.168.178.54";
+
     public static string BaseUrl
     {
         get
         {
+#if DEBUG
+            if (LokaleApiImDebug)
+            {
+                string lokalerHost;
+                if (DeviceInfo.Platform == DevicePlatform.WinUI)
+                {
+                    lokalerHost = "localhost";
+                }
+                else if (DeviceInfo.DeviceType == DeviceType.Physical)
+                {
+                    lokalerHost = DevPcIpAddress;
+                }
+                else
+                {
+                    lokalerHost = DeviceInfo.Platform == DevicePlatform.Android ? "10.0.2.2" : "localhost";
+                }
+                return $"http://{lokalerHost}:{LokalerPort}";
+            }
+#endif
             if (!string.IsNullOrWhiteSpace(ServerIpOverride))
             {
                 return $"http://{ServerIpOverride}:{Port}";

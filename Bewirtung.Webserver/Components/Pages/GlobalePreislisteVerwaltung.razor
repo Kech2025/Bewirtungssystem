@@ -322,7 +322,7 @@ else
 	protected override void OnInitialized()
 	{
 		LadeDatumsListe();
-		_kuechenstationen = KuechenstationRepo.GetAll();
+		_kuechenstationen = KuechenstationRepo.GetAll(false);
 		_datumAb = Termin.ToYyyyMmDd(_datumsListe[0]);
 		LadeDaten();
 	}

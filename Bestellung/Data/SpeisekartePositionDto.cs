@@ -20,6 +20,8 @@ public class SpeisekartePositionDto : INotifyPropertyChanged
     public string KategorieText { get; set; } = string.Empty;
     public long Preiskategorie { get; set; }
     public decimal Preis { get; set; }
+    public int Limit { get; set; }
+    public int MengeFrei { get; set; }
 
     /// <summary>Freitext für Besonderheiten (Tabelle BewirtungsPosition, Feld Besonderheit).</summary>
     public string Besonderheit { get; set; } = string.Empty;

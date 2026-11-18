@@ -27,6 +27,7 @@ else
 				<th>Verein</th>
 				<th>Admin</th>
 				<th>Erstellt</th>
+				<th>Status</th>
 				<th></th>
 			</tr>
 		</thead>
@@ -40,6 +41,7 @@ else
 					<td>@b.VereinName</td>
 					<td>@(b.Administrator ? "Ja" : "Nein")</td>
 					<td>@b.Erstellt</td>
+					<td>@(b.Status ? "Aktiv" : "Inaktiv")</td>
 					<td>
 						<button class="btn btn-sm btn-secondary" @onclick="() => Bearbeiten(b)">Bearbeiten</button>
 						<button class="btn btn-sm btn-danger" @onclick="() => Loeschen(b)">Löschen</button>
@@ -90,6 +92,10 @@ else
 							<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Administrator" id="adminCheck" />
 							<label class="form-check-label" for="adminCheck">Administrator</label>
 						</div>
+						<div class="form-check mb-3">
+							<InputCheckbox class="form-check-input" @bind-Value="_bearbeiten.Status" id="statusCheck" />
+							<label class="form-check-label" for="statusCheck">Status (aktiv)</label>
+						</div>
 
 						<button type="submit" class="btn btn-primary">Speichern</button>
 						<button type="button" class="btn btn-secondary" @onclick="Abbrechen">Abbrechen</button>
@@ -111,7 +117,7 @@ else
 		Laden();
 	}
 
-	private void Laden() => _benutzerListe = BenutzerRepo.GetAll();
+	private void Laden() => _benutzerListe = BenutzerRepo.GetAll(true);
 
 	private void Neu() => _bearbeiten = new Data.Benutzer();
 
@@ -123,7 +129,8 @@ else
 		Password = b.Password,
 		Administrator = b.Administrator,
 		Telefon = b.Telefon,
-		VereinId = b.VereinId
+		VereinId = b.VereinId,
+		Status = b.Status
 	};
 
 	private void Abbrechen() => _bearbeiten = null;

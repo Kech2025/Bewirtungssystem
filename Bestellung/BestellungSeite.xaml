@@ -161,6 +161,7 @@
                             CommandParameter="{Binding .}"
                             FontSize="14"
                             HeightRequest="30"
+                            IsEnabled="{Binding PlusAktiv}"
                             IsVisible="{Binding ZeigeMengenButtons}"
                             Text="+"
                             VerticalOptions="Center"

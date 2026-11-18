@@ -75,6 +75,7 @@ namespace Bewirtung.Webserver.Data
                 {
                     zeile.Ausgewaehlt = true;
                     zeile.TerminPreis = tp.Preis > 0 ? tp.Preis : zeile.GlobalPreis ?? 0m;
+                    zeile.Limit = tp.Limit;
                     // Terminbezogene Küchenstation überschreibt den globalen Default, sofern gesetzt.
                     if (tp.Kuechenstation.HasValue)
                     {
@@ -86,12 +87,12 @@ namespace Bewirtung.Webserver.Data
             return zeilen;
         }
 
-        private static Dictionary<(long, long), (decimal Preis, int? Kuechenstation)> GetPreislisteTermin(NpgsqlConnection connection, int datum, long vereinId)
+        private static Dictionary<(long, long), (decimal Preis, int? Kuechenstation, int Limit)> GetPreislisteTermin(NpgsqlConnection connection, int datum, long vereinId)
         {
-            var result = new Dictionary<(long, long), (decimal Preis, int? Kuechenstation)>();
+            var result = new Dictionary<(long, long), (decimal Preis, int? Kuechenstation, int Limit)>();
             using var command = connection.CreateCommand();
             command.CommandText = @"
-                SELECT PreislisteId, PreislisteZusatzId, Preis, Kuechenstation
+                SELECT PreislisteId, PreislisteZusatzId, Preis, Kuechenstation, PreislisteTermin.limit
                 FROM PreislisteTermin
                 WHERE Bewirtungsdatum = @datum AND VereinId = @vereinId;";
             command.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(datum));
@@ -102,7 +103,8 @@ namespace Bewirtung.Webserver.Data
                 var key = ((long)reader.GetInt32(0), (long)reader.GetInt32(1));
                 var preis = reader.IsDBNull(2) ? 0m : reader.GetDecimal(2);
                 int? station = reader.IsDBNull(3) ? null : reader.GetInt32(3);
-                result[key] = (preis, station);
+                int limit = reader.IsDBNull(4) ? -1 : reader.GetInt32(4);
+                result[key] = (preis, station, limit);
             }
             return result;
         }
@@ -136,14 +138,15 @@ namespace Bewirtung.Webserver.Data
                 using var insert = connection.CreateCommand();
                 insert.CommandText = @"
                     INSERT INTO PreislisteTermin
-                        (PreislisteId, PreislisteZusatzId, VereinId, Bewirtungsdatum, Preis, Kuechenstation)
-                    VALUES (@preislisteId, @zusatzId, @vereinId, @datum, @preis, @kuechenstation);";
+                        (PreislisteId, PreislisteZusatzId, VereinId, Bewirtungsdatum, Preis, Kuechenstation, ""limit"")
+                    VALUES (@preislisteId, @zusatzId, @vereinId, @datum, @preis, @kuechenstation, @limit);";
                 insert.Parameters.AddWithValue("preislisteId", zeile.PreislisteId);
                 insert.Parameters.AddWithValue("zusatzId", zeile.ZusatzId);
                 insert.Parameters.AddWithValue("vereinId", vereinId);
                 insert.Parameters.AddWithValue("datum", Termin.FromYyyyMmDd(bewirtungsdatum));
                 insert.Parameters.AddWithValue("preis", zeile.TerminPreis);
                 insert.Parameters.AddWithValue("kuechenstation", (object?)zeile.Kuechenstation ?? DBNull.Value);
+                insert.Parameters.AddWithValue("limit", zeile.Limit);
                 insert.ExecuteNonQuery();
             }
 
