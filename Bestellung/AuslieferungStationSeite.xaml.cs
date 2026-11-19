@@ -136,10 +136,24 @@ public partial class AuslieferungStationSeite : ContentPage
                 }
                 else
                 {
-                    // Bestehende Position: nur Serverwerte aktualisieren, Benutzereingabe (SeitenMenge) beibehalten.
+                    // Bestehende Position: Serverwerte aktualisieren. Hat sich die offene Menge
+                    // ge\u00e4ndert (z. B. durch \u00c4nderung in der Bestell-App), Seitenmenge nachziehen.
+                    var alteMax = bestehendePos.MaxSeitenMenge;
+                    var warVoll = bestehendePos.SeitenMenge == alteMax;
+                    if (bestehendePos.Menge != neuePos.Menge)
+                    {
+                        bestehendePos.MengeGeaendert = true;
+                    }
                     bestehendePos.Menge = neuePos.Menge;
                     bestehendePos.MengeGeliefert = neuePos.MengeGeliefert;
                     bestehendePos.Besonderheit = neuePos.Besonderheit;
+                    var neueMax = bestehendePos.MaxSeitenMenge;
+                    if (neueMax != alteMax)
+                    {
+                        bestehendePos.SeitenMenge = warVoll
+                            ? neueMax
+                            : Math.Min(bestehendePos.SeitenMenge, neueMax);
+                    }
                 }
             }
         }

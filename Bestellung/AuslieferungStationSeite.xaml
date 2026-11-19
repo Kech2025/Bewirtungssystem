@@ -47,7 +47,7 @@
                                                 Grid.Column="0"
                                                 Grid.Row="0"
                                                 FontSize="32"
-                                                TextColor="DarkBlue"
+                                                TextColor="{Binding TextFarbe}"
                                                 VerticalOptions="Center"
                                                 Text="{Binding AnzeigeText}" />
                                             <Label

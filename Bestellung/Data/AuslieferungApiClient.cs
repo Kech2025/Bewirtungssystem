@@ -76,6 +76,26 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
     public string Produkt { get; set; } = string.Empty;
 
     private decimal _menge;
+
+    private bool _mengeGeaendert;
+    /// <summary>Gibt an, ob die Menge nachträglich durch eine Bestelländerung verändert wurde.</summary>
+    public bool MengeGeaendert
+    {
+        get => _mengeGeaendert;
+        set
+        {
+            if (_mengeGeaendert != value)
+            {
+                _mengeGeaendert = value;
+                OnPropertyChanged(nameof(MengeGeaendert));
+                OnPropertyChanged(nameof(TextFarbe));
+            }
+        }
+    }
+
+    /// <summary>Textfarbe: Rot bei geänderter Menge, sonst Dunkelblau.</summary>
+    public Microsoft.Maui.Graphics.Color TextFarbe =>
+        _mengeGeaendert ? Microsoft.Maui.Graphics.Colors.Red : Microsoft.Maui.Graphics.Colors.DarkBlue;
     public decimal Menge
     {
         get => _menge;

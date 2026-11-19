@@ -302,6 +302,7 @@
                 <Button
                     x:Name="BezahlenButton"
                     Padding="12,0"
+                    Style="{StaticResource AktionButtonStyle}"
                     Clicked="OnBezahlenClicked"
                     FontAttributes="Bold"
                     HeightRequest="36"
