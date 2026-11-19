@@ -1,4 +1,4 @@
-using Bestellung.Data;
+﻿using Bestellung.Data;
 using QRCoder;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -18,6 +18,9 @@ public partial class BestellungSeite : ContentPage
     private List<SpeisekartePositionDto> _positionen = new();
     private ObservableCollection<SpeisekarteAnzeigeZeile> _anzeigeZeilen = new();
     private OffeneBestellungDto? _offeneBestellung;
+
+    // Aktuell angezeigte (je Speisekartenposition zusammengefasste) Rechnungszeilen.
+    private List<OffeneBestellungPosition> _rechnungsZeilen = new();
     private static readonly CultureInfo EuroKultur = CultureInfo.GetCultureInfo("de-DE");
 
     // Aktuell geladene Tische und der ausgewählte Tisch (ersetzt den früheren Picker).
@@ -28,6 +31,11 @@ public partial class BestellungSeite : ContentPage
     private bool _teilbetragUeberschrieben;
     // Verhindert, dass programmatische Änderungen des Entry als manuelle Eingabe gewertet werden.
     private bool _aktualisiereTeilbetragIntern;
+
+    // Änderungsmodus: Mengenfelder zeigen die noch nicht berechneten Mengen; beim Bestellen
+    // wird nur die Differenz zur Ausgangsmenge (Basis) gespeichert.
+    private bool _aenderungsModus;
+    private readonly Dictionary<(long PreislisteId, long ZusatzId), int> _basisMengen = new();
 
     public BestellungSeite(BenutzerDto benutzer, TerminDto termin)
     {
@@ -99,8 +107,7 @@ public partial class BestellungSeite : ContentPage
 
         if (_preislisteGeladen)
         {
-            PreislisteTitel.IsVisible = true;
-            PreislisteView.IsVisible = true;
+            ZeigePreisliste();
         }
         else
         {
@@ -108,6 +115,7 @@ public partial class BestellungSeite : ContentPage
         }
 
         // Bei Tischwechsel stets eine leere neue Bestellung zeigen (alle Mengen auf 0).
+        BeendeAenderungsModus();
         SetzeAlleMengenZurueck();
 
         // Alle aufgeklappten Positionen wieder einklappen (nur oberste Ebene anzeigen).
@@ -122,6 +130,15 @@ public partial class BestellungSeite : ContentPage
         _gewaehlterTisch = null;
         TischAuswahlButton.Text = "Tischnummer wählen";
         TischAuswahlButton.TextColor = Colors.White;
+        ZeigePreisliste();
+    }
+
+    /// <summary>Zeigt die Speisekarte nur an, wenn ein Tisch gewählt ist.</summary>
+    private void ZeigePreisliste()
+    {
+        var sichtbar = _gewaehlterTisch is not null;
+        PreislisteTitel.IsVisible = sichtbar;
+        PreislisteView.IsVisible = sichtbar;
     }
     private void SetzeAlleMengenZurueck()
     {
@@ -190,9 +207,19 @@ public partial class BestellungSeite : ContentPage
 
         try
         {
-            _offeneBestellung = await _bestellungApiClient.GetOffeneBestellungAsync(
-                _termin.BewirtungsDatum, tischNummer);
-            RechnungButton.IsEnabled = _offeneBestellung is { Positionen.Count: > 0 };
+            _offeneBestellung = await _bestellungApiClient.GetOffeneBestellungAsync(_termin.BewirtungsDatum, tischNummer);
+
+            bool offeneRechnung = false;
+            var tische = await _tischApiClient.GetTischeAsync(_termin.BewirtungsDatum);
+            foreach (var t in tische)
+            {
+                if (t.Tischnummer == tischNummer)
+                {
+                     offeneRechnung = t.OffeneRechnung;
+                    break;
+                }
+            }
+            RechnungButton.IsEnabled = offeneRechnung;
         }
         catch (Exception ex)
         {
@@ -206,11 +233,12 @@ public partial class BestellungSeite : ContentPage
         RechnungBereich.IsVisible = false;
         TeilRechnungBereich.IsVisible = false;
         RechnungAufteilenButton.IsVisible = false;
+        AendernButton.IsVisible = true;
         BestellenButton.IsVisible = true;
 
-        // Tischauswahl wieder aktivieren, sobald wir die Rechnung verlassen.
+        // Tischauswahl wieder aktivieren
         TischAuswahlButton.IsEnabled = true;
-        TischAuswahlButton.BackgroundColor = null;
+        TischAuswahlButton.ClearValue(VisualElement.BackgroundColorProperty);
     }
 
     /// <summary>Deaktiviert den Tischauswahl-Button (grau), solange die Rechnung angezeigt wird.</summary>
@@ -231,8 +259,7 @@ public partial class BestellungSeite : ContentPage
             PreislisteView.ItemsSource = _anzeigeZeilen;
             AktualisiereGesamtpreis();
             PreislisteTitel.Text = $"Preisliste: {_termin.Anzeige}";
-            PreislisteTitel.IsVisible = true;
-            PreislisteView.IsVisible = true;
+            ZeigePreisliste();
             _preislisteGeladen = true;
         }
         catch (Exception ex)
@@ -242,6 +269,17 @@ public partial class BestellungSeite : ContentPage
         }
     }
 
+    /// <summary>Basismenge (bereits offen bestellt) einer Position im Änderungsmodus, sonst 0.</summary>
+    private int BasisMenge(SpeisekartePositionDto position) =>
+        _aenderungsModus && _basisMengen.TryGetValue((position.PreislisteId, position.ZusatzId), out var m) ? m : 0;
+
+    /// <summary>
+    /// Noch verfügbare Menge einer limitierten Position. Im Änderungsmodus ist die
+    /// Basismenge bereits in MengeFrei abgezogen und wird daher wieder hinzugerechnet.
+    /// </summary>
+    private int Verfuegbar(SpeisekartePositionDto position) =>
+        position.MengeFrei + BasisMenge(position) - position.Menge;
+
     private void AktuelisiereMengeLimit(SpeisekarteAnzeigeZeile zeile)
     {
         if (zeile.Position is { } position)
@@ -249,27 +287,24 @@ public partial class BestellungSeite : ContentPage
             if (position.Limit == -1)
             {
                 zeile.PreisText = position.PreisText;
+                zeile.PlusAktiv = true;
             }
             else
             {
-                zeile.PreisText = position.PreisText + Environment.NewLine + " Noch verfügbar:" + (position.MengeFrei - position.Menge).ToString();
+                zeile.PreisText = position.PreisText + Environment.NewLine + " Noch verfügbar:" + Verfuegbar(position).ToString();
+                zeile.PlusAktiv = Verfuegbar(position) > 0;
             }
-            // Refresh PreisText in GUI
         }
     }
     private void OnMengePlus(object? sender, EventArgs e)
     {
         if ((sender as Button)?.CommandParameter is SpeisekarteAnzeigeZeile zeile
-            && zeile.Position is { } position && position.Menge < 99)
+            && zeile.Position is { } position && position.Menge < 99
+            && (position.Limit == -1 || Verfuegbar(position) > 0))
         {
             zeile.Menge = position.Menge + 1;
             AktualisiereGesamtpreis();
             AktuelisiereMengeLimit(zeile);
-            if(position.Limit != -1 && position.MengeFrei - position.Menge <= 0)
-            {
-                //MengePlus-Button inaktiv setzen
-                zeile.PlusAktiv = false;
-            }
         }
     }
 
@@ -281,10 +316,92 @@ public partial class BestellungSeite : ContentPage
             zeile.Menge = position.Menge - 1;
             AktualisiereGesamtpreis();
             AktuelisiereMengeLimit(zeile);
-            //OnMengePlus-Button aktiv setzen
-            zeile.PlusAktiv = true;
         }
     }
+
+    /// <summary>
+    /// Button "Ändern": zeigt in jeder Position die Summe der noch nicht berechneten Mengen
+    /// des Tisches. Beim Bestellen wird nur die Differenz (plus oder minus) gespeichert.
+    /// </summary>
+    private async void OnAendernClicked(object? sender, EventArgs e)
+    {
+        await PruefeOffeneBestellungAsync();
+        if (_offeneBestellung is null || _offeneBestellung.Positionen.Count == 0)
+        {
+            return;
+        }
+
+        if (!_preislisteGeladen)
+        {
+            await LadePreislisteAsync();
+        }
+
+        ZeigeBestellAnsicht();
+        ZeigePreisliste();
+        GesamtTitelLabel.IsVisible = true;
+        GesamtpreisLabel.IsVisible = true;
+
+        SetzeAlleMengenZurueck();
+
+        _basisMengen.Clear();
+        foreach (var gruppe in _offeneBestellung.Positionen
+                     .GroupBy(p => (p.PreislisteId, p.ZusatzId)))
+        {
+            var offen = (int)gruppe.Sum(p => p.OffeneMenge);
+            if (offen > 0)
+            {
+                _basisMengen[gruppe.Key] = offen;
+            }
+        }
+        _aenderungsModus = true;
+        foreach (var zeile in AlleAnzeigeZeilen())
+        {
+            zeile.MengeFarbe = Colors.Red;
+        }
+
+        // Im Änderungsmodus Rechnung/Ändern sperren (Ändern folgt RechnungButton.IsEnabled)
+        // und den Modus am Tisch-Button anzeigen.
+        RechnungButton.IsEnabled = false;
+        if (_gewaehlterTisch is { } tisch)
+        {
+            TischAuswahlButton.Text = $"{tisch.Anzeige} (Ändern-Modus)";
+        }
+
+        foreach (var zeile in AlleAnzeigeZeilen().Where(z => z.Position is not null))
+        {
+            zeile.Menge = BasisMenge(zeile.Position!);
+            //AktuelisiereMengeLimit(zeile);
+        }
+
+        AktualisiereGesamtpreis();
+    }
+
+    /// <summary>Verlässt den Änderungsmodus und setzt die Limit-Anzeige zurück.</summary>
+    private void BeendeAenderungsModus()
+    {
+        if (!_aenderungsModus)
+        {
+            return;
+        }
+        _aenderungsModus = false;
+        _basisMengen.Clear();
+        foreach (var zeile in AlleAnzeigeZeilen())
+        {
+            zeile.MengeFarbe = Colors.Black;
+        }
+        if (_gewaehlterTisch is { } tisch)
+        {
+            TischAuswahlButton.Text = tisch.Anzeige;
+        }
+        foreach (var zeile in AlleAnzeigeZeilen())
+        {
+            //AktuelisiereMengeLimit(zeile);
+        }
+    }
+
+    /// <summary>Zu bestellende Menge: im Änderungsmodus die Differenz zur Basis, sonst die Menge.</summary>
+    private int BestellMenge(SpeisekartePositionDto position) =>
+        position.Menge - BasisMenge(position);
 
     private async void OnAktionButtonClicked(object? sender, EventArgs e)
     {
@@ -428,7 +545,9 @@ public partial class BestellungSeite : ContentPage
     {
         var gesamt = _positionen.Sum(p => p.Menge * p.Preis);
         GesamtpreisLabel.Text = gesamt.ToString("C", EuroKultur);
-        BestellenButton.IsEnabled = gesamt > 0m;
+        BestellenButton.IsEnabled = _aenderungsModus
+            ? _positionen.Any(p => BestellMenge(p) != 0)
+            : gesamt > 0m;
     }
 
     private async void OnBestellenClicked(object? sender, EventArgs e)
@@ -450,7 +569,10 @@ public partial class BestellungSeite : ContentPage
     /// </summary>
     private async Task<bool?> SendeAusgewaehlteBestellungAsync()
     {
-        var gewaehlte = _positionen.Where(p => p.Menge > 0).ToList();
+        var gewaehlte = _positionen
+            .Select(p => (Position: p, Menge: BestellMenge(p)))
+            .Where(x => x.Menge != 0)
+            .ToList();
         if (gewaehlte.Count == 0)
         {
             return null;
@@ -463,8 +585,9 @@ public partial class BestellungSeite : ContentPage
         }
 
         var tischNummer = tisch.Tischnummer;
-        var gesamt = gewaehlte.Sum(p => p.Menge * p.Preis);
+        var gesamt = gewaehlte.Sum(x => x.Menge * x.Position.Preis);
         var heute = _termin.BewirtungsDatum;
+        var warAenderung = _aenderungsModus;
 
         var bestellung = new BestellungRequest
         {
@@ -472,13 +595,14 @@ public partial class BestellungSeite : ContentPage
             UserId = _userId,
             Gesamtpreis = gesamt,
             TischNummer = tischNummer,
-            Positionen = gewaehlte.Select(p => new BestellungPosition
+            Aenderung = warAenderung,
+            Positionen = gewaehlte.Select(x => new BestellungPosition
             {
-                PreislisteId = p.PreislisteId,
-                ZusatzId = p.ZusatzId,
-                Preis = p.Preis,
-                Menge = p.Menge,
-                Besonderheit = p.Besonderheit
+                PreislisteId = x.Position.PreislisteId,
+                ZusatzId = x.Position.ZusatzId,
+                Preis = x.Position.Preis,
+                Menge = x.Menge,
+                Besonderheit = x.Position.Besonderheit
             }).ToList()
         };
 
@@ -489,7 +613,14 @@ public partial class BestellungSeite : ContentPage
             await DisplayAlertAsync("Bestellung", $"Bestellung Nr. {auftragId} über {gesamt.ToString("C", EuroKultur)} wurde gespeichert.", "OK");
 
             // Nach erfolgreicher Bestellung alle Mengen der Speisekarte auf 0 setzen.
+            BeendeAenderungsModus();
             SetzeAlleMengenZurueck();
+
+            // Nach einer Änderung die Preisliste neu laden, damit die Limits stimmen.
+            if (warAenderung)
+            {
+                await LadePreislisteAsync();
+            }
             return true;
         }
         catch (Exception ex)
@@ -527,9 +658,20 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
+        // Ungespeicherte Änderungsansicht verlassen.
+        if (_aenderungsModus)
+        {
+            BeendeAenderungsModus();
+            SetzeAlleMengenZurueck();
+        }
+
+        // Minus-Positionen aus Änderungen mit den offenen Positionen desselben Produkts verrechnen.
+        VerrechneMinusPositionen(_offeneBestellung.Positionen);
+
         // Nur noch nicht (vollständig) bezahlte Positionen in der Rechnung anzeigen;
-        // bereits per Teilzahlung vollständig bezahlte Positionen ausblenden.
-        var offenePositionen = _offeneBestellung.Positionen.Where(p => p.OffeneMenge > 0m).ToList();
+        // gleiche Speisekartenpositionen werden zu einer Zeile zusammengefasst.
+        var offenePositionen = FasseZusammen(_offeneBestellung.Positionen);
+        _rechnungsZeilen = offenePositionen;
         if (offenePositionen.Count == 0)
         {
             return;
@@ -547,6 +689,7 @@ public partial class BestellungSeite : ContentPage
         PreislisteTitel.IsVisible = false;
         PreislisteView.IsVisible = false;
         BestellenButton.IsVisible = false;
+        AendernButton.IsVisible = false;
 
         var offeneSumme = offenePositionen.Sum(p => p.OffeneMenge * p.Preis);
         RechnungView.ItemsSource = offenePositionen;
@@ -565,7 +708,93 @@ public partial class BestellungSeite : ContentPage
         SperreTischAuswahl();
 
         // "Rechnung aufteilen" anzeigen, solange der Auftrag nicht vollständig bezahlt ist.
-        RechnungAufteilenButton.IsVisible = offenePositionen.Any(p => p.OffeneMenge > 0m);
+        // "Rechnung aufteilen" nur anzeigen, wenn mehr als eine Einheit offen ist
+        // (bei nur noch einer Position mit Menge 1 gibt es nichts aufzuteilen).
+        RechnungAufteilenButton.IsVisible = offenePositionen.Sum(p => p.OffeneMenge) > 1m;
+    }
+
+    /// <summary>
+    /// Verrechnet negative offene Mengen (Minus-Positionen aus "Ändern") lokal mit den
+    /// positiven offenen Positionen desselben Produkts, damit die Rechnung nur Nettomengen zeigt.
+    /// </summary>
+    private static void VerrechneMinusPositionen(List<OffeneBestellungPosition> positionen)
+    {
+        foreach (var gruppe in positionen.GroupBy(p => (p.PreislisteId, p.ZusatzId)))
+        {
+            var minus = -gruppe.Where(p => p.OffeneMenge < 0m).Sum(p => p.OffeneMenge);
+            if (minus <= 0m)
+            {
+                continue;
+            }
+
+            foreach (var neg in gruppe.Where(p => p.OffeneMenge < 0m))
+            {
+                neg.MengeBezahlt = neg.Menge;
+            }
+
+            foreach (var pos in gruppe.Where(p => p.OffeneMenge > 0m))
+            {
+                var abzug = Math.Min(minus, pos.OffeneMenge);
+                pos.MengeBezahlt += abzug;
+                minus -= abzug;
+                if (minus <= 0m)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Fasst gleiche Speisekartenpositionen (PreislisteId, ZusatzId, Preis) zu einer Rechnungszeile
+    /// zusammen. Die Einzelpositionen bleiben in <see cref="OffeneBestellungPosition.Teile"/> erhalten.
+    /// </summary>
+    private static List<OffeneBestellungPosition> FasseZusammen(List<OffeneBestellungPosition> positionen)
+    {
+        VerrechneMinusPositionen(positionen);
+
+        return positionen
+            .GroupBy(p => (p.PreislisteId, p.ZusatzId, p.Preis))
+            .Select(g => new OffeneBestellungPosition
+            {
+                PreislisteId = g.Key.PreislisteId,
+                ZusatzId = g.Key.ZusatzId,
+                Preis = g.Key.Preis,
+                Produkt = g.First().Produkt,
+                Menge = g.Sum(p => p.Menge),
+                MengeBezahlt = g.Sum(p => p.MengeBezahlt),
+                AuftragId = g.First().AuftragId,
+                PosNr = g.First().PosNr,
+                Teile = g.ToList()
+            })
+            .Where(z => z.OffeneMenge > 0m)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Verteilt die gewählten Teilmengen der zusammengefassten Zeilen auf die offenen
+    /// Einzelpositionen (älteste zuerst) und liefert diese für die API zurück.
+    /// </summary>
+    private static List<OffeneBestellungPosition> VerteileAufTeile(IEnumerable<OffeneBestellungPosition> zeilen)
+    {
+        var ergebnis = new List<OffeneBestellungPosition>();
+        foreach (var zeile in zeilen)
+        {
+            var rest = zeile.TeilMenge;
+            foreach (var teil in zeile.Teile.Where(t => t.OffeneMenge > 0m))
+            {
+                if (rest <= 0m)
+                {
+                    break;
+                }
+                teil.TeilMenge = Math.Min(rest, teil.OffeneMenge);
+                teil.ZeigeGeliefert = zeile.ZeigeGeliefert;
+                teil.Geliefert = zeile.Geliefert;
+                rest -= teil.TeilMenge;
+                ergebnis.Add(teil);
+            }
+        }
+        return ergebnis;
     }
 
     /// <summary>
@@ -613,8 +842,10 @@ public partial class BestellungSeite : ContentPage
     /// </summary>
     private List<OffeneBestellungPosition> ErmittleOffeneTeilrechnungPositionen()
     {
-        var offene = _offeneBestellung?.Positionen.Where(p => p.OffeneMenge > 0m).ToList()
-            ?? new List<OffeneBestellungPosition>();
+        var offene = _offeneBestellung is null
+            ? new List<OffeneBestellungPosition>()
+            : FasseZusammen(_offeneBestellung.Positionen);
+        _rechnungsZeilen = offene;
 
         var zeigeGeliefert = _gewaehlterTisch?.SofortLieferung == 1;
         foreach (var p in offene)
@@ -655,7 +886,7 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
-        var betrag = _offeneBestellung?.Positionen.Sum(p => p.TeilMenge * p.Preis) ?? 0m;
+        var betrag = _rechnungsZeilen.Sum(p => p.TeilMenge * p.Preis);
         _aktualisiereTeilbetragIntern = true;
         TeilRechnungSummeEntry.Text = betrag.ToString("N2", EuroKultur);
         _aktualisiereTeilbetragIntern = false;
@@ -680,14 +911,15 @@ public partial class BestellungSeite : ContentPage
             return;
         }
 
-        var zuZahlen = _offeneBestellung.Positionen.Where(p => p.TeilMenge > 0m).ToList();
-        if (zuZahlen.Count == 0)
+        var zuZahlenZeilen = _rechnungsZeilen.Where(p => p.TeilMenge > 0m).ToList();
+        if (zuZahlenZeilen.Count == 0)
         {
             await DisplayAlertAsync("Hinweis", "Bitte mindestens eine Menge wählen.", "OK");
             return;
         }
 
-        var berechneterBetrag = zuZahlen.Sum(p => p.TeilMenge * p.Preis);
+        var berechneterBetrag = zuZahlenZeilen.Sum(p => p.TeilMenge * p.Preis);
+        var zuZahlen = VerteileAufTeile(zuZahlenZeilen);
 
         // Falls der Teilbetrag manuell überschrieben wurde, diesen Wert verwenden.
         var betrag = berechneterBetrag;
@@ -722,7 +954,7 @@ public partial class BestellungSeite : ContentPage
             await PruefeOffeneBestellungAsync();
 
             if (_offeneBestellung is { Positionen.Count: > 0 }
-                && _offeneBestellung.Positionen.Any(p => p.OffeneMenge > 0m))
+                && FasseZusammen(_offeneBestellung.Positionen).Count > 0)
             {
                 // Im Teilzahlungsmodus bleiben: nur noch offene Positionen anzeigen, Teilmengen auf 0.
                 foreach (var p in _offeneBestellung.Positionen)
@@ -731,19 +963,29 @@ public partial class BestellungSeite : ContentPage
                 }
                 _teilbetragUeberschrieben = false;
                 TeilRechnungBereich.IsVisible = true;
+                // Im Teilzahlungsmodus bleibt der Rechnung-Button (und damit Ändern) gesperrt.
+                RechnungButton.IsEnabled = false;
                 ZeigeTeilrechnungPositionen();
             }
             else
             {
-                // Alles bezahlt -> zurück zur Bestellansicht.
+                // Alles bezahlt -> zurück zur Tischauswahl.
+                _offeneBestellung = null;
+                _rechnungsZeilen = new();
                 TeilRechnungBereich.IsVisible = false;
                 ZeigeBestellAnsicht();
+                SetzeAlleMengenZurueck();
+                if (_preislisteGeladen)
+                {
+                    ZeigePreisliste();
+                }
                 GesamtTitelLabel.IsVisible = true;
                 GesamtpreisLabel.IsVisible = true;
+                RechnungButton.IsEnabled = false;
                 SetzeTischAuswahlZurueck();
             }
 
-            // Fiskal-QR-Code des Teilzahlungsbelegs anzeigen (falls die TSE-Signatur erfolgreich war).
+            // Fiskal-QR-Code des Teilzahlungsbelegs
             ZeigeFiskalBeleg(ergebnis);
         }
         catch (Exception ex)
@@ -772,8 +1014,7 @@ public partial class BestellungSeite : ContentPage
 
         if (_preislisteGeladen)
         {
-            PreislisteTitel.IsVisible = true;
-            PreislisteView.IsVisible = true;
+            ZeigePreisliste();
         }
     }
 
@@ -811,8 +1052,7 @@ public partial class BestellungSeite : ContentPage
 
         if (_preislisteGeladen)
         {
-            PreislisteTitel.IsVisible = true;
-            PreislisteView.IsVisible = true;
+            ZeigePreisliste();
         }
     }
 
@@ -838,8 +1078,9 @@ public partial class BestellungSeite : ContentPage
 
             // Für Tische > 99: markierte Positionen sofort als geliefert verbuchen
             // (MengeGeliefert = Menge; StatusLieferung = 1, wenn der Auftrag vollständig geliefert ist).
-            var gelieferte = _offeneBestellung.Positionen
+            var gelieferte = _rechnungsZeilen
                 .Where(p => p.ZeigeGeliefert && p.Geliefert)
+                .SelectMany(p => p.Teile.Where(t => t.OffeneMenge > 0m))
                 .ToList();
             if (gelieferte.Count > 0)
             {
@@ -851,9 +1092,7 @@ public partial class BestellungSeite : ContentPage
 
             // Zurück zur Tischauswahl.
             _offeneBestellung = null;
-            RechnungBereich.IsVisible = false;
-            RechnungAufteilenButton.IsVisible = false;
-            BestellenButton.IsVisible = true;
+            ZeigeBestellAnsicht();
             GesamtTitelLabel.IsVisible = true;
             GesamtpreisLabel.IsVisible = true;
             RechnungButton.IsEnabled = false;
@@ -891,6 +1130,7 @@ public partial class BestellungSeite : ContentPage
                 ? "Für diesen Beleg wurde keine TSE-Signatur erzeugt."
                 : $"TSE-Fehler: {ergebnis.FiskalFehler}";
             QrBereich.IsVisible = true;
+            SperreTischAuswahl();
             return;
         }
 
@@ -912,6 +1152,7 @@ public partial class BestellungSeite : ContentPage
             : $"Beleg-Nr. {ergebnis.BelegNummer}";
         QrHinweisLabel.Text = "Hinweis: Simulierte TSE (nicht fiskalkonform).";
         QrBereich.IsVisible = true;
+        SperreTischAuswahl();
     }
 
     /// <summary>Schließt die QR-/Beleganzeige und kehrt zur Bestellansicht zurück.</summary>
@@ -919,5 +1160,12 @@ public partial class BestellungSeite : ContentPage
     {
         QrBereich.IsVisible = false;
         QrImage.Source = null;
+
+        // Tischauswahl wieder freigeben, außer die Teilrechnung ist noch offen.
+        if (!TeilRechnungBereich.IsVisible && !RechnungBereich.IsVisible)
+        {
+            TischAuswahlButton.IsEnabled = true;
+            TischAuswahlButton.ClearValue(VisualElement.BackgroundColorProperty);
+        }
     }
 }

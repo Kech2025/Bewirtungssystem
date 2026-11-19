@@ -147,6 +147,10 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
     public long AuftragId { get; set; }
     public long PosNr { get; set; }
 
+    /// <summary>Bei zusammengefassten Rechnungszeilen: die zugrundeliegenden Einzelpositionen.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<OffeneBestellungPosition> Teile { get; set; } = new();
+
     private decimal _teilMenge;
 
     /// <summary>Für die Teilrechnung aktuell gewählte zu zahlende Menge (0..offene Menge).</summary>
@@ -240,6 +244,7 @@ public class BestellungRequest
     public long UserId { get; set; }
     public decimal Gesamtpreis { get; set; }
     public int TischNummer { get; set; }
+    public bool Aenderung { get; set; }
     public List<BestellungPosition> Positionen { get; set; } = new();
 }
 

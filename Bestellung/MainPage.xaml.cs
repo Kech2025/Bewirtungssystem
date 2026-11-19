@@ -297,18 +297,21 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private void OnAbmeldenClicked(object? sender, EventArgs e)
+    private async void OnAbmeldenClicked(object? sender, EventArgs e)
     {
         // Gemerkte Anmeldung verwerfen und Auswahl zurücksetzen.
         _letzterBewirtungsDatum = null;
         _letzterVereinId = null;
         _letzterUserId = null;
 
-        _ = BeendeJournalSitzungAsync();
+        // Sitzung abmelden (max. 3 Sekunden warten), danach die App schließen.
+        await Task.WhenAny(BeendeJournalSitzungAsync(), Task.Delay(3000));
 
         TerminPicker.SelectedIndex = -1;
         BenutzerPicker.ItemsSource = null;
         BenutzerPicker.SelectedIndex = -1;
         ModusPicker.SelectedIndex = 0;
+
+        Application.Current?.Quit();
     }
 }

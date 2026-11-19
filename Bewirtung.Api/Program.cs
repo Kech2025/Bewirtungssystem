@@ -223,11 +223,14 @@ app.MapGet("/api/tische", (int datum) =>
     using var command = connection.CreateCommand();
     command.CommandText = @"
         SELECT t.Tischnummer, b.Bezeichnung, COALESCE(t.SofortLieferung, false),
-               CASE WHEN EXISTS (
-                   SELECT 1 FROM Bewirtungsauftrag ba
-                   WHERE ba.TischNummer = t.Tischnummer
-                     AND ba.Bewirtungstermin = @datum
-                     AND ba.Status = false
+       CASE WHEN EXISTS (
+           SELECT 1 FROM Bewirtungsauftrag ba
+		   INNER JOIN (SELECT SUM(bp.Menge) AS Menge, bp.bewirtungsauftragId FROM Bewirtungsposition bp 
+		   		GROUP BY bp.bewirtungsauftragId) ibp 
+		   		ON  ibp.bewirtungsauftragId = ba.Auftragid AND ibp.Menge > 0
+           WHERE ba.TischNummer = t.Tischnummer
+             AND ba.Bewirtungstermin = @datum
+             AND ba.Status = false
                ) THEN true ELSE false END AS OffeneRechnung
         FROM Tisch t
         INNER JOIN TischTermin tt ON tt.Tischnummer = t.Tischnummer AND tt.Bewirtungsdatum = @datum
@@ -534,6 +537,12 @@ app.MapPost("/api/bestellung", (BestellungRequest bestellung) =>
 
                 foreach (var pos in bestellung.Positionen)
                 {
+                    // Änderungsmodus: Menge vorhandener offener Positionen anpassen statt neue Zeile zu schreiben.
+                    if (bestellung.Aenderung && AendereVorhandenePosition(connection, transaction, bestellung, pos))
+                    {
+                        continue;
+                    }
+
                     using var posCmd = connection.CreateCommand();
                     posCmd.Transaction = transaction;
                     posCmd.CommandText = @"
@@ -598,19 +607,20 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
     {
         posCmd.CommandText = $@"
             SELECT bp.PreislisteId,
-                   bp.PreislisteZusatzId,
-                   p.Name,
-                   COALESCE(z.Bezeichnung, '') AS ZusatzText,
-                   bp.Preis,
-                   bp.Menge,
-                   COALESCE(bp.MengeBezahlt, 0) AS MengeBezahlt,
-                   bp.BewirtungsauftragId,
-                   bp.Bewirtungsposition
+                    bp.PreislisteZusatzId,
+                    p.Name,
+                    COALESCE(z.Bezeichnung, '') AS ZusatzText,
+                    bp.Preis,
+                    bp.Menge,
+                    COALESCE(bp.MengeBezahlt, 0) AS MengeBezahlt,
+                    bp.BewirtungsauftragId,
+                    bp.Bewirtungsposition
             FROM BewirtungsPosition bp
             LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
             LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
             WHERE bp.BewirtungsauftragId IN ({inClause})
-            ORDER BY bp.BewirtungsauftragId, bp.Bewirtungsposition;";
+            ORDER BY bp.BewirtungsauftragId, Bewirtungsposition;";
+            
         for (var i = 0; i < auftragIds.Count; i++)
         {
             posCmd.Parameters.AddWithValue($"@id{i}", (int)auftragIds[i]);
@@ -1213,7 +1223,77 @@ app.MapPost("/api/journal/logout", (JournalLogoutRequest req) =>
 
 app.Run();
 
-record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen);
+// Passt im Änderungsmodus die Menge vorhandener offener Positionen (gleiche Speisekartenposition)
+// an. Liefert false, wenn keine passende Position existiert (dann wird neu eingefügt).
+static bool AendereVorhandenePosition(Npgsql.NpgsqlConnection connection, Npgsql.NpgsqlTransaction transaction,
+    BestellungRequest bestellung, BestellungPosition pos)
+{
+    var zeilen = new List<(int AuftragId, int PosNr, int Menge, int Bezahlt)>();
+    using (var cmd = connection.CreateCommand())
+    {
+        cmd.Transaction = transaction;
+        cmd.CommandText = @"
+            SELECT p.BewirtungsauftragId, p.Bewirtungsposition, p.Menge, COALESCE(p.MengeBezahlt, 0)
+            FROM BewirtungsPosition p
+            JOIN Bewirtungsauftrag a ON a.AuftragId = p.BewirtungsauftragId
+            WHERE a.Bewirtungstermin = @termin AND a.TischNummer = @tisch AND a.Status = false
+              AND p.PreislisteId = @preislisteId AND p.PreislisteZusatzId = @zusatzId
+              AND p.Menge > COALESCE(p.MengeBezahlt, 0)
+            ORDER BY p.BewirtungsauftragId DESC, p.Bewirtungsposition DESC;";
+        cmd.Parameters.AddWithValue("@termin", FromYyyyMmDd(bestellung.Bewirtungstermin));
+        cmd.Parameters.AddWithValue("@tisch", bestellung.TischNummer);
+        cmd.Parameters.AddWithValue("@preislisteId", (int)pos.PreislisteId);
+        cmd.Parameters.AddWithValue("@zusatzId", (int)pos.ZusatzId);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            zeilen.Add((reader.GetInt32(0), reader.GetInt32(1), Convert.ToInt32(reader.GetValue(2)), Convert.ToInt32(reader.GetValue(3))));
+        }
+    }
+
+    if (zeilen.Count == 0)
+    {
+        return false;
+    }
+
+    var delta = (int)pos.Menge;
+    if (delta > 0)
+    {
+        // Erhöhung: zur jüngsten offenen Position addieren.
+        AktualisiereMenge(connection, transaction, zeilen[0].AuftragId, zeilen[0].PosNr, zeilen[0].Menge + delta, zeilen[0].Bezahlt);
+        return true;
+    }
+
+    // Verringerung: von der jüngsten Position an reduzieren, nie unter die bezahlte Menge.
+    var rest = -delta;
+    foreach (var z in zeilen)
+    {
+        if (rest <= 0)
+        {
+            break;
+        }
+        var abzug = Math.Min(rest, z.Menge - z.Bezahlt);
+        AktualisiereMenge(connection, transaction, z.AuftragId, z.PosNr, z.Menge - abzug, z.Bezahlt);
+        rest -= abzug;
+    }
+    return true;
+}
+
+static void AktualisiereMenge(Npgsql.NpgsqlConnection connection, Npgsql.NpgsqlTransaction transaction,
+    int auftragId, int posNr, int neueMenge, int bezahlt)
+{
+    using var cmd = connection.CreateCommand();
+    cmd.Transaction = transaction;
+    cmd.CommandText = neueMenge <= 0 && bezahlt == 0
+        ? "DELETE FROM BewirtungsPosition WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;"
+        : "UPDATE BewirtungsPosition SET Menge = @menge WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;";
+    cmd.Parameters.AddWithValue("@menge", neueMenge);
+    cmd.Parameters.AddWithValue("@auftragId", auftragId);
+    cmd.Parameters.AddWithValue("@posNr", posNr);
+    cmd.ExecuteNonQuery();
+}
+
+record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen, bool Aenderung = false);
 record BestellungPosition(long PreislisteId, long ZusatzId, decimal Preis, decimal Menge, string? Besonderheit = null);
 record BezahlenRequest(long AuftragId, decimal Betrag, List<long>? AuftragIds = null, string? HandyName = null);
 record TeilzahlenRequest(decimal Betrag, List<TeilzahlenPosition> Positionen, string? HandyName = null);

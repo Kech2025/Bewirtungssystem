@@ -68,6 +68,21 @@ public class SpeisekarteAnzeigeZeile : INotifyPropertyChanged
 
     public Color ProduktFarbe { get; init; } = Colors.Black;
 
+    private Color _mengeFarbe = Colors.Black;
+    /// <summary>Schriftfarbe der Menge: Rot im Änderungsmodus (nur bei Menge != 0), sonst Schwarz.</summary>
+    public Color MengeFarbe
+    {
+        get => AnzeigeMenge != 0 ? _mengeFarbe : Colors.Black;
+        set
+        {
+            if (_mengeFarbe != value)
+            {
+                _mengeFarbe = value;
+                OnPropertyChanged(nameof(MengeFarbe));
+            }
+        }
+    }
+
     /// <summary>Einrückung: Untervarianten etwas eingerückt.</summary>
     public Thickness Einzug => Art == ZeilenArt.Variante ? new Thickness(24, 2, 0, 2) : new Thickness(0, 2);
 
@@ -155,6 +170,7 @@ public class SpeisekarteAnzeigeZeile : INotifyPropertyChanged
                 Position.Menge = value;
                 OnPropertyChanged(nameof(Menge));
                 OnPropertyChanged(nameof(AnzeigeMenge));
+                OnPropertyChanged(nameof(MengeFarbe));
                 // Aggregierte Menge im Gruppenkopf aktualisieren.
                 Kopf?.AktualisiereMengeAusVarianten();
             }
@@ -169,8 +185,11 @@ public class SpeisekarteAnzeigeZeile : INotifyPropertyChanged
         Art == ZeilenArt.Kopf ? Varianten.Sum(v => v.Menge) : Menge;
 
     /// <summary>Lässt den Gruppenkopf seine aggregierte Menge neu berechnen.</summary>
-    public void AktualisiereMengeAusVarianten() =>
+    public void AktualisiereMengeAusVarianten()
+    {
         OnPropertyChanged(nameof(AnzeigeMenge));
+        OnPropertyChanged(nameof(MengeFarbe));
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
