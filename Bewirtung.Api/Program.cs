@@ -614,7 +614,8 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
                     bp.Menge,
                     COALESCE(bp.MengeBezahlt, 0) AS MengeBezahlt,
                     bp.BewirtungsauftragId,
-                    bp.Bewirtungsposition
+                    bp.Bewirtungsposition,
+                    COALESCE(bp.Besonderheit, '') AS Besonderheit
             FROM BewirtungsPosition bp
             LEFT JOIN GlobalePreisliste p ON p.Id = bp.PreislisteId
             LEFT JOIN GlobalePreislisteZusatz z ON z.Id = bp.PreislisteZusatzId AND z.SpeisekarteId = bp.PreislisteId
@@ -639,7 +640,8 @@ app.MapGet("/api/bestellung/offen", (int termin, int tisch) =>
                 Menge = reader.IsDBNull(5) ? 0m : (decimal)reader.GetInt32(5),
                 MengeBezahlt = reader.IsDBNull(6) ? 0m : (decimal)reader.GetInt32(6),
                 AuftragId = (long)reader.GetInt32(7),
-                PosNr = (long)reader.GetInt32(8)
+                PosNr = (long)reader.GetInt32(8),
+                Besonderheit = reader.IsDBNull(9) ? string.Empty : reader.GetString(9)
             });
         }
     }
@@ -1238,8 +1240,14 @@ static bool AendereVorhandenePosition(Npgsql.NpgsqlConnection connection, Npgsql
             JOIN Bewirtungsauftrag a ON a.AuftragId = p.BewirtungsauftragId
             WHERE a.Bewirtungstermin = @termin AND a.TischNummer = @tisch AND a.Status = false
               AND p.PreislisteId = @preislisteId AND p.PreislisteZusatzId = @zusatzId
-              AND p.Menge > COALESCE(p.MengeBezahlt, 0)
+              AND p.Menge > COALESCE(p.MengeBezahlt, 0)"
+            + (pos.OriginalBesonderheit is null ? string.Empty : " AND TRIM(COALESCE(p.Besonderheit, '')) = @orig")
+            + @"
             ORDER BY p.BewirtungsauftragId DESC, p.Bewirtungsposition DESC;";
+        if (pos.OriginalBesonderheit is not null)
+        {
+            cmd.Parameters.AddWithValue("@orig", pos.OriginalBesonderheit.Trim());
+        }
         cmd.Parameters.AddWithValue("@termin", FromYyyyMmDd(bestellung.Bewirtungstermin));
         cmd.Parameters.AddWithValue("@tisch", bestellung.TischNummer);
         cmd.Parameters.AddWithValue("@preislisteId", (int)pos.PreislisteId);
@@ -1253,10 +1261,30 @@ static bool AendereVorhandenePosition(Npgsql.NpgsqlConnection connection, Npgsql
 
     if (zeilen.Count == 0)
     {
-        return false;
+        // Nur Besonderheit geändert, aber keine offene Position -> nichts einfügen.
+        return pos.Menge == 0;
+    }
+
+    // Besonderheit der offenen Positionen übernehmen.
+    if (pos.Besonderheit is not null)
+    {
+        foreach (var z in zeilen)
+        {
+            using var bCmd = connection.CreateCommand();
+            bCmd.Transaction = transaction;
+            bCmd.CommandText = "UPDATE BewirtungsPosition SET Besonderheit = @besonderheit WHERE BewirtungsauftragId = @auftragId AND Bewirtungsposition = @posNr;";
+            bCmd.Parameters.AddWithValue("@besonderheit", pos.Besonderheit);
+            bCmd.Parameters.AddWithValue("@auftragId", z.AuftragId);
+            bCmd.Parameters.AddWithValue("@posNr", z.PosNr);
+            bCmd.ExecuteNonQuery();
+        }
     }
 
     var delta = (int)pos.Menge;
+    if (delta == 0)
+    {
+        return true;
+    }
     if (delta > 0)
     {
         // Erhöhung: zur jüngsten offenen Position addieren.
@@ -1294,7 +1322,7 @@ static void AktualisiereMenge(Npgsql.NpgsqlConnection connection, Npgsql.NpgsqlT
 }
 
 record BestellungRequest(int Bewirtungstermin, long UserId, decimal Gesamtpreis, int TischNummer, List<BestellungPosition> Positionen, bool Aenderung = false);
-record BestellungPosition(long PreislisteId, long ZusatzId, decimal Preis, decimal Menge, string? Besonderheit = null);
+record BestellungPosition(long PreislisteId, long ZusatzId, decimal Preis, decimal Menge, string? Besonderheit = null, string? OriginalBesonderheit = null);
 record BezahlenRequest(long AuftragId, decimal Betrag, List<long>? AuftragIds = null, string? HandyName = null);
 record TeilzahlenRequest(decimal Betrag, List<TeilzahlenPosition> Positionen, string? HandyName = null);
 record TeilzahlenPosition(long AuftragId, long PosNr, decimal MengeZahlen);

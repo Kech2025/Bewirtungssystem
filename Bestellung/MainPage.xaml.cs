@@ -38,9 +38,17 @@ public partial class MainPage : ContentPage
         await BeendeJournalSitzungAsync();
 
         await StelleHandyRegistrierungSicherAsync();
-        await AktualisiereBestellungFlagAsync();
-        await LadeModusAsync();
+        await AktualisiereBestellungFlagAsync();        
         await LadeTermineAsync();
+        if (TerminPicker.SelectedItem is TerminDto termin)
+        {
+            await LadeBenutzerFuerTerminAsync(termin);
+            await LadeModusAsync(termin);
+        }
+        else
+        { 
+            await LadeModusAsync();
+        }
     }
 
     /// <summary>

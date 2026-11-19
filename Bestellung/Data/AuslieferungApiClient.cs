@@ -163,7 +163,21 @@ public class AuslieferungPositionDto : INotifyPropertyChanged
     public string SeitenMengeText => _seitenMenge.ToString();
 
     /// <summary>Freitext-Zusatzinfo (Besonderheit) aus dem Bestellvorgang.</summary>
-    public string Besonderheit { get; set; } = string.Empty;
+    private string _besonderheit = string.Empty;
+    public string Besonderheit
+    {
+        get => _besonderheit;
+        set
+        {
+            var neu = value ?? string.Empty;
+            if (_besonderheit != neu)
+            {
+                _besonderheit = neu;
+                OnPropertyChanged(nameof(Besonderheit));
+                OnPropertyChanged(nameof(HatBesonderheit));
+            }
+        }
+    }
 
     /// <summary>True, wenn eine Besonderheit vorhanden ist (steuert die Sichtbarkeit in der UI).</summary>
     public bool HatBesonderheit => !string.IsNullOrWhiteSpace(Besonderheit);

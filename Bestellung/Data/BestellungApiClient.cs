@@ -137,6 +137,7 @@ public class OffeneBestellungPosition : System.ComponentModel.INotifyPropertyCha
     public long PreislisteId { get; set; }
     public long ZusatzId { get; set; }
     public string Produkt { get; set; } = string.Empty;
+    public string Besonderheit { get; set; } = string.Empty;
     public decimal Preis { get; set; }
     public decimal Menge { get; set; }
 
@@ -256,6 +257,9 @@ public class BestellungPosition
     public decimal Preis { get; set; }
     public decimal Menge { get; set; }
     public string Besonderheit { get; set; } = string.Empty;
+
+    /// <summary>Änderungsmodus: ursprüngliche Besonderheit zur Zuordnung der vorhandenen Positionen.</summary>
+    public string? OriginalBesonderheit { get; set; }
 }
 
 /// <summary>Antwort der API nach dem Speichern.</summary>

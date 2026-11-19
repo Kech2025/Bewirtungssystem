@@ -140,7 +140,8 @@ public partial class AuslieferungStationSeite : ContentPage
                     // ge\u00e4ndert (z. B. durch \u00c4nderung in der Bestell-App), Seitenmenge nachziehen.
                     var alteMax = bestehendePos.MaxSeitenMenge;
                     var warVoll = bestehendePos.SeitenMenge == alteMax;
-                    if (bestehendePos.Menge != neuePos.Menge)
+                    if (bestehendePos.Menge != neuePos.Menge
+                        || (bestehendePos.Besonderheit ?? string.Empty) != (neuePos.Besonderheit ?? string.Empty))
                     {
                         bestehendePos.MengeGeaendert = true;
                     }

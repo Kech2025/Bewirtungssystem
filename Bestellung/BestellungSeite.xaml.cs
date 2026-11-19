@@ -35,7 +35,7 @@ public partial class BestellungSeite : ContentPage
     // Änderungsmodus: Mengenfelder zeigen die noch nicht berechneten Mengen; beim Bestellen
     // wird nur die Differenz zur Ausgangsmenge (Basis) gespeichert.
     private bool _aenderungsModus;
-    private readonly Dictionary<(long PreislisteId, long ZusatzId), int> _basisMengen = new();
+    private readonly Dictionary<SpeisekartePositionDto, (int Menge, string Besonderheit)> _aenderungsBasis = new();
 
     public BestellungSeite(BenutzerDto benutzer, TerminDto termin)
     {
@@ -271,7 +271,11 @@ public partial class BestellungSeite : ContentPage
 
     /// <summary>Basismenge (bereits offen bestellt) einer Position im Änderungsmodus, sonst 0.</summary>
     private int BasisMenge(SpeisekartePositionDto position) =>
-        _aenderungsModus && _basisMengen.TryGetValue((position.PreislisteId, position.ZusatzId), out var m) ? m : 0;
+        _aenderungsModus && _aenderungsBasis.TryGetValue(position, out var b) ? b.Menge : 0;
+
+    /// <summary>Im Änderungsmodus die eigenen Änderungszeilen, sonst die Speisekarte.</summary>
+    private IEnumerable<SpeisekartePositionDto> AktivePositionen() =>
+        _aenderungsModus ? _aenderungsBasis.Keys : _positionen;
 
     /// <summary>
     /// Noch verfügbare Menge einer limitierten Position. Im Änderungsmodus ist die
@@ -343,21 +347,53 @@ public partial class BestellungSeite : ContentPage
 
         SetzeAlleMengenZurueck();
 
-        _basisMengen.Clear();
+        _aenderungsBasis.Clear();
+        var aenderungsZeilen = new ObservableCollection<SpeisekarteAnzeigeZeile>();
+        // Je Speisekartenposition UND Besonderheit eine eigene Zeile (z. B. Kuchen "Schwarzwälder" / "Erdbeer").
         foreach (var gruppe in _offeneBestellung.Positionen
-                     .GroupBy(p => (p.PreislisteId, p.ZusatzId)))
+                     .Where(p => p.OffeneMenge != 0m)
+                     .GroupBy(p => (p.PreislisteId, p.ZusatzId, Besonderheit: (p.Besonderheit ?? string.Empty).Trim())))
         {
             var offen = (int)gruppe.Sum(p => p.OffeneMenge);
-            if (offen > 0)
+            var vorlage = _positionen.FirstOrDefault(p =>
+                p.PreislisteId == gruppe.Key.PreislisteId && p.ZusatzId == gruppe.Key.ZusatzId);
+            if (offen <= 0 || vorlage is null)
             {
-                _basisMengen[gruppe.Key] = offen;
+                continue;
             }
+
+            var position = new SpeisekartePositionDto
+            {
+                PreislisteId = vorlage.PreislisteId,
+                ZusatzId = vorlage.ZusatzId,
+                Name = vorlage.Name,
+                ZusatzText = vorlage.ZusatzText,
+                Produkt = vorlage.Produkt,
+                KategorieText = vorlage.KategorieText,
+                Preiskategorie = vorlage.Preiskategorie,
+                Preis = vorlage.Preis,
+                Limit = vorlage.Limit,
+                MengeFrei = vorlage.MengeFrei,
+                Besonderheit = gruppe.Key.Besonderheit,
+                Menge = offen
+            };
+            _aenderungsBasis[position] = (offen, gruppe.Key.Besonderheit);
+
+            var produkt = string.IsNullOrEmpty(vorlage.ZusatzText) || vorlage.Produkt.Contains(vorlage.ZusatzText)
+                ? vorlage.Produkt
+                : $"{vorlage.Produkt} – {vorlage.ZusatzText}";
+            aenderungsZeilen.Add(new SpeisekarteAnzeigeZeile
+            {
+                Art = ZeilenArt.Einzel,
+                Position = position,
+                Produkt = produkt,
+                ProduktFarbe = vorlage.ProduktFarbe,
+                PreisText = vorlage.Limit == -1 ? vorlage.PreisText : vorlage.PreisText + Environment.NewLine + " Noch verfügbar:" + vorlage.MengeFrei.ToString(),
+                MengeFarbe = Colors.Red,
+                ZeigeBesonderheit = gruppe.Key.Besonderheit.Length > 0
+            });
         }
         _aenderungsModus = true;
-        foreach (var zeile in AlleAnzeigeZeilen())
-        {
-            zeile.MengeFarbe = Colors.Red;
-        }
 
         // Im Änderungsmodus Rechnung/Ändern sperren (Ändern folgt RechnungButton.IsEnabled)
         // und den Modus am Tisch-Button anzeigen.
@@ -367,11 +403,8 @@ public partial class BestellungSeite : ContentPage
             TischAuswahlButton.Text = $"{tisch.Anzeige} (Ändern-Modus)";
         }
 
-        foreach (var zeile in AlleAnzeigeZeilen().Where(z => z.Position is not null))
-        {
-            zeile.Menge = BasisMenge(zeile.Position!);
-            //AktuelisiereMengeLimit(zeile);
-        }
+        // Im Änderungsmodus nur die noch nicht berechneten Positionen (wie im Lieferbildschirm) anzeigen.
+        PreislisteView.ItemsSource = aenderungsZeilen;
 
         AktualisiereGesamtpreis();
     }
@@ -384,7 +417,8 @@ public partial class BestellungSeite : ContentPage
             return;
         }
         _aenderungsModus = false;
-        _basisMengen.Clear();
+        _aenderungsBasis.Clear();
+        PreislisteView.ItemsSource = _anzeigeZeilen;
         foreach (var zeile in AlleAnzeigeZeilen())
         {
             zeile.MengeFarbe = Colors.Black;
@@ -398,6 +432,15 @@ public partial class BestellungSeite : ContentPage
             //AktuelisiereMengeLimit(zeile);
         }
     }
+
+    private string BasisBesonderheit(SpeisekartePositionDto position) =>
+        _aenderungsBasis.TryGetValue(position, out var b) ? b.Besonderheit : string.Empty;
+
+    /// <summary>Im Änderungsmodus: wurde die Besonderheit gegenüber der Bestellung geändert?</summary>
+    private bool BesonderheitGeaendert(SpeisekartePositionDto position) =>
+        _aenderungsModus
+        && _aenderungsBasis.TryGetValue(position, out var b)
+        && (position.Besonderheit ?? string.Empty).Trim() != b.Besonderheit;
 
     /// <summary>Zu bestellende Menge: im Änderungsmodus die Differenz zur Basis, sonst die Menge.</summary>
     private int BestellMenge(SpeisekartePositionDto position) =>
@@ -541,12 +584,20 @@ public partial class BestellungSeite : ContentPage
         return zeilen;
     }
 
+    private void OnBesonderheitTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_aenderungsModus)
+        {
+            AktualisiereGesamtpreis();
+        }
+    }
+
     private void AktualisiereGesamtpreis()
     {
-        var gesamt = _positionen.Sum(p => p.Menge * p.Preis);
+        var gesamt = AktivePositionen().Sum(p => p.Menge * p.Preis);
         GesamtpreisLabel.Text = gesamt.ToString("C", EuroKultur);
         BestellenButton.IsEnabled = _aenderungsModus
-            ? _positionen.Any(p => BestellMenge(p) != 0)
+            ? _aenderungsBasis.Keys.Any(p => BestellMenge(p) != 0 || BesonderheitGeaendert(p))
             : gesamt > 0m;
     }
 
@@ -569,9 +620,9 @@ public partial class BestellungSeite : ContentPage
     /// </summary>
     private async Task<bool?> SendeAusgewaehlteBestellungAsync()
     {
-        var gewaehlte = _positionen
+        var gewaehlte = AktivePositionen()
             .Select(p => (Position: p, Menge: BestellMenge(p)))
-            .Where(x => x.Menge != 0)
+            .Where(x => x.Menge != 0 || BesonderheitGeaendert(x.Position))
             .ToList();
         if (gewaehlte.Count == 0)
         {
@@ -602,7 +653,8 @@ public partial class BestellungSeite : ContentPage
                 ZusatzId = x.Position.ZusatzId,
                 Preis = x.Position.Preis,
                 Menge = x.Menge,
-                Besonderheit = x.Position.Besonderheit
+                Besonderheit = x.Position.Besonderheit,
+                OriginalBesonderheit = _aenderungsModus ? BasisBesonderheit(x.Position) : null
             }).ToList()
         };
 

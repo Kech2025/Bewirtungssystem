@@ -219,6 +219,7 @@
                             Grid.ColumnSpan="4"
                             IsVisible="{Binding ZeigeBesonderheit}"
                             Placeholder="Besonderheit"
+                            TextChanged="OnBesonderheitTextChanged"
                             Text="{Binding Besonderheit}" />
                     </Grid>
                 </DataTemplate>
