@@ -24,6 +24,12 @@ namespace Bewirtung.Fiskal.Tse
         public string ClientId { get; set; } = string.Empty;
 
         /// <summary>
+        /// Master-Key (Base64, 32 Byte) zur Verschlüsselung der in der Datenbank
+        /// gespeicherten fiskaly-Zugangsdaten (Tabelle fiskal_tse_konfiguration).
+        /// </summary>
+        public string MasterKey { get; set; } = string.Empty;
+
+        /// <summary>
         /// Wenn true, wird nicht der echte Dienst aufgerufen, sondern
         /// eine simulierte Signatur erzeugt (Entwicklung/Test).
         /// </summary>

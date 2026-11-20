@@ -1,0 +1,221 @@
+@page "/fiskaly"
+@rendermode RenderMode.InteractiveServer
+@using Bewirtung.Fiskal.Tse
+@using Bewirtung.Webserver.Data
+@inject TseKonfigurationRepository KonfigRepo
+@inject SessionState Session
+@inject IConfiguration Configuration
+
+<PageTitle>fiskaly-Konfiguration</PageTitle>
+
+<AdminGuard />
+
+<h1>fiskaly-Konfiguration (TSE)</h1>
+
+@if (!Session.IstAdmin)
+{
+	return;
+}
+
+@if (!KonfigRepo.VerschluesselungVerfuegbar)
+{
+	<div class="alert alert-danger">
+		<strong>CloudTse__MasterKey</strong> ist nicht gesetzt. Zugangsdaten können nicht verschlüsselt gespeichert werden.
+	</div>
+}
+
+@if (_fehler is not null)
+{
+	<div class="alert alert-danger">@_fehler</div>
+}
+@if (_meldung is not null)
+{
+	<div class="alert alert-success">@_meldung</div>
+}
+
+@if (_liste is null)
+{
+	<p><em>Lade…</em></p>
+}
+else
+{
+	<div class="row g-4">
+		@foreach (var k in _liste)
+		{
+			var eingabe = _eingaben[k.Umgebung];
+			<div class="col-lg-6">
+				<div class="card @(k.Aktiv ? "border-success" : "")">
+					<div class="card-header d-flex justify-content-between">
+						<strong>@(k.Umgebung == TseKonfigurationRepository.UmgebungLive ? "Live" : "Test")</strong>
+						@if (k.Aktiv)
+						{
+							<span class="badge bg-success">aktiv</span>
+						}
+					</div>
+					<div class="card-body">
+						<div class="mb-2">
+							<label class="form-label">API-Key</label>
+							<input class="form-control" autocomplete="off" @bind="eingabe.ApiKey"
+								   placeholder="@(Maske(k.ApiKey))" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">API-Secret</label>
+							<input type="password" class="form-control" autocomplete="new-password" @bind="eingabe.ApiSecret"
+								   placeholder="@(Maske(k.ApiSecret))" />
+							<div class="form-text">Leer lassen, um den gespeicherten Wert zu behalten.</div>
+						</div>
+						<div class="mb-2">
+							<label class="form-label">TSS-ID</label>
+							<input class="form-control" @bind="eingabe.TssId" />
+						</div>
+						<div class="mb-2">
+							<label class="form-label">Client-ID</label>
+							<input class="form-control" @bind="eingabe.ClientId" />
+						</div>
+						<div class="form-check mb-3">
+							<input class="form-check-input" type="checkbox" id="aktiv-@k.Umgebung" @bind="eingabe.Aktiv" />
+							<label class="form-check-label" for="aktiv-@k.Umgebung">Diese Umgebung verwenden</label>
+						</div>
+						<div class="d-flex gap-2">
+							<button class="btn btn-outline-secondary" disabled="@_laeuft" @onclick="() => TestenAsync(k)">Verbindung testen</button>
+							<button class="btn btn-primary" disabled="@(_laeuft || !KonfigRepo.VerschluesselungVerfuegbar)" @onclick="() => SpeichernAsync(k)">Speichern</button>
+						</div>
+						@if (k.GeaendertVon.Length > 0)
+						{
+							<div class="form-text mt-2">Zuletzt geändert @k.GeaendertAm.ToLocalTime().ToString("g") von @k.GeaendertVon</div>
+						}
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+	<p class="mt-3 text-muted">
+		Ist keine Umgebung aktiv (oder unvollständig), gilt die Konfiguration aus dem Kubernetes-Secret bzw. der Dummy-Modus.
+		Änderungen werden von der API innerhalb von 30 Sekunden übernommen.
+	</p>
+}
+
+@code {
+	private List<TseKonfiguration>? _liste;
+	private readonly Dictionary<string, TseKonfiguration> _eingaben = new();
+	private string? _fehler;
+	private string? _meldung;
+	private bool _laeuft;
+
+	protected override async Task OnInitializedAsync()
+	{
+		if (Session.IstAdmin)
+			await LadenAsync();
+	}
+
+	private async Task LadenAsync()
+	{
+		try
+		{
+			_liste = await KonfigRepo.LadeAlleAsync();
+			_eingaben.Clear();
+			foreach (var k in _liste)
+			{
+				_eingaben[k.Umgebung] = new TseKonfiguration
+				{
+					Umgebung = k.Umgebung,
+					TssId = k.TssId,
+					ClientId = k.ClientId,
+					Aktiv = k.Aktiv
+				};
+			}
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Laden fehlgeschlagen: " + ex.Message;
+		}
+	}
+
+	private static string Maske(string wert) =>
+		string.IsNullOrEmpty(wert) ? "nicht gesetzt" : $"gesetzt, endet auf …{wert[^Math.Min(4, wert.Length)..]}";
+
+	private TseKonfiguration Wirksam(TseKonfiguration gespeichert)
+	{
+		var e = _eingaben[gespeichert.Umgebung];
+		return new TseKonfiguration
+		{
+			Umgebung = gespeichert.Umgebung,
+			ApiKey = string.IsNullOrWhiteSpace(e.ApiKey) ? gespeichert.ApiKey : e.ApiKey.Trim(),
+			ApiSecret = string.IsNullOrWhiteSpace(e.ApiSecret) ? gespeichert.ApiSecret : e.ApiSecret.Trim(),
+			TssId = e.TssId?.Trim() ?? string.Empty,
+			ClientId = e.ClientId?.Trim() ?? string.Empty,
+			Aktiv = e.Aktiv
+		};
+	}
+
+	private async Task TestenAsync(TseKonfiguration gespeichert)
+	{
+		_fehler = _meldung = null;
+		_laeuft = true;
+		try
+		{
+			var k = Wirksam(gespeichert);
+			if (string.IsNullOrWhiteSpace(k.ApiKey) || string.IsNullOrWhiteSpace(k.ApiSecret))
+			{
+				_fehler = "API-Key und API-Secret erforderlich.";
+				return;
+			}
+			var ergebnis = await CloudTseProvider.TesteVerbindungAsync(
+				k.ApiKey, k.ApiSecret, k.TssId, Configuration["CloudTse:BaseUrl"]);
+			if (ergebnis is null)
+				_meldung = $"Verbindung ({k.Umgebung}) erfolgreich" + (string.IsNullOrWhiteSpace(k.TssId) ? "." : ", TSS ist initialisiert.");
+			else
+				_fehler = ergebnis;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+
+	private async Task SpeichernAsync(TseKonfiguration gespeichert)
+	{
+		_fehler = _meldung = null;
+		var e = _eingaben[gespeichert.Umgebung];
+		var k = Wirksam(gespeichert);
+		if (k.Aktiv && !k.IstVollstaendig)
+		{
+			_fehler = "Zum Aktivieren müssen API-Key, API-Secret, TSS-ID und Client-ID gesetzt sein.";
+			return;
+		}
+		if (k.Umgebung == TseKonfigurationRepository.UmgebungTest && k.ApiKey.Length > 0 && !k.ApiKey.StartsWith("test_"))
+		{
+			_fehler = "Der API-Key für Test muss mit \"test_\" beginnen.";
+			return;
+		}
+		if (k.Umgebung == TseKonfigurationRepository.UmgebungLive && k.ApiKey.StartsWith("test_"))
+		{
+			_fehler = "Für Live darf kein Test-Key (test_…) verwendet werden.";
+			return;
+		}
+
+		_laeuft = true;
+		try
+		{
+			await KonfigRepo.SpeichernAsync(new TseKonfiguration
+			{
+				Umgebung = k.Umgebung,
+				ApiKey = e.ApiKey ?? string.Empty,
+				ApiSecret = e.ApiSecret ?? string.Empty,
+				TssId = k.TssId,
+				ClientId = k.ClientId,
+				Aktiv = k.Aktiv
+			}, Session.AngemeldeterBenutzer?.Name ?? "unbekannt");
+			_meldung = "Gespeichert.";
+			await LadenAsync();
+		}
+		catch (Exception ex)
+		{
+			_fehler = "Speichern fehlgeschlagen: " + ex.Message;
+		}
+		finally
+		{
+			_laeuft = false;
+		}
+	}
+}

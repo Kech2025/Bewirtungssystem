@@ -41,6 +41,9 @@ builder.Services.AddScoped<ClusterStatusService>();
 builder.Services.Configure<CloudTseOptions>(
     builder.Configuration.GetSection(CloudTseOptions.SectionName));
 builder.Services.AddSingleton<ITseProvider, CloudTseProvider>();
+builder.Services.AddSingleton(sp => new TseKonfigurationRepository(
+    sp.GetRequiredService<Database>().ConnectionString,
+    builder.Configuration["CloudTse:MasterKey"]));
 
 // FiskalDatabase nutzt denselben Connection-String wie der Webserver-Database-Service.
 builder.Services.AddScoped<FiskalDatabase>(sp =>

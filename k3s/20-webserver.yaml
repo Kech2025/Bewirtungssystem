@@ -78,6 +78,12 @@ spec:
                 secretKeyRef:
                   name: bewirtung-stirling
                   key: StirlingPdf__ApiKey
+            - name: CloudTse__MasterKey
+              valueFrom:
+                secretKeyRef:
+                  name: bewirtung-fiskaly
+                  key: CloudTse__MasterKey
+                  optional: true
           volumeMounts:
             - name: usb-stick
               mountPath: /media/usb

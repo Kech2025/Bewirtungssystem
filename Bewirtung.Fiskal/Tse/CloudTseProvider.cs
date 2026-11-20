@@ -26,25 +26,107 @@ namespace Bewirtung.Fiskal.Tse
         private static long _transaktionsNummer;
         private static long _signaturZaehler;
 
-        public CloudTseProvider(IOptions<CloudTseOptions> options, ILogger<CloudTseProvider> logger)
+        private readonly TseKonfigurationRepository? _konfigRepo;
+        private TseKonfiguration? _dbKonfig;
+        private DateTime _dbKonfigGeladen;
+
+        public CloudTseProvider(
+            IOptions<CloudTseOptions> options,
+            ILogger<CloudTseProvider> logger,
+            TseKonfigurationRepository? konfigRepo = null)
         {
             _options = options.Value;
             _logger = logger;
+            _konfigRepo = konfigRepo;
         }
 
         public string ProviderName =>
-            _options.DummyModus ? "Cloud-TSE (DUMMY)" : "Cloud-TSE";
+            _options.DummyModus && _dbKonfig == null ? "Cloud-TSE (DUMMY)" : "Cloud-TSE";
 
         public async Task<TseSignaturErgebnis> SigniereVorgangAsync(
             TseSignaturAnfrage anfrage,
             CancellationToken abbruch = default)
         {
-            if (!_options.DummyModus)
+            var zugang = await ErmittleZugangAsync(abbruch).ConfigureAwait(false);
+            if (zugang != null)
             {
-                return await RufeCloudTseAufAsync(anfrage, abbruch).ConfigureAwait(false);
+                return await RufeCloudTseAufAsync(anfrage, zugang, abbruch).ConfigureAwait(false);
             }
 
             return ErzeugeDummySignatur(anfrage);
+        }
+
+        /// <summary>
+        /// Liefert die wirksamen Zugangsdaten: aktive Konfiguration aus der Datenbank
+        /// (vorrangig, 30 s gecacht), sonst CloudTseOptions. null = Dummy-Modus.
+        /// </summary>
+        private async Task<TseKonfiguration?> ErmittleZugangAsync(CancellationToken abbruch)
+        {
+            if (_konfigRepo != null)
+            {
+                if (DateTime.UtcNow - _dbKonfigGeladen > TimeSpan.FromSeconds(30))
+                {
+                    try
+                    {
+                        var k = await _konfigRepo.LadeAktiveAsync(abbruch).ConfigureAwait(false);
+                        _dbKonfig = k is { IstVollstaendig: true } ? k : null;
+                        _dbKonfigGeladen = DateTime.UtcNow;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex, "TSE-Konfiguration konnte nicht aus der Datenbank gelesen werden");
+                    }
+                }
+                if (_dbKonfig != null)
+                    return _dbKonfig;
+            }
+
+            if (_options.DummyModus)
+                return null;
+
+            return new TseKonfiguration
+            {
+                ApiKey = _options.ApiKey,
+                ApiSecret = _options.ApiSecret,
+                TssId = _options.TseId,
+                ClientId = _options.ClientId
+            };
+        }
+
+        private string BasisUrl => (string.IsNullOrWhiteSpace(_options.BaseUrl)
+            ? "https://kassensichv-middleware.fiskaly.com/api/v2"
+            : _options.BaseUrl.Trim()).TrimEnd('/');
+
+        /// <summary>
+        /// Prüft Zugangsdaten bei fiskaly (Anmeldung + Abruf der TSS). Liefert null bei Erfolg, sonst Fehlertext.
+        /// </summary>
+        public static async Task<string?> TesteVerbindungAsync(
+            string apiKey, string apiSecret, string tssId, string? baseUrl = null, CancellationToken abbruch = default)
+        {
+            var basis = (string.IsNullOrWhiteSpace(baseUrl)
+                ? "https://kassensichv-middleware.fiskaly.com/api/v2" : baseUrl.Trim()).TrimEnd('/');
+            try
+            {
+                using var auth = await SendeAsync(HttpMethod.Post, $"{basis}/auth", null,
+                    new { api_key = apiKey.Trim(), api_secret = apiSecret.Trim() }, abbruch).ConfigureAwait(false);
+                var token = auth.RootElement.GetProperty("access_token").GetString();
+                if (string.IsNullOrWhiteSpace(tssId))
+                    return null;
+
+                using var anfrage = new HttpRequestMessage(HttpMethod.Get, $"{basis}/tss/{tssId.Trim()}");
+                anfrage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                using var antwort = await Http.SendAsync(anfrage, abbruch).ConfigureAwait(false);
+                var text = await antwort.Content.ReadAsStringAsync(abbruch).ConfigureAwait(false);
+                if (!antwort.IsSuccessStatusCode)
+                    return $"TSS nicht gefunden ({(int)antwort.StatusCode}).";
+                using var doc = System.Text.Json.JsonDocument.Parse(text);
+                var state = doc.RootElement.TryGetProperty("state", out var st) ? st.GetString() : null;
+                return state == "INITIALIZED" ? null : $"TSS-Zustand ist {state}, erwartet INITIALIZED.";
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return ex.Message.Contains("401") ? "Anmeldung fehlgeschlagen (API-Key/Secret falsch)." : ex.Message;
+            }
         }
 
         /// <summary>
@@ -113,17 +195,16 @@ namespace Bewirtung.Fiskal.Tse
         /// </summary>
         private async Task<TseSignaturErgebnis> RufeCloudTseAufAsync(
             TseSignaturAnfrage anfrage,
+            TseKonfiguration zugang,
             CancellationToken abbruch)
         {
             try
             {
-                var basis = (string.IsNullOrWhiteSpace(_options.BaseUrl)
-                    ? "https://kassensichv-middleware.fiskaly.com/api/v2"
-                    : _options.BaseUrl.Trim()).TrimEnd('/');
-                var token = await HoleTokenAsync(basis, abbruch).ConfigureAwait(false);
+                var basis = BasisUrl;
+                var token = await HoleTokenAsync(basis, zugang, abbruch).ConfigureAwait(false);
                 var txId = Guid.NewGuid();
-                var txUrl = $"{basis}/tss/{_options.TseId.Trim()}/tx/{txId}";
-                var clientId = _options.ClientId.Trim();
+                var txUrl = $"{basis}/tss/{zugang.TssId.Trim()}/tx/{txId}";
+                var clientId = zugang.ClientId.Trim();
 
                 await SendeAsync(HttpMethod.Put, $"{txUrl}?tx_revision=1", token,
                     new { state = "ACTIVE", client_id = clientId }, abbruch).ConfigureAwait(false);
@@ -148,7 +229,7 @@ namespace Bewirtung.Fiskal.Tse
                 return new TseSignaturErgebnis
                 {
                     Erfolgreich = true,
-                    TseSerienNummer = r.TryGetProperty("tss_serial_number", out var s) ? s.GetString() ?? string.Empty : _options.TseId,
+                    TseSerienNummer = r.TryGetProperty("tss_serial_number", out var s) ? s.GetString() ?? string.Empty : zugang.TssId,
                     TransaktionsNummer = r.GetProperty("number").GetInt64(),
                     SignaturZaehler = sig.GetProperty("counter").GetInt64(),
                     Signatur = sig.GetProperty("value").GetString() ?? string.Empty,
@@ -170,18 +251,21 @@ namespace Bewirtung.Fiskal.Tse
         private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
         private static readonly SemaphoreSlim TokenSperre = new(1, 1);
         private static string? _token;
+        private static string? _tokenFuer;
         private static DateTime _tokenAblauf;
 
-        private async Task<string> HoleTokenAsync(string basis, CancellationToken abbruch)
+        private static async Task<string> HoleTokenAsync(string basis, TseKonfiguration zugang, CancellationToken abbruch)
         {
             await TokenSperre.WaitAsync(abbruch).ConfigureAwait(false);
             try
             {
-                if (_token != null && DateTime.UtcNow < _tokenAblauf)
+                var schluessel = basis + "|" + zugang.ApiKey.Trim() + "|" + zugang.ApiSecret.Trim();
+                if (_token != null && _tokenFuer == schluessel && DateTime.UtcNow < _tokenAblauf)
                     return _token;
 
                 using var antwort = await SendeAsync(HttpMethod.Post, $"{basis}/auth", null,
-                    new { api_key = _options.ApiKey.Trim(), api_secret = _options.ApiSecret.Trim() }, abbruch).ConfigureAwait(false);
+                    new { api_key = zugang.ApiKey.Trim(), api_secret = zugang.ApiSecret.Trim() }, abbruch).ConfigureAwait(false);
+                _tokenFuer = schluessel;
                 _token = antwort.RootElement.GetProperty("access_token").GetString();
                 var gueltig = antwort.RootElement.TryGetProperty("access_token_expires_in", out var e) ? e.GetInt64() : 3600;
                 _tokenAblauf = DateTime.UtcNow.AddSeconds(Math.Max(60, gueltig - 300));

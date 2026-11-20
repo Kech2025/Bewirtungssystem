@@ -17,6 +17,9 @@ builder.Services.AddSingleton<FiskalDatabase>(_ =>
         ?? builder.Configuration["Database:ConnectionString"];
     return new FiskalDatabase(string.IsNullOrWhiteSpace(configured) ? fallback : configured);
 });
+builder.Services.AddSingleton(sp => new TseKonfigurationRepository(
+    sp.GetRequiredService<FiskalDatabase>().ConnectionString,
+    builder.Configuration["CloudTse:MasterKey"]));
 builder.Services.AddSingleton<FiskalRepository>();
 
 var app = builder.Build();
