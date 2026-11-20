@@ -27,6 +27,10 @@ spec:
                 secretKeyRef:
                   name: bewirtung-db
                   key: ConnectionStrings__Postgres
+          envFrom:
+            - secretRef:
+                name: bewirtung-fiskaly
+                optional: true
           resources:
             requests:
               cpu: "100m"

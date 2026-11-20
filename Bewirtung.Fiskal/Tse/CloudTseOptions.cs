@@ -20,6 +20,9 @@ namespace Bewirtung.Fiskal.Tse
         /// <summary>Kennung der TSE-Instanz beim Anbieter.</summary>
         public string TseId { get; set; } = string.Empty;
 
+        /// <summary>Client-Id (Kasse) innerhalb der TSS beim Anbieter.</summary>
+        public string ClientId { get; set; } = string.Empty;
+
         /// <summary>
         /// Wenn true, wird nicht der echte Dienst aufgerufen, sondern
         /// eine simulierte Signatur erzeugt (Entwicklung/Test).

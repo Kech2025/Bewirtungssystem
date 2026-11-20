@@ -111,13 +111,103 @@ namespace Bewirtung.Fiskal.Tse
         /// Hier werden später die HTTP-Aufrufe (Transaktion starten/finalisieren)
         /// implementiert. Bis dahin aktiv nur im Nicht-Dummy-Modus.
         /// </summary>
-        private Task<TseSignaturErgebnis> RufeCloudTseAufAsync(
+        private async Task<TseSignaturErgebnis> RufeCloudTseAufAsync(
             TseSignaturAnfrage anfrage,
             CancellationToken abbruch)
         {
-            throw new NotImplementedException(
-                "Die echte Cloud-TSE-Anbindung ist noch nicht implementiert. " +
-                "Setze CloudTse:DummyModus=true oder implementiere die Anbieter-HTTP-Aufrufe.");
+            try
+            {
+                var basis = (string.IsNullOrWhiteSpace(_options.BaseUrl)
+                    ? "https://kassensichv-middleware.fiskaly.com/api/v2"
+                    : _options.BaseUrl.Trim()).TrimEnd('/');
+                var token = await HoleTokenAsync(basis, abbruch).ConfigureAwait(false);
+                var txId = Guid.NewGuid();
+                var txUrl = $"{basis}/tss/{_options.TseId.Trim()}/tx/{txId}";
+                var clientId = _options.ClientId.Trim();
+
+                await SendeAsync(HttpMethod.Put, $"{txUrl}?tx_revision=1", token,
+                    new { state = "ACTIVE", client_id = clientId }, abbruch).ConfigureAwait(false);
+
+                var antwort = await SendeAsync(HttpMethod.Put, $"{txUrl}?tx_revision=2", token,
+                    new
+                    {
+                        state = "FINISHED",
+                        client_id = clientId,
+                        schema = new
+                        {
+                            raw = new
+                            {
+                                process_type = anfrage.ProzessTyp,
+                                process_data = Convert.ToBase64String(Encoding.UTF8.GetBytes(anfrage.ProzessDaten))
+                            }
+                        }
+                    }, abbruch).ConfigureAwait(false);
+
+                var r = antwort.RootElement;
+                var sig = r.GetProperty("signature");
+                return new TseSignaturErgebnis
+                {
+                    Erfolgreich = true,
+                    TseSerienNummer = r.TryGetProperty("tss_serial_number", out var s) ? s.GetString() ?? string.Empty : _options.TseId,
+                    TransaktionsNummer = r.GetProperty("number").GetInt64(),
+                    SignaturZaehler = sig.GetProperty("counter").GetInt64(),
+                    Signatur = sig.GetProperty("value").GetString() ?? string.Empty,
+                    SignaturAlgorithmus = sig.GetProperty("algorithm").GetString() ?? string.Empty,
+                    ZertifikatReferenz = sig.TryGetProperty("public_key", out var pk) ? pk.GetString() ?? string.Empty : string.Empty,
+                    TseStartZeit = DateTimeOffset.FromUnixTimeSeconds(r.GetProperty("time_start").GetInt64()).LocalDateTime,
+                    TseEndZeit = DateTimeOffset.FromUnixTimeSeconds(r.GetProperty("time_end").GetInt64()).LocalDateTime,
+                    ProzessTyp = anfrage.ProzessTyp,
+                    QrCodeDaten = r.TryGetProperty("qr_code_data", out var qr) ? qr.GetString() ?? string.Empty : string.Empty
+                };
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "fiskaly-Signatur fehlgeschlagen");
+                return new TseSignaturErgebnis { Erfolgreich = false, Fehler = ex.Message, ProzessTyp = anfrage.ProzessTyp };
+            }
+        }
+
+        private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+        private static readonly SemaphoreSlim TokenSperre = new(1, 1);
+        private static string? _token;
+        private static DateTime _tokenAblauf;
+
+        private async Task<string> HoleTokenAsync(string basis, CancellationToken abbruch)
+        {
+            await TokenSperre.WaitAsync(abbruch).ConfigureAwait(false);
+            try
+            {
+                if (_token != null && DateTime.UtcNow < _tokenAblauf)
+                    return _token;
+
+                using var antwort = await SendeAsync(HttpMethod.Post, $"{basis}/auth", null,
+                    new { api_key = _options.ApiKey.Trim(), api_secret = _options.ApiSecret.Trim() }, abbruch).ConfigureAwait(false);
+                _token = antwort.RootElement.GetProperty("access_token").GetString();
+                var gueltig = antwort.RootElement.TryGetProperty("access_token_expires_in", out var e) ? e.GetInt64() : 3600;
+                _tokenAblauf = DateTime.UtcNow.AddSeconds(Math.Max(60, gueltig - 300));
+                return _token ?? throw new InvalidOperationException("fiskaly lieferte kein Token.");
+            }
+            finally
+            {
+                TokenSperre.Release();
+            }
+        }
+
+        private static async Task<System.Text.Json.JsonDocument> SendeAsync(
+            HttpMethod methode, string url, string? token, object inhalt, CancellationToken abbruch)
+        {
+            using var anfrage = new HttpRequestMessage(methode, url)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(inhalt), Encoding.UTF8, "application/json")
+            };
+            if (token != null)
+                anfrage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            using var antwort = await Http.SendAsync(anfrage, abbruch).ConfigureAwait(false);
+            var text = await antwort.Content.ReadAsStringAsync(abbruch).ConfigureAwait(false);
+            if (!antwort.IsSuccessStatusCode)
+                throw new HttpRequestException($"fiskaly {(int)antwort.StatusCode}: {text}");
+            return System.Text.Json.JsonDocument.Parse(text);
         }
     }
 }
