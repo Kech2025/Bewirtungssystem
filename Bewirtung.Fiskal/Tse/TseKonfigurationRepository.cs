@@ -100,11 +100,14 @@ namespace Bewirtung.Fiskal.Tse
             }
 
             await using var cmd = new NpgsqlCommand(
-                "UPDATE public.fiskal_tse_konfiguration SET " +
-                "api_key_enc = CASE WHEN @key = '' THEN api_key_enc ELSE @key END, " +
-                "api_secret_enc = CASE WHEN @sec = '' THEN api_secret_enc ELSE @sec END, " +
-                "tss_id = @tss, client_id = @client, aktiv = @aktiv, geaendert_am = now(), geaendert_von = @von " +
-                "WHERE umgebung = @u", con, tx);
+                "INSERT INTO public.fiskal_tse_konfiguration " +
+                "(umgebung, api_key_enc, api_secret_enc, tss_id, client_id, aktiv, geaendert_am, geaendert_von) " +
+                "VALUES (@u, @key, @sec, @tss, @client, @aktiv, now(), @von) " +
+                "ON CONFLICT (umgebung) DO UPDATE SET " +
+                "api_key_enc = CASE WHEN EXCLUDED.api_key_enc = '' THEN fiskal_tse_konfiguration.api_key_enc ELSE EXCLUDED.api_key_enc END, " +
+                "api_secret_enc = CASE WHEN EXCLUDED.api_secret_enc = '' THEN fiskal_tse_konfiguration.api_secret_enc ELSE EXCLUDED.api_secret_enc END, " +
+                "tss_id = EXCLUDED.tss_id, client_id = EXCLUDED.client_id, aktiv = EXCLUDED.aktiv, " +
+                "geaendert_am = now(), geaendert_von = EXCLUDED.geaendert_von", con, tx);
             cmd.Parameters.AddWithValue("key", string.IsNullOrWhiteSpace(k.ApiKey) ? "" : Verschluesseln(k.ApiKey.Trim()));
             cmd.Parameters.AddWithValue("sec", string.IsNullOrWhiteSpace(k.ApiSecret) ? "" : Verschluesseln(k.ApiSecret.Trim()));
             cmd.Parameters.AddWithValue("tss", k.TssId.Trim());
@@ -112,7 +115,9 @@ namespace Bewirtung.Fiskal.Tse
             cmd.Parameters.AddWithValue("aktiv", k.Aktiv);
             cmd.Parameters.AddWithValue("von", geaendertVon);
             cmd.Parameters.AddWithValue("u", k.Umgebung);
-            await cmd.ExecuteNonQueryAsync(abbruch).ConfigureAwait(false);
+            var zeilen = await cmd.ExecuteNonQueryAsync(abbruch).ConfigureAwait(false);
+            if (zeilen != 1)
+                throw new InvalidOperationException($"Konfiguration '{k.Umgebung}' wurde nicht gespeichert ({zeilen} Zeilen).");
 
             await tx.CommitAsync(abbruch).ConfigureAwait(false);
         }
