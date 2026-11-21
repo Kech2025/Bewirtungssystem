@@ -33,7 +33,20 @@ public partial class MainPage : ContentPage
     {
         base.OnAppearing();
 
-        // Kehrt der Benutzer von einer Modus-/Bestellseite zur Anmeldeseite zurück,
+        try
+        {
+            await InitialisiereAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Fehler beim Start: {ex}");
+            await DisplayAlertAsync("Fehler", $"Beim Start ist ein Fehler aufgetreten:\n{ex.Message}", "OK");
+        }
+    }
+
+    private async Task InitialisiereAsync()
+    {
+        // Kehrt
         // wird die noch offene Journal-Sitzung abgemeldet.
         await BeendeJournalSitzungAsync();
 
@@ -187,7 +200,7 @@ public partial class MainPage : ContentPage
                 System.Diagnostics.Debug.WriteLine($"Seriennummer-Validierung fehlgeschlagen: {ex.Message}");
                 await DisplayAlertAsync(
                     "Fehler",
-                    "Die Seriennummer konnte nicht geprüft werden (Server nicht erreichbar?).",
+                    $"Die Seriennummer konnte nicht geprüft werden.\nServer: {ApiConfig.BaseUrl}\n{ex.GetType().Name}: {ex.Message}",
                     "OK");
                 return;
             }

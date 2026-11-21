@@ -19,8 +19,8 @@
             Margin="8">
             <CollectionView.EmptyView>
                 <Label
-                    HorizontalOptions="Center"
                     Margin="24"
+                    HorizontalOptions="Center"
                     Text="Keine offenen Positionen vorhanden." />
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
@@ -41,36 +41,36 @@
                                         <Grid
                                             Margin="0,4"
                                             ColumnDefinitions="*,Auto,Auto,Auto"
-                                            RowDefinitions="Auto,Auto,Auto"
-                                            ColumnSpacing="8">
+                                            ColumnSpacing="8"
+                                            RowDefinitions="Auto,Auto,Auto">
                                             <Label
-                                                Grid.Column="0"
                                                 Grid.Row="0"
-                                                FontSize="32"
-                                                TextColor="{Binding TextFarbe}"
-                                                VerticalOptions="Center"
-                                                Text="{Binding AnzeigeText}" />
-                                            <Label
                                                 Grid.Column="0"
-                                                Grid.Row="1"
-                                                FontSize="22"
-                                                TextColor="DarkBlue"
-                                                VerticalOptions="Center"
-                                                Text="{Binding GeliefertText}" />
+                                                FontSize="32"
+                                                Text="{Binding AnzeigeText}"
+                                                TextColor="{Binding TextFarbe}"
+                                                VerticalOptions="Center" />
                                             <Label
+                                                Grid.Row="1"
+                                                Grid.Column="0"
+                                                FontSize="22"
+                                                Text="{Binding GeliefertText}"
+                                                TextColor="DarkBlue"
+                                                VerticalOptions="Center" />
+                                            <Label
+                                                Grid.Row="2"
                                                 Grid.Column="0"
                                                 Grid.ColumnSpan="4"
-                                                Grid.Row="2"
                                                 FontAttributes="Bold"
                                                 FontSize="24"
                                                 IsVisible="{Binding HatBesonderheit}"
+                                                Text="{Binding Besonderheit}"
                                                 TextColor="Red"
-                                                VerticalOptions="Center"
-                                                Text="{Binding Besonderheit}" />
+                                                VerticalOptions="Center" />
                                             <Button
-                                                Grid.Column="1"
                                                 Grid.Row="0"
                                                 Grid.RowSpan="2"
+                                                Grid.Column="1"
                                                 Clicked="OnMinusClicked"
                                                 CommandParameter="{Binding .}"
                                                 FontSize="24"
@@ -78,18 +78,18 @@
                                                 Text="−"
                                                 WidthRequest="64" />
                                             <Label
-                                                Grid.Column="2"
                                                 Grid.Row="0"
                                                 Grid.RowSpan="2"
+                                                Grid.Column="2"
                                                 FontSize="24"
                                                 HorizontalTextAlignment="Center"
-                                                VerticalOptions="Center"
                                                 Text="{Binding SeitenMengeText}"
+                                                VerticalOptions="Center"
                                                 WidthRequest="48" />
                                             <Button
-                                                Grid.Column="3"
                                                 Grid.Row="0"
                                                 Grid.RowSpan="2"
+                                                Grid.Column="3"
                                                 Clicked="OnPlusClicked"
                                                 CommandParameter="{Binding .}"
                                                 FontSize="24"

@@ -39,14 +39,31 @@ public static class HandyIdentitaet
     /// <summary>Speichert Seriennummer und zugehörigen Namen dauerhaft.</summary>
     public static async Task SpeichereAsync(string seriennummer, string name)
     {
-        await SecureStorage.Default.SetAsync(SeriennummerKey, seriennummer);
-        await SecureStorage.Default.SetAsync(NameKey, name ?? string.Empty);
+        await SetSicherAsync(SeriennummerKey, seriennummer);
+        await SetSicherAsync(NameKey, name ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Schreibt in den SecureStorage. Schlägt das fehl (z. B. defekter Schlüssel nach
+    /// "Speicher löschen" oder Backup-Wiederherstellung), wird der Speicher geleert und erneut geschrieben.
+    /// </summary>
+    private static async Task SetSicherAsync(string key, string wert)
+    {
+        try
+        {
+            await SecureStorage.Default.SetAsync(key, wert);
+        }
+        catch
+        {
+            SecureStorage.Default.RemoveAll();
+            await SecureStorage.Default.SetAsync(key, wert);
+        }
     }
 
     /// <summary>Speichert das Bestellmodus-Flag für dieses Gerät.</summary>
     public static async Task SpeichereBestellungAsync(bool bestellung)
     {
-        await SecureStorage.Default.SetAsync(BestellungKey, bestellung ? "1" : "0");
+        await SetSicherAsync(BestellungKey, bestellung ? "1" : "0");
     }
 
     /// <summary>Gespeichertes Bestellmodus-Flag (Default true, falls nicht gesetzt).</summary>
@@ -61,6 +78,14 @@ public static class HandyIdentitaet
         {
             return true;
         }
+    }
+
+    /// <summary>Löscht Seriennummer, Name und Bestellmodus, damit das Gerät neu registriert werden kann.</summary>
+    public static void Zuruecksetzen()
+    {
+        SecureStorage.Default.Remove(SeriennummerKey);
+        SecureStorage.Default.Remove(NameKey);
+        SecureStorage.Default.Remove(BestellungKey);
     }
 
     /// <summary>True, wenn bereits eine Seriennummer hinterlegt ist.</summary>
